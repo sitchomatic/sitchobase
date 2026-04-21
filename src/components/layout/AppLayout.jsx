@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import AppShellRoutes from '@/components/layout/AppShellRoutes';
+import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
   Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3
@@ -66,7 +67,10 @@ export default function AppLayout() {
           })}
         </nav>
 
-        <div className="p-3 border-t border-gray-800">
+        <div className="p-3 border-t border-gray-800 space-y-2">
+          <div className="flex justify-center">
+            <FleetAlertBadge />
+          </div>
           <div className="text-xs text-gray-600 text-center">Browserbase API v1</div>
         </div>
       </aside>

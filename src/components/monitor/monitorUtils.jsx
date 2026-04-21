@@ -54,6 +54,9 @@ export function detectAnomalies(sessions, logsBySession) {
     const anomalies = [];
     const logs = logsBySession[session.id] || [];
     const errorLogs = logs.filter((log) => log.level === 'error');
+    const forbiddenLogs = logs.filter((log) => log.text.toLowerCase().includes('403 forbidden') || log.text.toLowerCase().includes('status 403'));
+    const memoryLogs = logs.filter((log) => log.text.toLowerCase().includes('high memory') || log.text.toLowerCase().includes('out of memory') || log.text.toLowerCase().includes('heap'));
+    const timeoutLogs = logs.filter((log) => log.text.toLowerCase().includes('timeout') || log.text.toLowerCase().includes('timed out'));
 
     if (session.status === 'ERROR' || session.status === 'TIMED_OUT') {
       anomalies.push({
@@ -72,6 +75,36 @@ export function detectAnomalies(sessions, logsBySession) {
         severity: 'medium',
         title: 'Repeated error logs',
         detail: `${errorLogs.length} error-like log entries detected.`,
+      });
+    }
+
+    if (forbiddenLogs.length > 0) {
+      anomalies.push({
+        id: `403-${session.id}`,
+        sessionId: session.id,
+        severity: 'high',
+        title: '403 Forbidden pattern',
+        detail: `${forbiddenLogs.length} access-denied log pattern${forbiddenLogs.length > 1 ? 's' : ''} detected.`,
+      });
+    }
+
+    if (memoryLogs.length > 0) {
+      anomalies.push({
+        id: `memory-${session.id}`,
+        sessionId: session.id,
+        severity: 'high',
+        title: 'High memory usage pattern',
+        detail: `${memoryLogs.length} memory-pressure signal${memoryLogs.length > 1 ? 's' : ''} detected.`,
+      });
+    }
+
+    if (timeoutLogs.length > 0) {
+      anomalies.push({
+        id: `timeout-${session.id}`,
+        sessionId: session.id,
+        severity: 'high',
+        title: 'Script timeout pattern',
+        detail: `${timeoutLogs.length} timeout pattern${timeoutLogs.length > 1 ? 's' : ''} detected.`,
       });
     }
 

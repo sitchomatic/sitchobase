@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Activity, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 
 const mobileNavItems = [
   { label: 'Dashboard', icon: LayoutGrid, path: '/' },
@@ -24,6 +25,9 @@ export default function MobileBottomNav() {
 
   return (
     <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-gray-800 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/85 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="px-2 pt-2 flex justify-center">
+        <FleetAlertBadge />
+      </div>
       <div className="grid grid-cols-4 px-2 pt-2">
         {mobileNavItems.map(({ label, icon: Icon, path }) => {
           const active = location.pathname === path || location.pathname.startsWith(`${path}/`);

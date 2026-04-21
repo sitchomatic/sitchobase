@@ -7,6 +7,7 @@ import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionMonitorCard from '@/components/monitor/SessionMonitorCard';
 import SessionExpandModal from '@/components/monitor/SessionExpandModal';
 import AIOpsPanel from '@/components/monitor/AIOpsPanel';
+import FleetAlertService from '@/components/monitor/FleetAlertService';
 import { normalizeLogEntry, detectAnomalies, detectStuckSessions, groupFailures } from '@/components/monitor/monitorUtils';
 import { buildAiOpsPrompt } from '@/components/monitor/buildAiOpsPrompt';
 import { Button } from '@/components/ui/button';
@@ -102,6 +103,7 @@ export default function Monitor() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
+          <FleetAlertService sessions={sessions} logsBySession={logsBySession} />
           <AIOpsPanel
             sessions={sessions}
             logsBySession={logsBySession}
