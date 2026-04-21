@@ -20,6 +20,7 @@ import Analytics from './pages/Analytics';
 import StagehandAI from './pages/StagehandAI';
 import Settings from './pages/Settings';
 import BulkTest from './pages/BulkTest';
+import Monitor from './pages/Monitor';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -57,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/stagehand" element={<StagehandAI />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/bulk" element={<BulkTest />} />
+        <Route path="/monitor" element={<Monitor />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
