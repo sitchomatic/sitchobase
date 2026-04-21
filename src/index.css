@@ -84,6 +84,20 @@
 
   body {
     @apply bg-gray-950 text-foreground;
+    overscroll-behavior: none;
+  }
+
+  button {
+    user-select: none;
+  }
+
+  @media (max-width: 767px) {
+    button.h-7.w-7,
+    button.h-8.w-8,
+    button.h-9.w-9 {
+      min-width: 44px;
+      min-height: 44px;
+    }
   }
 
   ::-webkit-scrollbar {

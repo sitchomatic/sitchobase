@@ -1,5 +1,8 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
   Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield
@@ -22,11 +25,12 @@ const navItems = [
 
 export default function AppLayout() {
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+      <aside className="hidden md:flex w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex-col">
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center">
@@ -67,9 +71,21 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
+      <main className="flex-1 overflow-auto pt-[env(safe-area-inset-top)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ x: isMobile ? 24 : 0, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: isMobile ? -24 : 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="min-h-full"
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
+      <MobileBottomNav />
     </div>
   );
 }

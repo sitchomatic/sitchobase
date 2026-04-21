@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
+import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -162,6 +163,8 @@ export default function Settings() {
           </Button>
         </div>
       )}
+
+      <DeleteAccountCard />
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
         <div className="text-sm font-semibold text-white">How It Works</div>
