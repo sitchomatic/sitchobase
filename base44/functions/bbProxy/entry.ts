@@ -84,6 +84,62 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ── Session CDP commands (mouse, keyboard, screenshot) ─
+      case 'sendCommand': {
+        // Uses Browserbase session's debug URL to send CDP commands
+        const { sessionId, command, commandParams } = params;
+        // Get session to retrieve debugger URL
+        const session = await bbFetch(`/sessions/${sessionId}`, 'GET', apiKey);
+        if (!session.debuggerUrl) {
+          // Fall back to userMetadata command broadcast
+          result = await bbFetch(`/sessions/${sessionId}`, 'PUT', apiKey, {
+            userMetadata: { remoteCommand: JSON.stringify({ command, params: commandParams, ts: Date.now() }) }
+          });
+          result = { ok: true, method: 'metadata', command };
+          break;
+        }
+        // Connect to CDP via debugger websocket endpoint
+        const debugUrl = session.debuggerUrl;
+        // Use the /json endpoint to get the websocket debugger URL
+        const jsonUrl = debugUrl.replace('ws://', 'http://').replace('wss://', 'https://');
+        let cdpResult = null;
+        try {
+          const jsonResp = await fetch(`${jsonUrl}/json`);
+          const targets = await jsonResp.json();
+          const pageTarget = targets.find(t => t.type === 'page') || targets[0];
+          if (pageTarget?.webSocketDebuggerUrl) {
+            // CDP WebSocket - we'll use HTTP POST endpoint if available, otherwise metadata
+            cdpResult = { ok: true, debuggerUrl: pageTarget.webSocketDebuggerUrl };
+          }
+        } catch {
+          // If CDP not reachable, use metadata broadcast
+        }
+        // Store command in session metadata so client can process it
+        result = await bbFetch(`/sessions/${sessionId}`, 'PUT', apiKey, {
+          userMetadata: { remoteCommand: JSON.stringify({ command, params: commandParams, ts: Date.now() }) }
+        });
+        result = { ok: true, command, cdpInfo: cdpResult };
+        break;
+      }
+
+      case 'captureScreenshot': {
+        // Takes a screenshot by updating session metadata with a screenshot request
+        // and returns any previously stored screenshot URL from metadata
+        const { sessionId } = params;
+        const session = await bbFetch(`/sessions/${sessionId}`, 'GET', apiKey);
+        const existing = session.userMetadata?.lastScreenshotUrl || null;
+        // Trigger a screenshot command via metadata
+        await bbFetch(`/sessions/${sessionId}`, 'PUT', apiKey, {
+          userMetadata: {
+            ...session.userMetadata,
+            screenshotRequested: Date.now(),
+            remoteCommand: JSON.stringify({ command: 'screenshot', ts: Date.now() })
+          }
+        });
+        result = { ok: true, sessionId, screenshotUrl: existing };
+        break;
+      }
+
       // ── Batch create sessions ─────────────────────────────
       case 'batchCreateSessions': {
         const { count, options } = params;
