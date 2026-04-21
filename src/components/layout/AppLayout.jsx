@@ -6,13 +6,14 @@ import AppShellRoutes from '@/components/layout/AppShellRoutes';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, Flame
 } from 'lucide-react';
 
 const navItems = [
   { label: 'Command Center', icon: LayoutGrid, path: '/' },
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
   { label: 'Bulk Test', icon: FlaskConical, path: '/bulk' },
+  { label: 'Joe Ignite', icon: Flame, path: '/joe-ignite' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
   { label: 'Test Reports', icon: BarChart3, path: '/reports' },
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },

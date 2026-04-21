@@ -24,6 +24,7 @@ import BulkTest from './pages/BulkTest';
 import Monitor from './pages/Monitor';
 import AuditLog from './pages/AuditLog.jsx';
 import TestReports from './pages/TestReports';
+import JoeIgnite from './pages/JoeIgnite';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
 
 const AuthenticatedApp = () => {
@@ -63,6 +64,7 @@ const AuthenticatedApp = () => {
         <Route path="/stagehand" element={<StagehandAI />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/bulk" element={<BulkTest />} />
+        <Route path="/joe-ignite" element={<JoeIgnite />} />
         <Route path="/reports" element={<TestReports />} />
         <Route path="/monitor" element={<Monitor />} />
         <Route path="/audit" element={<AuditLog />} />

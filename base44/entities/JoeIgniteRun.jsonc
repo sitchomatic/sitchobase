@@ -1,0 +1,60 @@
+{
+  "name": "JoeIgniteRun",
+  "type": "object",
+  "properties": {
+    "batchId": {
+      "type": "string",
+      "description": "ID that groups all credentials from the same CSV upload"
+    },
+    "email": {
+      "type": "string"
+    },
+    "sessionId": {
+      "type": "string",
+      "description": "Browserbase session ID"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "success",
+        "perm_ban",
+        "temp_lock",
+        "no_account",
+        "error"
+      ],
+      "default": "queued"
+    },
+    "attempts": {
+      "type": "number",
+      "default": 0
+    },
+    "joeOutcome": {
+      "type": "string"
+    },
+    "ignitionOutcome": {
+      "type": "string"
+    },
+    "isBurned": {
+      "type": "boolean",
+      "default": false
+    },
+    "details": {
+      "type": "string",
+      "description": "Free-form notes / error trail"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "batchId",
+    "email"
+  ]
+}
