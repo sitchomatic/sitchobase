@@ -19,12 +19,16 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const [sess, usg] = await Promise.allSettled([
-      listSessions(credentials.apiKey),
-      getProjectUsage(credentials.apiKey, credentials.projectId),
-    ]);
-    if (sess.status === 'fulfilled') setSessions(sess.value);
-    if (usg.status === 'fulfilled') setUsage(usg.value);
+    try {
+      const [sess, usg] = await Promise.allSettled([
+        listSessions(credentials.apiKey),
+        getProjectUsage(credentials.apiKey, credentials.projectId),
+      ]);
+      if (sess.status === 'fulfilled') setSessions(Array.isArray(sess.value) ? sess.value : []);
+      if (usg.status === 'fulfilled') setUsage(usg.value);
+    } catch (err) {
+      console.error('Dashboard load error:', err.message);
+    }
     setLastRefresh(new Date());
     setLoading(false);
   }, [credentials, isConfigured]);

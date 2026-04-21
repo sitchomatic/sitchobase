@@ -18,8 +18,13 @@ export default function Contexts() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const data = await listContexts(credentials.apiKey);
-    setContexts(Array.isArray(data) ? data : []);
+    try {
+      const data = await listContexts(credentials.apiKey);
+      setContexts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(`Failed to load contexts: ${err.message}`);
+      setContexts([]);
+    }
     setLoading(false);
   }, [credentials, isConfigured]);
 
@@ -27,16 +32,24 @@ export default function Contexts() {
 
   const create = async () => {
     setCreating(true);
-    const ctx = await createContext(credentials.apiKey, credentials.projectId);
-    setContexts(prev => [ctx, ...prev]);
-    toast.success('Context created');
+    try {
+      const ctx = await createContext(credentials.apiKey, credentials.projectId);
+      setContexts(prev => [ctx, ...prev]);
+      toast.success('Context created');
+    } catch (err) {
+      toast.error(`Failed to create context: ${err.message}`);
+    }
     setCreating(false);
   };
 
   const remove = async (id) => {
-    await deleteContext(credentials.apiKey, id);
-    setContexts(prev => prev.filter(c => c.id !== id));
-    toast.success('Context deleted');
+    try {
+      await deleteContext(credentials.apiKey, id);
+      setContexts(prev => prev.filter(c => c.id !== id));
+      toast.success('Context deleted');
+    } catch (err) {
+      toast.error(`Failed to delete context: ${err.message}`);
+    }
   };
 
   const copy = (text) => {

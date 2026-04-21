@@ -21,9 +21,14 @@ export default function Sessions() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const statusFilter = filter === 'ALL' ? null : filter;
-    const data = await listSessions(credentials.apiKey, statusFilter);
-    setSessions(data);
+    try {
+      const statusFilter = filter === 'ALL' ? null : filter;
+      const data = await listSessions(credentials.apiKey, statusFilter);
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load sessions:', err.message);
+      setSessions([]);
+    }
     setLoading(false);
   }, [credentials, isConfigured, filter]);
 
