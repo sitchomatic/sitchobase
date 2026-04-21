@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getSession, getSessionLogs, getSessionRecording, formatBytes } from '@/lib/browserbaseApi';
 import StatusBadge from '@/components/shared/StatusBadge';
+import SessionRecordingPlayer from '@/components/sessions/SessionRecordingPlayer';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { X, ExternalLink, RefreshCw, Terminal, Film, Info } from 'lucide-react';
@@ -104,20 +105,7 @@ export default function SessionDetailPanel({ session, credentials, onClose }) {
         </TabsContent>
 
         <TabsContent value="recording" className="flex-1 overflow-y-auto p-4 mt-0">
-          {recording ? (
-            <div>
-              <div className="text-xs text-gray-400 mb-2">Session Recording</div>
-              {recording.url ? (
-                <video src={recording.url} controls className="w-full rounded-lg bg-black" />
-              ) : (
-                <pre className="text-xs bg-gray-800 rounded p-2 text-gray-300 overflow-auto">
-                  {JSON.stringify(recording, null, 2)}
-                </pre>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500 text-xs">No recording available</div>
-          )}
+          <SessionRecordingPlayer recording={recording} loading={loading} />
         </TabsContent>
       </Tabs>
     </div>
