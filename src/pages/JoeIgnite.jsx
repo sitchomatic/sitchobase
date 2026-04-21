@@ -4,7 +4,8 @@ import { useCredentials } from '@/lib/useCredentials';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import JoeIgniteCsvPicker from '@/components/joeIgnite/JoeIgniteCsvPicker';
 import JoeIgniteRowCard from '@/components/joeIgnite/JoeIgniteRowCard';
-import JoeIgniteSummaryBar from '@/components/joeIgnite/JoeIgniteSummaryBar';
+import JoeIgniteLiveCounters from '@/components/joeIgnite/JoeIgniteLiveCounters';
+import JoeIgniteActivityLog from '@/components/joeIgnite/JoeIgniteActivityLog';
 import JoeIgniteModeToggle from '@/components/joeIgnite/JoeIgniteModeToggle';
 import JoeIgniteProxySourceToggle from '@/components/joeIgnite/JoeIgniteProxySourceToggle';
 import { Button } from '@/components/ui/button';
@@ -31,9 +32,12 @@ export default function JoeIgnite() {
   const [proxySource, setProxySource] = useState(() => localStorage.getItem('joe_ignite_proxy_source') || 'bb-au');
   const [concurrency, setConcurrency] = useState(JOE_IGNITE_CONFIG.DEFAULT_CONCURRENCY);
   const [rows, setRows] = useState([]);
+  const [events, setEvents] = useState([]);
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
   const [activeBatchId, setActiveBatchId] = useState(null);
+
+  const pushEvent = (evt) => setEvents((prev) => [...prev.slice(-499), { at: Date.now(), ...evt }]);
   const abortRef = useRef(false);
   const pollTimerRef = useRef(null);
 
@@ -66,12 +70,14 @@ export default function JoeIgnite() {
   const handleLoaded = ({ fileName, credentials }) => {
     setLoaded({ fileName, credentials });
     setRows(credentials.map((c, i) => ({ index: i, email: c.email, status: 'queued' })));
+    setEvents([]);
     setFinished(false);
   };
 
   const handleClear = () => {
     setLoaded(null);
     setRows([]);
+    setEvents([]);
     setFinished(false);
     setActiveBatchId(null);
   };
@@ -86,6 +92,20 @@ export default function JoeIgnite() {
       shouldAbort: () => abortRef.current,
       onRowUpdate: (patch) => {
         setRows((prev) => prev.map((r) => (r.email === patch.email ? { ...r, ...patch } : r)));
+        // Stream events into the activity log
+        if (patch.status === 'running' && !patch.phase) {
+          pushEvent({ type: 'started', email: patch.email });
+        } else if (patch.joeOutcome || patch.ignitionOutcome) {
+          const detail = [
+            patch.joeOutcome ? `joe:${patch.joeOutcome}` : null,
+            patch.ignitionOutcome ? `ign:${patch.ignitionOutcome}` : null,
+            patch.attempts ? `try ${patch.attempts}` : null,
+          ].filter(Boolean).join(' · ');
+          pushEvent({ type: 'attempt', email: patch.email, detail });
+        }
+        if (patch.phase === 'done' && patch.status) {
+          pushEvent({ type: patch.status, email: patch.email, detail: patch.proxyLabel ? `via ${patch.proxyLabel}` : undefined });
+        }
       },
       onComplete: () => {
         setRunning(false);
@@ -112,6 +132,7 @@ export default function JoeIgnite() {
     toast.success('Serverless batch dispatched');
 
     // Poll the entity every 4s to update the UI.
+    const seen = new Set();
     const poll = async () => {
       const records = await base44.entities.JoeIgniteRun.filter({ batchId });
       if (records.length > 0) {
@@ -119,6 +140,19 @@ export default function JoeIgnite() {
           const rec = records.find((x) => x.email === r.email);
           return rec ? { ...r, ...rec } : r;
         }));
+        // Emit an event once per completed credential
+        records.forEach((rec) => {
+          const terminal = ['success', 'temp_lock', 'perm_ban', 'no_account', 'error'].includes(rec.status);
+          if (terminal && !seen.has(rec.email)) {
+            seen.add(rec.email);
+            const detail = [
+              rec.joeOutcome ? `joe:${rec.joeOutcome}` : null,
+              rec.ignitionOutcome ? `ign:${rec.ignitionOutcome}` : null,
+              rec.attempts ? `try ${rec.attempts}` : null,
+            ].filter(Boolean).join(' · ');
+            pushEvent({ type: rec.status, email: rec.email, detail });
+          }
+        });
         const pending = records.filter((r) => r.status === 'queued' || r.status === 'running').length;
         if (pending === 0 && records.length >= loaded.credentials.length) {
           clearInterval(pollTimerRef.current);
@@ -257,7 +291,8 @@ export default function JoeIgnite() {
       {/* Summary + rows */}
       {rows.length > 0 && (
         <>
-          <JoeIgniteSummaryBar rows={rows} />
+          <JoeIgniteLiveCounters rows={rows} />
+          <JoeIgniteActivityLog events={events} />
           <div className="space-y-2">
             {rows.map((r) => <JoeIgniteRowCard key={r.email + r.index} row={r} />)}
           </div>
