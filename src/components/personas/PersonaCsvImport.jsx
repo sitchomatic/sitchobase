@@ -8,19 +8,18 @@ import { Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
-const REQUIRED_COLUMNS = ['name'];
+const REQUIRED_COLUMNS = ['Name'];
 const ALLOWED_REGIONS = ['us-west-2', 'us-east-1', 'eu-central-1', 'ap-southeast-1'];
-const ALLOWED_DEVICE_TYPES = ['desktop', 'mobile', 'tablet'];
 
 function normalizeRow(row) {
   return {
-    name: row.name?.trim() || '',
-    userAgent: row.userAgent?.trim() || '',
-    region: ALLOWED_REGIONS.includes(row.region) ? row.region : 'us-west-2',
-    useProxy: String(row.useProxy).toLowerCase() === 'true',
-    proxyCountry: row.proxyCountry?.trim() || '',
-    deviceType: ALLOWED_DEVICE_TYPES.includes(row.deviceType) ? row.deviceType : 'desktop',
-    notes: row.notes?.trim() || '',
+    name: row.Name?.trim() || '',
+    notes: row.Description?.trim() || '',
+    userAgent: row['User Agent']?.trim() || '',
+    region: ALLOWED_REGIONS.includes(row.Region) ? row.Region : 'us-west-2',
+    useProxy: String(row['Use Proxy']).toLowerCase() === 'true',
+    proxyCountry: row['Proxy Country']?.trim() || '',
+    deviceType: 'desktop',
   };
 }
 
@@ -61,9 +60,9 @@ export default function PersonaCsvImport({ onImported }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-semibold text-white flex items-center gap-2">
-            <Upload className="w-4 h-4 text-emerald-400" /> Bulk Import CSV
+            <Upload className="w-4 h-4 text-emerald-400" /> Batch Import
           </div>
-          <p className="text-xs text-gray-500 mt-1">Columns: name, userAgent, region, useProxy, proxyCountry, deviceType, notes</p>
+          <p className="text-xs text-gray-500 mt-1">Columns: Name, Description, User Agent, Region, Use Proxy, Proxy Country</p>
         </div>
         <Badge className="bg-gray-800 text-gray-300 border-gray-700">CSV</Badge>
       </div>
