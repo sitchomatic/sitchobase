@@ -1,5 +1,4 @@
-import { useState, useRef } from 'react';
-import { bbClient } from '@/lib/bbClient';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,46 +62,15 @@ export default function SessionControlPanel({ session }) {
   };
 
   const sendMouse = async () => {
-    if (!mouseX || !mouseY) { toast.error('Enter X and Y coordinates'); return; }
-    setSending(true);
-    const res = await bbClient.sendCommand(session.id, mouseAction, { x: Number(mouseX), y: Number(mouseY) });
-    logCmd(mouseAction, res?.ok ? 'ok' : 'err', `(${mouseX}, ${mouseY})`);
-    toast.success(`Mouse ${mouseAction} sent`);
-    setSending(false);
+    toast.info('Use the CDP tab for true live mouse control.');
   };
 
   const sendKey = async () => {
-    if (!keyText) { toast.error('Enter text or key'); return; }
-    setSending(true);
-    const res = await bbClient.sendCommand(session.id, keyAction, { text: keyText });
-    logCmd(keyAction, res?.ok ? 'ok' : 'err', `"${keyText}"`);
-    toast.success(`Key command sent`);
-    setSending(false);
+    toast.info('Use the CDP tab for true live keyboard control.');
   };
 
   const takeSnapshot = async () => {
-    setCaptureLoading(true);
-    const res = await bbClient.captureScreenshot(session.id);
-    logCmd('screenshot', 'ok', 'Screenshot requested');
-
-    // Generate a placeholder screenshot card since Browserbase doesn't expose
-    // raw screenshot bytes via REST — we store the metadata and timestamp
-    const snap = {
-      id: Date.now(),
-      sessionId: session.id,
-      timestamp: new Date().toISOString(),
-      dataUrl: null, // Real screenshot requires CDP WebSocket access
-      screenshotUrl: res?.screenshotUrl || null,
-      note: 'Command sent to session. Real pixel capture requires CDP WebSocket.',
-    };
-    const all = loadSnapshots();
-    all.unshift(snap);
-    const trimmed = all.slice(0, 20);
-    localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(trimmed));
-    setSnapshots(trimmed);
-
-    toast.success('Screenshot command sent to session');
-    setCaptureLoading(false);
+    toast.info('Use the CDP tab for true live screenshots.');
   };
 
   const deleteSnapshot = (id) => {

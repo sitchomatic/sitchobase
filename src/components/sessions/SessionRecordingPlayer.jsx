@@ -84,8 +84,8 @@ export default function SessionRecordingPlayer({ recording, loading }) {
       <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-600">
         <Film className="w-8 h-8 opacity-30" />
         <div className="text-xs text-center">
-          No recording available.<br />
-          <span className="text-gray-700">Recordings appear after a session completes.</span>
+          No Browserbase recording file is available for this session.<br />
+          <span className="text-gray-700">Use the failure replay panel above and the live CDP / Network tabs for full debugging.</span>
         </div>
       </div>
     );
