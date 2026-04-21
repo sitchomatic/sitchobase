@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import EmptyState from '@/components/shared/EmptyState';
+import PersonaCsvImport from '@/components/personas/PersonaCsvImport';
 import { Users, Plus, Trash2, Edit, Shield, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
@@ -73,6 +74,8 @@ export default function Personas() {
           <Plus className="w-4 h-4" /> New Persona
         </Button>
       </div>
+
+      <PersonaCsvImport onImported={loadPersonas} />
 
       {personas.length === 0 ? (
         <EmptyState

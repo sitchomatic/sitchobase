@@ -18,6 +18,22 @@ export default function Monitor() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(null);
 
+  const load = useCallback(async () => {
+    if (!isConfigured) return;
+    setLoading(true);
+    const data = await bbClient.listSessions('RUNNING');
+    setSessions(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }, [isConfigured]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!isConfigured) return;
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [load, isConfigured]);
+
   if (!isConfigured) return <CredentialsGuard />;
 
   return (
