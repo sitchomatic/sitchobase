@@ -5,14 +5,13 @@
 import { base44 } from '@/api/base44Client';
 
 async function call(action, extras = {}) {
+  // Proxy reads API key from server-side secret (Api_key).
+  // Pass projectId from localStorage only if user has set one (needed for getProjectUsage).
   const stored = localStorage.getItem('bb_credentials');
   const creds = stored ? JSON.parse(stored) : {};
-  const res = await base44.functions.invoke('bbProxy', {
-    action,
-    apiKey: creds.apiKey,
-    projectId: creds.projectId,
-    ...extras,
-  });
+  const payload = { action, ...extras };
+  if (creds.projectId) payload.projectId = creds.projectId;
+  const res = await base44.functions.invoke('bbProxy', payload);
   return res.data.data;
 }
 

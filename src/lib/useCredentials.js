@@ -22,7 +22,9 @@ export function useCredentials() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const isConfigured = !!(credentials.apiKey && credentials.projectId);
+  // API key lives in the server-side secret (Api_key) — always operational.
+  // credentials here are optional overrides stored locally (e.g. for multi-project use).
+  const isConfigured = true;
 
   return { credentials, saveCredentials, clearCredentials, isConfigured };
 }
