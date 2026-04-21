@@ -1,14 +1,13 @@
-/**
- * Monitor — real-time monitoring grid for all RUNNING sessions.
- * Each card streams live CDP screenshots + log tails.
- * No manual refresh needed.
- */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
+import { base44 } from '@/api/base44Client';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionMonitorCard from '@/components/monitor/SessionMonitorCard';
 import SessionExpandModal from '@/components/monitor/SessionExpandModal';
+import AIOpsPanel from '@/components/monitor/AIOpsPanel';
+import { normalizeLogEntry, detectAnomalies, detectStuckSessions, groupFailures } from '@/components/monitor/monitorUtils';
+import { buildAiOpsPrompt } from '@/components/monitor/buildAiOpsPrompt';
 import { Button } from '@/components/ui/button';
 import { Activity, RefreshCw, Wifi } from 'lucide-react';
 
@@ -17,12 +16,25 @@ export default function Monitor() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [logsBySession, setLogsBySession] = useState({});
+  const [aiReport, setAiReport] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
     const data = await bbClient.listSessions('RUNNING');
-    setSessions(Array.isArray(data) ? data : []);
+    const nextSessions = Array.isArray(data) ? data : [];
+    setSessions(nextSessions);
+
+    const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
+    const nextLogs = {};
+    nextSessions.forEach((session, index) => {
+      const result = logResults[index];
+      const logs = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : [];
+      nextLogs[session.id] = logs.slice(-20).map((log, logIndex) => normalizeLogEntry(session.id, log, logIndex));
+    });
+    setLogsBySession(nextLogs);
     setLoading(false);
   }, [isConfigured]);
 
@@ -34,12 +46,34 @@ export default function Monitor() {
     return () => clearInterval(t);
   }, [load, isConfigured]);
 
+  const failureGroups = useMemo(() => groupFailures(sessions, logsBySession), [sessions, logsBySession]);
+  const stuckSessions = useMemo(() => detectStuckSessions(sessions, logsBySession), [sessions, logsBySession]);
+  const anomalies = useMemo(() => detectAnomalies(sessions, logsBySession), [sessions, logsBySession]);
+
+  const analyze = useCallback(async () => {
+    setAiLoading(true);
+    const prompt = buildAiOpsPrompt({ sessions, failureGroups, stuckSessions, anomalies });
+    const report = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          summary: { type: 'string' },
+          groupedFailures: { type: 'array', items: { type: 'string' } },
+          fixSuggestions: { type: 'array', items: { type: 'string' } }
+        },
+        required: ['summary', 'groupedFailures', 'fixSuggestions']
+      }
+    });
+    setAiReport(report);
+    setAiLoading(false);
+  }, [sessions, failureGroups, stuckSessions, anomalies]);
+
   if (!isConfigured) return <CredentialsGuard />;
 
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/60 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
@@ -65,8 +99,15 @@ export default function Monitor() {
           </div>
         </div>
 
-        {/* Grid */}
         <div className="flex-1 overflow-y-auto p-5">
+          <AIOpsPanel
+            sessions={sessions}
+            logsBySession={logsBySession}
+            aiReport={aiReport}
+            aiLoading={aiLoading}
+            onRefreshAI={analyze}
+          />
+
           {loading && sessions.length === 0 && (
             <div className="flex items-center justify-center h-full text-gray-600 text-sm gap-2">
               <RefreshCw className="w-4 h-4 animate-spin" /> Loading running sessions…

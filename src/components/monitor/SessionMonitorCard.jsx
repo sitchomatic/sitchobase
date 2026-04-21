@@ -5,12 +5,10 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
-import { Button } from '@/components/ui/button';
 import {
-  Wifi, WifiOff, Camera, Loader2, Activity, Clock,
+  Camera, Loader2, Activity, Clock,
   Globe, DollarSign, Terminal, ZoomIn, Pause, Play
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 // ── CDP WebSocket hook ────────────────────────────────────────────────────────
 function useCDP(connectUrl, enabled) {
@@ -88,9 +86,6 @@ export default function SessionMonitorCard({ session, onExpand }) {
   const [logs, setLogs] = useState([]);
   const logCountRef = useRef(0);
 
-  // Live metrics (duration refreshed locally every second)
-  const [tick, setTick] = useState(0);
-
   // Auto-screenshot every 4s when connected & not paused
   useEffect(() => {
     if (!connected || paused) return;
@@ -102,7 +97,7 @@ export default function SessionMonitorCard({ session, onExpand }) {
       } catch {}
       setCapturing(false);
     };
-    capture(); // immediate first capture
+    capture();
     const t = setInterval(capture, 4000);
     return () => clearInterval(t);
   }, [connected, paused, sendCmd]);
@@ -117,7 +112,7 @@ export default function SessionMonitorCard({ session, onExpand }) {
         const fresh = all.slice(logCountRef.current);
         logCountRef.current = all.length;
         if (fresh.length) {
-          setLogs(prev => [...prev, ...fresh.map(l => ({
+          setLogs(prev => [...prev, ...fresh.map((l) => ({
             id: `${Date.now()}-${Math.random()}`,
             text: typeof l === 'string' ? l : JSON.stringify(l),
             ts: new Date().toISOString(),
@@ -129,12 +124,6 @@ export default function SessionMonitorCard({ session, onExpand }) {
     const t = setInterval(poll, 5000);
     return () => clearInterval(t);
   }, [session.id, isRunning, paused]);
-
-  // Duration ticker
-  useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   const duration = session.startedAt ? formatDuration(session.startedAt, session.endedAt) : '—';
   const cost = formatCost(estimateCost(session.startedAt, session.endedAt));
