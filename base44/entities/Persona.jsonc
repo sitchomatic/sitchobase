@@ -4,29 +4,22 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Persona name, e.g. Mobile User - AU"
+      "description": "Name of the persona"
     },
     "userAgent": {
       "type": "string",
-      "description": "Browser user agent string"
+      "description": "Custom user agent string"
     },
     "region": {
       "type": "string",
       "enum": [
-        "au",
         "us-west-2",
         "us-east-1",
-        "eu-central-1"
+        "eu-central-1",
+        "ap-southeast-1"
       ],
-      "default": "au"
-    },
-    "useProxy": {
-      "type": "boolean",
-      "default": true
-    },
-    "proxyCountry": {
-      "type": "string",
-      "description": "ISO country code for geo proxy"
+      "default": "us-west-2",
+      "description": "AWS region for session"
     },
     "deviceType": {
       "type": "string",
@@ -35,16 +28,21 @@
         "mobile",
         "tablet"
       ],
-      "default": "desktop"
+      "default": "desktop",
+      "description": "Device type"
+    },
+    "useProxy": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to use residential proxy"
+    },
+    "proxyCountry": {
+      "type": "string",
+      "description": "ISO country code for proxy geolocation"
     },
     "notes": {
-      "type": "string"
-    },
-    "tags": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "type": "string",
+      "description": "Optional notes"
     }
   },
   "required": [

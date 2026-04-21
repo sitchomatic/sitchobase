@@ -4,7 +4,7 @@
   "properties": {
     "action": {
       "type": "string",
-      "description": "What happened, e.g. SESSION_LAUNCHED, CONTEXT_DELETED"
+      "description": "The action performed (e.g., CONTEXT_CREATED, SESSION_LAUNCHED)"
     },
     "category": {
       "type": "string",
@@ -16,7 +16,7 @@
         "bulk",
         "settings"
       ],
-      "description": "Area of the app the action belongs to"
+      "description": "Category of the action"
     },
     "actor": {
       "type": "string",
@@ -24,11 +24,7 @@
     },
     "target_id": {
       "type": "string",
-      "description": "ID of the resource affected (session ID, context ID, etc.)"
-    },
-    "details": {
-      "type": "object",
-      "description": "Arbitrary key-value metadata about the action"
+      "description": "ID of the target entity (optional)"
     },
     "status": {
       "type": "string",
@@ -36,12 +32,16 @@
         "success",
         "failure"
       ],
-      "default": "success"
+      "default": "success",
+      "description": "Status of the action"
+    },
+    "details": {
+      "type": "object",
+      "description": "Additional details about the action"
     }
   },
   "required": [
     "action",
-    "category",
-    "actor"
+    "category"
   ]
 }

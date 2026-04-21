@@ -4,26 +4,26 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Human-readable script name"
+      "description": "Name of the script"
     },
-    "script": {
+    "body": {
       "type": "string",
-      "description": "The automation script body. Use {{column_name}} placeholders matching CSV headers."
+      "description": "Script content with placeholders like {{email}}, {{password}}"
     },
     "description": {
       "type": "string",
-      "description": "Optional notes about what this script does"
+      "description": "Optional description"
     },
     "placeholders": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Auto-extracted list of {{placeholder}} names from the script"
+      "description": "Detected placeholders from the body"
     }
   },
   "required": [
     "name",
-    "script"
+    "body"
   ]
 }

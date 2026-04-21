@@ -2,48 +2,70 @@
   "name": "TestRun",
   "type": "object",
   "properties": {
-    "suiteId": {
-      "type": "string",
-      "description": "Related test suite ID"
-    },
     "suiteName": {
       "type": "string",
-      "description": "Snapshot of suite name"
+      "description": "Name of the test suite that was run"
+    },
+    "suiteId": {
+      "type": "string",
+      "description": "ID of the test suite"
     },
     "status": {
       "type": "string",
       "enum": [
+        "pending",
         "running",
-        "completed"
+        "completed",
+        "failed"
       ],
-      "default": "running"
+      "default": "pending",
+      "description": "Current status"
     },
-    "totalSessions": {
-      "type": "number",
-      "default": 0
+    "totalCredentials": {
+      "type": "integer",
+      "description": "Total number of credentials tested"
     },
-    "passedSessions": {
-      "type": "number",
-      "default": 0
+    "passedCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of successful tests"
     },
-    "failedSessions": {
-      "type": "number",
-      "default": 0
-    },
-    "successRate": {
-      "type": "number",
-      "default": 0
+    "failedCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Number of failed tests"
     },
     "results": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "output": {
+            "type": "string"
+          }
+        }
       },
-      "description": "Per-session execution results"
+      "description": "Individual test results"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the test run started"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the test run completed"
     }
   },
   "required": [
-    "suiteId",
-    "suiteName"
+    "suiteName",
+    "totalCredentials"
   ]
 }

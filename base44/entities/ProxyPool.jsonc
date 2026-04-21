@@ -4,45 +4,44 @@
   "properties": {
     "label": {
       "type": "string",
-      "description": "Human-friendly label, e.g. 'Oxylabs AU-01'"
+      "description": "Friendly name for the proxy"
     },
     "server": {
       "type": "string",
-      "description": "Proxy endpoint in the form host:port (e.g. pr.oxylabs.io:7777)"
+      "description": "Proxy server address (host:port)"
     },
     "username": {
-      "type": "string"
+      "type": "string",
+      "description": "Proxy authentication username (optional)"
     },
     "password": {
-      "type": "string"
-    },
-    "country": {
       "type": "string",
-      "description": "ISO country code (AU, US, etc.)"
-    },
-    "provider": {
-      "type": "string",
-      "description": "Provider name (oxylabs, brightdata, smartproxy, custom, etc.)"
+      "description": "Proxy authentication password (optional)"
     },
     "enabled": {
       "type": "boolean",
-      "default": true
+      "default": true,
+      "description": "Whether this proxy is active"
     },
     "timesUsed": {
-      "type": "number",
-      "default": 0
+      "type": "integer",
+      "default": 0,
+      "description": "Total number of times used"
     },
     "successCount": {
-      "type": "number",
-      "default": 0
+      "type": "integer",
+      "default": 0,
+      "description": "Number of successful attempts"
     },
     "failureCount": {
-      "type": "number",
-      "default": 0
+      "type": "integer",
+      "default": 0,
+      "description": "Number of failed attempts"
     },
     "lastUsedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "Last used timestamp"
     }
   },
   "required": [

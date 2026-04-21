@@ -4,14 +4,11 @@
   "properties": {
     "batchId": {
       "type": "string",
-      "description": "ID that groups all credentials from the same CSV upload"
+      "description": "Batch identifier"
     },
     "email": {
-      "type": "string"
-    },
-    "sessionId": {
       "type": "string",
-      "description": "Browserbase session ID"
+      "description": "Email credential being tested"
     },
     "status": {
       "type": "string",
@@ -19,38 +16,49 @@
         "queued",
         "running",
         "success",
-        "perm_ban",
         "temp_lock",
+        "perm_ban",
         "no_account",
         "error"
       ],
-      "default": "queued"
+      "default": "queued",
+      "description": "Current status of the test"
+    },
+    "sessionId": {
+      "type": "string",
+      "description": "Browserbase session ID"
     },
     "attempts": {
-      "type": "number",
-      "default": 0
+      "type": "integer",
+      "default": 0,
+      "description": "Number of login attempts made"
     },
     "joeOutcome": {
-      "type": "string"
+      "type": "string",
+      "description": "Outcome for Joe Fortune site"
     },
     "ignitionOutcome": {
-      "type": "string"
+      "type": "string",
+      "description": "Outcome for Ignition Casino site"
     },
     "isBurned": {
       "type": "boolean",
-      "default": false
+      "default": false,
+      "description": "Whether the account was burned (success or perm ban)"
     },
     "details": {
       "type": "string",
-      "description": "Free-form notes / error trail"
+      "description": "Detailed log of attempt results"
     },
     "startedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "When the test started"
     },
     "endedAt": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "When the test ended"
     }
   },
   "required": [

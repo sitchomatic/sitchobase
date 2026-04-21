@@ -4,22 +4,22 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Name of the automated test suite"
+      "description": "Name of the test suite"
     },
     "description": {
       "type": "string",
-      "description": "Optional notes about the suite"
+      "description": "Optional description"
     },
-    "scenarioIds": {
+    "scriptIds": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Ordered list of SavedScript IDs included in the suite"
+      "description": "Ordered list of script IDs to run"
     }
   },
   "required": [
     "name",
-    "scenarioIds"
+    "scriptIds"
   ]
 }
