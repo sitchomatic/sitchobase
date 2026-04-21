@@ -5,9 +5,10 @@ import SessionRecordingPlayer from '@/components/sessions/SessionRecordingPlayer
 import SessionControlPanel from '@/components/sessions/SessionControlPanel';
 import SessionCommandCenter from '@/components/sessions/SessionCommandCenter';
 import SessionScreenshotsGallery from '@/components/sessions/SessionScreenshotsGallery';
+import SessionCDPPanel from '@/components/sessions/SessionCDPPanel';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { X, ExternalLink, RefreshCw, Terminal, Film, Info, Gamepad2, Radio, ImageIcon } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, Terminal, Film, Info, Gamepad2, Radio, ImageIcon, Cpu } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function SessionDetailPanel({ session, onClose }) {
@@ -53,7 +54,7 @@ export default function SessionDetailPanel({ session, onClose }) {
 
       <Tabs defaultValue="info" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="px-4 py-2 bg-transparent border-b border-gray-800 rounded-none justify-start gap-1 h-auto flex-wrap">
-          {[['info','Info',Info],['logs','Logs',Terminal],['recording','Replay',Film],['control','Control',Gamepad2],['cmd','Live',Radio],['shots','Shots',ImageIcon]].map(([val,label,Icon]) => (
+          {[['info','Info',Info],['logs','Logs',Terminal],['recording','Replay',Film],['control','Control',Gamepad2],['cmd','Live',Radio],['shots','Shots',ImageIcon],['cdp','CDP',Cpu]].map(([val,label,Icon]) => (
             <TabsTrigger key={val} value={val}
               className="text-xs px-2.5 py-1 data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-400 text-gray-500 rounded-md gap-1">
               <Icon className="w-3 h-3" />{label}
@@ -121,6 +122,10 @@ export default function SessionDetailPanel({ session, onClose }) {
 
         <TabsContent value="shots" className="flex-1 overflow-hidden mt-0 flex flex-col">
           <SessionScreenshotsGallery session={detail} />
+        </TabsContent>
+
+        <TabsContent value="cdp" className="flex-1 overflow-hidden mt-0 flex flex-col">
+          <SessionCDPPanel session={detail} />
         </TabsContent>
       </Tabs>
     </div>

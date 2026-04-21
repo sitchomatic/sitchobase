@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, formatBytes, formatDuration } from '@/lib/bbClient';
+import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
@@ -229,6 +229,7 @@ export default function Sessions() {
               </div>
               <div className="text-right flex-shrink-0">
                 <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(s.createdAt))} ago</div>
+                <div className="text-xs text-yellow-500/80 font-mono mt-0.5">{formatCost(estimateCost(s.startedAt, s.endedAt))}</div>
                 {s.contextId && <div className="text-xs text-purple-400 mt-0.5">Context</div>}
               </div>
               <Eye className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />

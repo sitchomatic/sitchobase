@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, formatBytes } from '@/lib/bbClient';
+import { bbClient, formatBytes, BB_COST_PER_MINUTE } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import MetricCard from '@/components/shared/MetricCard';
 import {
@@ -78,6 +78,9 @@ export default function Analytics() {
   const avgDuration = completedSessions.length > 0
     ? completedSessions.reduce((acc, s) => acc + (new Date(s.endedAt) - new Date(s.startedAt)) / 1000, 0) / completedSessions.length
     : 0;
+  const estimatedCost = usage?.browserMinutes
+    ? `$${(usage.browserMinutes * BB_COST_PER_MINUTE).toFixed(3)}`
+    : '—';
 
   return (
     <div className="p-6 space-y-6">
@@ -93,11 +96,12 @@ export default function Analytics() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard label="Total Sessions" value={sessions.length} icon={Activity} accent="emerald" />
         <MetricCard label="Browser Minutes" value={usage?.browserMinutes?.toLocaleString() ?? '—'} icon={Clock} accent="blue" />
         <MetricCard label="Proxy Used" value={`${totalProxyMB} MB`} icon={Globe} accent="purple" />
         <MetricCard label="Avg Duration" value={`${Math.round(avgDuration)}s`} icon={TrendingUp} accent="orange" />
+        <MetricCard label="Est. Cost" value={estimatedCost} icon={TrendingUp} accent="emerald" sub={`@ $${BB_COST_PER_MINUTE}/min`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

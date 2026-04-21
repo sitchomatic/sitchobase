@@ -4,7 +4,8 @@ import { bbClient } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Plus, Trash2, Layers, Copy, CheckCircle } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Layers, Copy, CheckCircle, Upload } from 'lucide-react';
+import ContextUploadDialog from '@/components/contexts/ContextUploadDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -14,6 +15,7 @@ export default function Contexts() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [uploadingCtx, setUploadingCtx] = useState(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
@@ -48,6 +50,7 @@ export default function Contexts() {
   if (!isConfigured) return <CredentialsGuard />;
 
   return (
+    <>
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -89,10 +92,16 @@ export default function Contexts() {
                 <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
                   <Layers className="w-5 h-5 text-purple-400" />
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => remove(ctx.id)}
-                  className="w-7 h-7 text-gray-600 hover:text-red-400">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => setUploadingCtx(ctx)}
+                    className="w-7 h-7 text-gray-600 hover:text-purple-400" title="Upload user-data-directory">
+                    <Upload className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => remove(ctx.id)}
+                    className="w-7 h-7 text-gray-600 hover:text-red-400">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
 
               <div>
@@ -130,5 +139,10 @@ export default function Contexts() {
         </div>
       )}
     </div>
+
+    {uploadingCtx && (
+      <ContextUploadDialog context={uploadingCtx} onClose={() => setUploadingCtx(null)} />
+    )}
+    </>
   );
 }
