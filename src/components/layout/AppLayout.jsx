@@ -2,7 +2,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { label: 'Personas', icon: Users, path: '/personas' },
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
+  { label: 'Audit Log', icon: Shield, path: '/audit' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 

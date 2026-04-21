@@ -1,0 +1,47 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "What happened, e.g. SESSION_LAUNCHED, CONTEXT_DELETED"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "session",
+        "context",
+        "persona",
+        "fleet",
+        "bulk",
+        "settings"
+      ],
+      "description": "Area of the app the action belongs to"
+    },
+    "actor": {
+      "type": "string",
+      "description": "Email of the user who performed the action"
+    },
+    "target_id": {
+      "type": "string",
+      "description": "ID of the resource affected (session ID, context ID, etc.)"
+    },
+    "details": {
+      "type": "object",
+      "description": "Arbitrary key-value metadata about the action"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failure"
+      ],
+      "default": "success"
+    }
+  },
+  "required": [
+    "action",
+    "category",
+    "actor"
+  ]
+}

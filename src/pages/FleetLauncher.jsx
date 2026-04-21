@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 const REGIONS = [
   { value: 'us-west-2',    label: 'us-west-2 🇺🇸' },
@@ -54,6 +55,7 @@ export default function FleetLauncher() {
       setErrors(res.errors || []);
       setProgress({ done: count, total: count });
       toast.success(`${res.results?.length || 0} sessions launched`);
+      auditLog({ action: 'FLEET_LAUNCHED', category: 'fleet', details: { count: res.results?.length || 0, region, tag: tag || undefined, keepAlive, useProxy } });
     } catch (err) {
       toast.error(`Launch failed: ${err.message}`);
     }

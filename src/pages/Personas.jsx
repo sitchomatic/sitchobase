@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import EmptyState from '@/components/shared/EmptyState';
 import { Users, Plus, Trash2, Edit, Shield, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 const deviceIcons = { desktop: Monitor, mobile: Smartphone, tablet: Tablet };
 const regionColors = {
@@ -43,18 +44,22 @@ export default function Personas() {
     if (editing) {
       await base44.entities.Persona.update(editing.id, form);
       toast.success('Persona updated');
+      auditLog({ action: 'PERSONA_UPDATED', category: 'persona', targetId: editing.id, details: { name: form.name } });
     } else {
-      await base44.entities.Persona.create(form);
+      const p = await base44.entities.Persona.create(form);
       toast.success('Persona created');
+      auditLog({ action: 'PERSONA_CREATED', category: 'persona', targetId: p.id, details: { name: form.name } });
     }
     setShowForm(false);
     loadPersonas();
   };
 
   const remove = async (id) => {
+    const p = personas.find(x => x.id === id);
     await base44.entities.Persona.delete(id);
     setPersonas(prev => prev.filter(p => p.id !== id));
     toast.success('Persona deleted');
+    auditLog({ action: 'PERSONA_DELETED', category: 'persona', targetId: id, details: { name: p?.name } });
   };
 
   return (

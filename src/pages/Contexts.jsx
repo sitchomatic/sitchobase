@@ -8,6 +8,7 @@ import { RefreshCw, Plus, Trash2, Layers, Copy, CheckCircle, Upload } from 'luci
 import ContextUploadDialog from '@/components/contexts/ContextUploadDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 export default function Contexts() {
   const { isConfigured } = useCredentials();
@@ -32,6 +33,7 @@ export default function Contexts() {
     const ctx = await bbClient.createContext();
     setContexts(prev => [ctx, ...prev]);
     toast.success('Context created');
+    auditLog({ action: 'CONTEXT_CREATED', category: 'context', targetId: ctx.id });
     setCreating(false);
   };
 
@@ -39,6 +41,7 @@ export default function Contexts() {
     await bbClient.deleteContext(id);
     setContexts(prev => prev.filter(c => c.id !== id));
     toast.success('Context deleted');
+    auditLog({ action: 'CONTEXT_DELETED', category: 'context', targetId: id });
   };
 
   const copy = (text) => {

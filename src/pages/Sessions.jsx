@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 const ARCHIVED_KEY = 'bb_archived_sessions';
 
@@ -85,6 +86,7 @@ export default function Sessions() {
     const results = await Promise.allSettled(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' })));
     const ok = results.filter(r => r.status === 'fulfilled').length;
     toast.success(`Cancelled ${ok} of ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
+    auditLog({ action: 'SESSIONS_BULK_CANCELLED', category: 'session', details: { count: ok, total: ids.length } });
     clearSelection();
     setBulkLoading(false);
     load();
@@ -119,6 +121,7 @@ export default function Sessions() {
     setArchived(next);
     if (selected && ids.includes(selected.id)) setSelected(null);
     toast.success(`Deleted ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
+    auditLog({ action: 'SESSIONS_BULK_DELETED', category: 'session', details: { count: ids.length } });
     clearSelection();
     setBulkLoading(false);
   };

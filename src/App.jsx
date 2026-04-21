@@ -21,6 +21,7 @@ import StagehandAI from './pages/StagehandAI';
 import Settings from './pages/Settings';
 import BulkTest from './pages/BulkTest';
 import Monitor from './pages/Monitor';
+import AuditLog from './pages/AuditLog';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -59,6 +60,7 @@ const AuthenticatedApp = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/bulk" element={<BulkTest />} />
         <Route path="/monitor" element={<Monitor />} />
+        <Route path="/audit" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
