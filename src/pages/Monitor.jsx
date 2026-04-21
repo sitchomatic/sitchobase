@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
 import { base44 } from '@/api/base44Client';
+import PullToRefresh from '@/components/shared/PullToRefresh';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionMonitorCard from '@/components/monitor/SessionMonitorCard';
 import SessionExpandModal from '@/components/monitor/SessionExpandModal';
@@ -73,6 +74,7 @@ export default function Monitor() {
 
   return (
     <>
+      <PullToRefresh onRefresh={load}>
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-900/60 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -145,6 +147,7 @@ export default function Monitor() {
           )}
         </div>
       </div>
+      </PullToRefresh>
 
       {expanded && (
         <SessionExpandModal session={expanded} onClose={() => setExpanded(null)} />

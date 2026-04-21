@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
+import PullToRefresh from '@/components/shared/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,28 +25,48 @@ function saveArchived(set) {
 
 export default function Sessions() {
   const { isConfigured } = useCredentials();
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(null);
-
-  // Bulk selection
   const [checkedIds, setCheckedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [archived, setArchived] = useState(getArchived);
 
+  const { data: sessions = [], isFetching: loading, refetch } = useQuery({
+    queryKey: ['sessions', filter, isConfigured],
+    queryFn: () => bbClient.listSessions(filter === 'ALL' ? null : filter),
+    enabled: isConfigured,
+    initialData: [],
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (ids) => Promise.all(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' }))),
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: ['sessions'] });
+      const snapshots = queryClient.getQueriesData({ queryKey: ['sessions'] });
+      snapshots.forEach(([key, data]) => {
+        queryClient.setQueryData(key, Array.isArray(data) ? data.map(session =>
+          ids.includes(session.id) && (session.status === 'RUNNING' || session.status === 'PENDING')
+            ? { ...session, status: 'PENDING' }
+            : session
+        ) : data);
+      });
+      return { snapshots };
+    },
+    onError: (_error, _ids, context) => {
+      context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    }
+  });
+
   const load = useCallback(async () => {
     if (!isConfigured) return;
-    setLoading(true);
-    const data = await bbClient.listSessions(filter === 'ALL' ? null : filter);
-    setSessions(Array.isArray(data) ? data : []);
-    setLoading(false);
-  }, [isConfigured, filter]);
+    await refetch();
+  }, [isConfigured, refetch]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Auto-refresh running sessions every 10s
   useEffect(() => {
     if (!isConfigured) return;
     const t = setInterval(load, 10000);
@@ -83,13 +105,11 @@ export default function Sessions() {
     });
     if (!ids.length) { toast.error('No running/pending sessions selected'); return; }
     setBulkLoading(true);
-    const results = await Promise.allSettled(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' })));
-    const ok = results.filter(r => r.status === 'fulfilled').length;
-    toast.success(`Cancelled ${ok} of ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
-    auditLog({ action: 'SESSIONS_BULK_CANCELLED', category: 'session', details: { count: ok, total: ids.length } });
+    await cancelMutation.mutateAsync(ids);
+    toast.success(`Cancelled ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
+    auditLog({ action: 'SESSIONS_BULK_CANCELLED', category: 'session', details: { count: ids.length, total: ids.length } });
     clearSelection();
     setBulkLoading(false);
-    load();
   };
 
   const bulkArchive = () => {
@@ -112,7 +132,7 @@ export default function Sessions() {
       return s && (s.status === 'RUNNING' || s.status === 'PENDING');
     });
     if (runningIds.length) {
-      await Promise.allSettled(runningIds.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' })));
+      await cancelMutation.mutateAsync(runningIds);
     }
     // Remove from local view by archiving
     const next = new Set(archived);
@@ -127,6 +147,7 @@ export default function Sessions() {
   };
 
   return (
+    <PullToRefresh onRefresh={load}>
     <div className="flex h-full overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-gray-800 space-y-3 bg-gray-900/60">
@@ -245,5 +266,6 @@ export default function Sessions() {
         <SessionDetailPanel session={selected} onClose={() => setSelected(null)} />
       )}
     </div>
+    </PullToRefresh>
   );
 }

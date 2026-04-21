@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { bbClient, formatBytes } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SessionRecordingPlayer from '@/components/sessions/SessionRecordingPlayer';
@@ -8,10 +9,11 @@ import SessionScreenshotsGallery from '@/components/sessions/SessionScreenshotsG
 import SessionCDPPanel from '@/components/sessions/SessionCDPPanel';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { X, ExternalLink, RefreshCw, Terminal, Film, Info, Gamepad2, Radio, ImageIcon, Cpu } from 'lucide-react';
+import { X, ChevronLeft, ExternalLink, RefreshCw, Terminal, Film, Info, Gamepad2, Radio, ImageIcon, Cpu } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function SessionDetailPanel({ session, onClose }) {
+  const isMobile = useIsMobile();
   const [detail, setDetail] = useState(session);
   const [logs, setLogs] = useState([]);
   const [recording, setRecording] = useState(null);
@@ -33,10 +35,16 @@ export default function SessionDetailPanel({ session, onClose }) {
   useEffect(() => { refresh(); }, [session.id]);
 
   return (
-    <div className="w-96 flex-shrink-0 bg-gray-900 border-l border-gray-800 flex flex-col overflow-hidden">
+    <div className="fixed md:static inset-0 md:inset-auto z-30 w-full md:w-96 flex-shrink-0 bg-gray-900 border-l border-gray-800 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2 min-w-0">
+          {isMobile && (
+            <Button size="icon" variant="ghost" onClick={onClose}
+              className="text-gray-400 hover:text-white md:hidden">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          )}
           <StatusBadge status={detail.status} />
           <span className="text-xs font-mono text-gray-400 truncate max-w-[160px]">{detail.id}</span>
         </div>
@@ -46,7 +54,7 @@ export default function SessionDetailPanel({ session, onClose }) {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button size="icon" variant="ghost" onClick={onClose}
-            className="w-7 h-7 text-gray-500 hover:text-gray-200">
+            className="text-gray-500 hover:text-gray-200">
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>

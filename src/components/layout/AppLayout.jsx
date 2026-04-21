@@ -1,8 +1,8 @@
-import { Link, useLocation, Outlet } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
+import AppShellRoutes from '@/components/layout/AppShellRoutes';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
   Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield
@@ -72,18 +72,7 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto pt-[env(safe-area-inset-top)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ x: isMobile ? 24 : 0, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: isMobile ? -24 : 0, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="min-h-full"
-          >
-            <Outlet />
-          </motion.div>
-        </AnimatePresence>
+        <AppShellRoutes pathname={location.pathname} />
       </main>
       <MobileBottomNav />
     </div>

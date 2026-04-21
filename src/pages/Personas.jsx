@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,44 +22,77 @@ const regionColors = {
 };
 
 export default function Personas() {
-  const [personas, setPersonas] = useState([]);
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm());
+
+  const { data: personas = [] } = useQuery({
+    queryKey: ['personas'],
+    queryFn: () => base44.entities.Persona.list(),
+    initialData: [],
+  });
 
   function defaultForm() {
     return { name: '', userAgent: '', region: 'us-west-2', useProxy: false, proxyCountry: '', deviceType: 'desktop', notes: '' };
   }
 
-  useEffect(() => { loadPersonas(); }, []);
-
   const loadPersonas = async () => {
-    const data = await base44.entities.Persona.list();
-    setPersonas(data);
+    await queryClient.invalidateQueries({ queryKey: ['personas'] });
   };
+
+  const saveMutation = useMutation({
+    mutationFn: ({ currentForm, currentEditing }) => currentEditing
+      ? base44.entities.Persona.update(currentEditing.id, currentForm)
+      : base44.entities.Persona.create(currentForm),
+    onMutate: async ({ currentForm, currentEditing }) => {
+      await queryClient.cancelQueries({ queryKey: ['personas'] });
+      const previous = queryClient.getQueryData(['personas']) || [];
+      const optimisticId = currentEditing?.id || `temp-${Date.now()}`;
+      queryClient.setQueryData(['personas'], currentEditing
+        ? previous.map(persona => persona.id === currentEditing.id ? { ...persona, ...currentForm } : persona)
+        : [{ ...currentForm, id: optimisticId }, ...previous]);
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      queryClient.setQueryData(['personas'], context?.previous || []);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['personas'] });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.Persona.delete(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['personas'] });
+      const previous = queryClient.getQueryData(['personas']) || [];
+      queryClient.setQueryData(['personas'], previous.filter(persona => persona.id !== id));
+      return { previous };
+    },
+    onError: (_error, _id, context) => {
+      queryClient.setQueryData(['personas'], context?.previous || []);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['personas'] });
+    }
+  });
 
   const openCreate = () => { setEditing(null); setForm(defaultForm()); setShowForm(true); };
   const openEdit = (p) => { setEditing(p); setForm({ ...p }); setShowForm(true); };
 
   const save = async () => {
     if (!form.name) return toast.error('Name is required');
-    if (editing) {
-      await base44.entities.Persona.update(editing.id, form);
-      toast.success('Persona updated');
-      auditLog({ action: 'PERSONA_UPDATED', category: 'persona', targetId: editing.id, details: { name: form.name } });
-    } else {
-      const p = await base44.entities.Persona.create(form);
-      toast.success('Persona created');
-      auditLog({ action: 'PERSONA_CREATED', category: 'persona', targetId: p.id, details: { name: form.name } });
-    }
+    await saveMutation.mutateAsync({ currentForm: form, currentEditing: editing });
+    toast.success(editing ? 'Persona updated' : 'Persona created');
+    auditLog({ action: editing ? 'PERSONA_UPDATED' : 'PERSONA_CREATED', category: 'persona', targetId: editing?.id, details: { name: form.name } });
     setShowForm(false);
     loadPersonas();
   };
 
   const remove = async (id) => {
     const p = personas.find(x => x.id === id);
-    await base44.entities.Persona.delete(id);
-    setPersonas(prev => prev.filter(p => p.id !== id));
+    await deleteMutation.mutateAsync(id);
     toast.success('Persona deleted');
     auditLog({ action: 'PERSONA_DELETED', category: 'persona', targetId: id, details: { name: p?.name } });
   };
