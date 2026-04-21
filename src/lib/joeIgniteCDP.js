@@ -140,8 +140,47 @@ async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwri
 }
 
 async function readPageState(cdp, sessionId) {
-  const expr = `({ url: location.href, text: (document.body && document.body.innerText || '').slice(0, 8000) })`;
-  return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '' };
+  // TODO: once the real success-banner selector is known, refine this matcher.
+  // Current heuristic: any element whose text contains "welcome" / "success" /
+  // "logged in" and whose computed background-color has a strong green channel.
+  const expr = `(() => {
+    const body = document.body;
+    const text = (body && body.innerText || '').slice(0, 8000);
+    let successBanner = false;
+    try {
+      const candidates = document.querySelectorAll('div,span,p,section,aside');
+      for (const el of candidates) {
+        const txt = (el.innerText || '').toLowerCase().trim();
+        if (!txt || txt.length > 200) continue;
+        if (!(txt.includes('welcome') || txt.includes('success') || txt.includes('logged in'))) continue;
+        const bg = getComputedStyle(el).backgroundColor || '';
+        const m = bg.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+        if (m) {
+          const r = +m[1], g = +m[2], b = +m[3];
+          if (g > 120 && g > r + 30 && g > b + 30) { successBanner = true; break; }
+        }
+      }
+    } catch {}
+    return { url: location.href, text, successBanner };
+  })()`;
+  return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '', successBanner: false };
+}
+
+/**
+ * After clicking submit, poll the page for up to POST_SUBMIT_WAIT_MS looking
+ * for any definitive signal (success banner, temp-lock, perm-ban, "incorrect").
+ * Returns as soon as a signal is found, otherwise returns the last snapshot.
+ */
+async function waitForResponse(cdp, sessionId) {
+  const deadline = Date.now() + JOE_IGNITE_CONFIG.POST_SUBMIT_WAIT_MS;
+  let lastState = { url: '', text: '', successBanner: false };
+  while (Date.now() < deadline) {
+    lastState = await readPageState(cdp, sessionId);
+    const outcome = classifyOutcome(lastState);
+    if (outcome !== 'CONTINUE') return { state: lastState, outcome };
+    await new Promise((r) => setTimeout(r, JOE_IGNITE_CONFIG.POST_SUBMIT_POLL_MS));
+  }
+  return { state: lastState, outcome: classifyOutcome(lastState) };
 }
 
 /**
@@ -173,9 +212,9 @@ export async function runCredentialInSession({ connectUrl, email, password, onPr
           await jitter(300, 600);
         }
         await fillAndSubmit(cdp, site.session, site.cfg.selectors, email, password, attempt > 1);
-        await jitter(1500, 2500);
-        const state = await readPageState(cdp, site.session);
-        return classifyOutcome(state);
+        // Poll for up to 7s waiting for the site's (often delayed) response
+        const { outcome } = await waitForResponse(cdp, site.session);
+        return outcome;
       } catch (err) {
         return 'ERROR';
       }
