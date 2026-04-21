@@ -140,27 +140,13 @@ async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwri
 }
 
 async function readPageState(cdp, sessionId) {
-  // TODO: once the real success-banner selector is known, refine this matcher.
-  // Current heuristic: any element whose text contains "welcome" / "success" /
-  // "logged in" and whose computed background-color has a strong green channel.
+  // Success banner: the site renders a green OL alert with class
+  // "ol-alert__content--status_success" when login succeeds. That's the
+  // definitive signal — no need for colour/text heuristics.
   const expr = `(() => {
     const body = document.body;
     const text = (body && body.innerText || '').slice(0, 8000);
-    let successBanner = false;
-    try {
-      const candidates = document.querySelectorAll('div,span,p,section,aside');
-      for (const el of candidates) {
-        const txt = (el.innerText || '').toLowerCase().trim();
-        if (!txt || txt.length > 200) continue;
-        if (!(txt.includes('welcome') || txt.includes('success') || txt.includes('logged in'))) continue;
-        const bg = getComputedStyle(el).backgroundColor || '';
-        const m = bg.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
-        if (m) {
-          const r = +m[1], g = +m[2], b = +m[3];
-          if (g > 120 && g > r + 30 && g > b + 30) { successBanner = true; break; }
-        }
-      }
-    } catch {}
+    const successBanner = !!document.querySelector('.ol-alert__content--status_success');
     return { url: location.href, text, successBanner };
   })()`;
   return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '', successBanner: false };

