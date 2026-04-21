@@ -5,7 +5,7 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import AppShellRoutes from '@/components/layout/AppShellRoutes';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
   { label: 'Bulk Test', icon: FlaskConical, path: '/bulk' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
+  { label: 'Test Reports', icon: BarChart3, path: '/reports' },
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
   { label: 'Contexts', icon: Layers, path: '/contexts' },

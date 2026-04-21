@@ -1,0 +1,36 @@
+{
+  "name": "CloudFunction",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable function name"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this cloud function does"
+    },
+    "script": {
+      "type": "string",
+      "description": "Playwright or Puppeteer script source"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": [
+        "playwright",
+        "puppeteer"
+      ],
+      "default": "playwright"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "script"
+  ]
+}

@@ -1,0 +1,87 @@
+import { useEffect, useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Terminal, Plus, Play } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function CloudFunctionLibrary({ onLaunch }) {
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: '', description: '', script: '', runtime: 'playwright' });
+
+  const load = async () => {
+    const data = await base44.entities.CloudFunction.list('-updated_date', 50);
+    setItems(Array.isArray(data) ? data : []);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async () => {
+    const saved = await base44.entities.CloudFunction.create(form);
+    setItems(prev => [saved, ...prev]);
+    setForm({ name: '', description: '', script: '', runtime: 'playwright' });
+    setOpen(false);
+    toast.success('Cloud function saved');
+  };
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold text-white flex items-center gap-2">
+          <Terminal className="w-4 h-4 text-cyan-400" /> Cloud Function Library
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(true)} className="text-cyan-400 hover:bg-cyan-500/10 gap-1">
+          <Plus className="w-3 h-3" /> New
+        </Button>
+      </div>
+
+      <div className="space-y-2 max-h-72 overflow-y-auto">
+        {items.map(item => (
+          <div key={item.id} className="rounded-lg border border-gray-800 bg-gray-800/50 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm text-white font-medium">{item.name}</div>
+                <div className="text-xs text-gray-500 mt-1">{item.description || 'No description'}</div>
+              </div>
+              <Badge className="bg-cyan-500/10 text-cyan-300 border-cyan-500/20 capitalize">{item.runtime}</Badge>
+            </div>
+            <Button size="sm" onClick={() => onLaunch(item)} className="mt-3 bg-cyan-500 hover:bg-cyan-600 text-black gap-1.5">
+              <Play className="w-3 h-3" /> Launch
+            </Button>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-xs text-gray-600 text-center py-6">No cloud functions yet</div>}
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="bg-gray-900 border-gray-800 text-white">
+          <DialogHeader>
+            <DialogTitle>New Cloud Function</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-400 mb-1 block">Name</Label>
+              <Input value={form.name} onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))} className="bg-gray-800 border-gray-700 text-gray-200" />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-400 mb-1 block">Description</Label>
+              <Input value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} className="bg-gray-800 border-gray-700 text-gray-200" />
+            </div>
+            <div>
+              <Label className="text-xs text-gray-400 mb-1 block">Script</Label>
+              <Textarea value={form.script} onChange={e => setForm(prev => ({ ...prev, script: e.target.value }))} className="bg-gray-800 border-gray-700 text-gray-200 min-h-[180px] font-mono text-xs" />
+            </div>
+            <Button onClick={save} disabled={!form.name || !form.script} className="w-full bg-cyan-500 hover:bg-cyan-600 text-black">Save Function</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

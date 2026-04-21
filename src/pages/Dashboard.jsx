@@ -3,6 +3,7 @@ import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
+import ConcurrencyGauge from '@/components/dashboard/ConcurrencyGauge';
 import { Button } from '@/components/ui/button';
 import {
   RefreshCw, Activity, Clock, Globe, Zap, Layers, TrendingUp,
@@ -149,6 +150,8 @@ export default function Dashboard() {
             );
           })}
         </div>
+
+        <ConcurrencyGauge active={running} max={50} />
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

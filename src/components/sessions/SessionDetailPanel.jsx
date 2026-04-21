@@ -118,7 +118,12 @@ export default function SessionDetailPanel({ session, onClose }) {
           )}
         </TabsContent>
 
-        <TabsContent value="recording" className="flex-1 overflow-y-auto p-4 mt-0">
+        <TabsContent value="recording" className="flex-1 overflow-y-auto p-4 mt-0 space-y-3">
+          {detail.status === 'ERROR' || detail.status === 'TIMED_OUT' ? (
+            <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200">
+              Black Box Replay surfaced automatically for failed sessions.
+            </div>
+          ) : null}
           <SessionRecordingPlayer recording={recording} loading={loading} />
         </TabsContent>
 

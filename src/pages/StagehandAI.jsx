@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import CloudFunctionLibrary from '@/components/stagehand/CloudFunctionLibrary';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
@@ -35,6 +36,11 @@ export default function StagehandAI() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState([]);
   const [createdSessions, setCreatedSessions] = useState([]);
+
+  const launchCloudFunction = async (item) => {
+    setPrompt(item.description || item.name);
+    toast.success(`Loaded ${item.name}`);
+  };
 
   if (!isConfigured) return <CredentialsGuard />;
 
@@ -211,6 +217,7 @@ Be specific and technical. Format as a structured execution plan.`,
 
         {/* Sidebar */}
         <div className="space-y-3">
+          <CloudFunctionLibrary onLaunch={launchCloudFunction} />
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <div className="text-sm font-semibold text-white mb-3">Example Prompts</div>
             <div className="space-y-2">
