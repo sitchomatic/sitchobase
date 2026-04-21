@@ -172,7 +172,7 @@ async function readState(cdp, sessionId) {
 }
 
 // ── process one credential ─────────────────────────────────────────────────
-async function processCredential({ cred, batchId, apiKey, projectId, base44 }) {
+async function processCredential({ cred, batchId, apiKey, projectId, base44, proxy }) {
   const rowPatch = {
     batchId, email: cred.email, status: 'running',
     attempts: 0, startedAt: new Date().toISOString(),
@@ -188,11 +188,18 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44 }) {
   const details = [];
 
   try {
-    const session = await bbFetch('/sessions', 'POST', apiKey, {
+    const sessionBody = {
       projectId,
       browserSettings: { viewport: { width: 1366, height: 768 } },
-      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId },
-    });
+      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxyId: proxy?.id },
+    };
+    if (proxy) {
+      const p = { type: 'external', server: proxy.server };
+      if (proxy.username) p.username = proxy.username;
+      if (proxy.password) p.password = proxy.password;
+      sessionBody.proxies = [p];
+    }
+    const session = await bbFetch('/sessions', 'POST', apiKey, sessionBody);
     sessionId = session.id;
     if (rowId) await base44.asServiceRole.entities.JoeIgniteRun.update(rowId, { sessionId });
 
@@ -251,6 +258,19 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44 }) {
   };
   if (rowId) await base44.asServiceRole.entities.JoeIgniteRun.update(rowId, finalPatch);
   else await base44.asServiceRole.entities.JoeIgniteRun.create({ batchId, email: cred.email, ...finalPatch });
+
+  // Update proxy usage stats
+  if (proxy?.id) {
+    const isSuccess = status === 'success';
+    try {
+      await base44.asServiceRole.entities.ProxyPool.update(proxy.id, {
+        timesUsed: (proxy.timesUsed || 0) + 1,
+        successCount: (proxy.successCount || 0) + (isSuccess ? 1 : 0),
+        failureCount: (proxy.failureCount || 0) + (isSuccess ? 0 : 1),
+        lastUsedAt: new Date().toISOString(),
+      });
+    } catch {}
+  }
 }
 
 // ── handler ────────────────────────────────────────────────────────────────
@@ -275,14 +295,25 @@ Deno.serve(async (req) => {
       })
     ));
 
+    // Load proxy pool (enabled only) for round-robin assignment
+    const allProxies = await base44.asServiceRole.entities.ProxyPool.list('-created_date', 500);
+    const proxyPool = allProxies.filter((p) => p.enabled !== false && p.server);
+    let proxyCursor = 0;
+    const nextProxy = () => {
+      if (proxyPool.length === 0) return null;
+      const p = proxyPool[proxyCursor % proxyPool.length];
+      proxyCursor++;
+      return p;
+    };
+
     // Return immediately so the client isn't blocked; run workers in background.
-    const queue = [...credentials];
+    const queue = credentials.map((c) => ({ cred: c, proxy: nextProxy() }));
     const workers = Array.from({ length: Math.max(1, Math.min(concurrency, 8)) }, async () => {
       while (queue.length) {
-        const cred = queue.shift();
-        if (!cred) return;
-        try { await processCredential({ cred, batchId, apiKey, projectId, base44 }); }
-        catch (err) { console.error(`row failed ${cred.email}: ${err.message}`); }
+        const item = queue.shift();
+        if (!item) return;
+        try { await processCredential({ cred: item.cred, batchId, apiKey, projectId, base44, proxy: item.proxy }); }
+        catch (err) { console.error(`row failed ${item.cred.email}: ${err.message}`); }
       }
     });
 

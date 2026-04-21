@@ -19,6 +19,7 @@ const navItems = [
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
   { label: 'Contexts', icon: Layers, path: '/contexts' },
+  { label: 'Proxies', icon: Shield, path: '/proxies' },
   { label: 'Personas', icon: Users, path: '/personas' },
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },

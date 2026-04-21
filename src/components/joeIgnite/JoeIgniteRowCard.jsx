@@ -19,11 +19,12 @@ export default function JoeIgniteRowCard({ row }) {
       <Icon className={`w-4 h-4 flex-shrink-0 ${cfg.color} ${cfg.spin ? 'animate-spin' : ''}`} />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-mono text-gray-200 truncate">{row.email}</div>
-        <div className="text-[11px] text-gray-500 flex items-center gap-2">
+        <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
           <span className="uppercase tracking-wide">{row.status}</span>
           {row.attempts ? <span>· try {row.attempts}</span> : null}
           {row.joeOutcome ? <span>· joe: <span className="text-gray-300">{row.joeOutcome}</span></span> : null}
           {row.ignitionOutcome ? <span>· ign: <span className="text-gray-300">{row.ignitionOutcome}</span></span> : null}
+          {row.proxyLabel ? <span>· 🛡 <span className="text-emerald-400">{row.proxyLabel}</span></span> : null}
         </div>
       </div>
       {row.sessionId && (

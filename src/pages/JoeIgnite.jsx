@@ -16,6 +16,9 @@ import { buildJoeIgniteExports, downloadCSV } from '@/lib/joeIgniteExport';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { Shield } from 'lucide-react';
 
 export default function JoeIgnite() {
   const { isConfigured, credentials: bbCreds } = useCredentials();
@@ -33,6 +36,13 @@ export default function JoeIgnite() {
   const pollTimerRef = useRef(null);
 
   useEffect(() => { localStorage.setItem('joe_ignite_mode', mode); }, [mode]);
+
+  const { data: proxyPool = [] } = useQuery({
+    queryKey: ['proxyPool'],
+    queryFn: () => base44.entities.ProxyPool.list('-created_date', 500),
+    initialData: [],
+  });
+  const enabledProxies = proxyPool.filter((p) => p.enabled !== false);
 
   // Autofocus CSV picker when navigated with ?pick=1 (from the Command Center button)
   useEffect(() => {
@@ -171,6 +181,30 @@ export default function JoeIgnite() {
           </p>
         </div>
       </div>
+
+      {/* Proxy pool status */}
+      <Link to="/proxies"
+        className={`block rounded-xl border px-4 py-3 flex items-center gap-3 hover:bg-gray-900/60 transition ${
+          enabledProxies.length > 0
+            ? 'border-emerald-500/30 bg-emerald-500/5'
+            : 'border-yellow-500/30 bg-yellow-500/5'
+        }`}>
+        <Shield className={`w-4 h-4 ${enabledProxies.length > 0 ? 'text-emerald-400' : 'text-yellow-400'}`} />
+        <div className="flex-1 text-xs">
+          {enabledProxies.length > 0 ? (
+            <>
+              <span className="text-emerald-400 font-semibold">{enabledProxies.length} proxies active</span>
+              <span className="text-gray-400"> · rotated round-robin across sessions</span>
+            </>
+          ) : (
+            <>
+              <span className="text-yellow-400 font-semibold">No proxies in pool</span>
+              <span className="text-gray-400"> · sessions use Browserbase default IPs. Click to add proxies.</span>
+            </>
+          )}
+        </div>
+        <span className="text-[11px] text-gray-500">Manage →</span>
+      </Link>
 
       {/* CSV */}
       <div ref={pickerRef}>

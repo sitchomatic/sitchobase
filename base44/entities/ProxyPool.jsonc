@@ -1,0 +1,51 @@
+{
+  "name": "ProxyPool",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string",
+      "description": "Human-friendly label, e.g. 'Oxylabs AU-01'"
+    },
+    "server": {
+      "type": "string",
+      "description": "Proxy endpoint in the form host:port (e.g. pr.oxylabs.io:7777)"
+    },
+    "username": {
+      "type": "string"
+    },
+    "password": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string",
+      "description": "ISO country code (AU, US, etc.)"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (oxylabs, brightdata, smartproxy, custom, etc.)"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "timesUsed": {
+      "type": "number",
+      "default": 0
+    },
+    "successCount": {
+      "type": "number",
+      "default": 0
+    },
+    "failureCount": {
+      "type": "number",
+      "default": 0
+    },
+    "lastUsedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "server"
+  ]
+}

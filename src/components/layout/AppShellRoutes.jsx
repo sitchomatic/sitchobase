@@ -10,6 +10,7 @@ import StagehandAI from '@/pages/StagehandAI';
 import Settings from '@/pages/Settings';
 import BulkTest from '@/pages/BulkTest';
 import JoeIgnite from '@/pages/JoeIgnite';
+import Proxies from '@/pages/Proxies';
 import Monitor from '@/pages/Monitor';
 import AuditLog from '@/pages/AuditLog.jsx';
 import PageNotFound from '@/lib/PageNotFound';
@@ -26,6 +27,7 @@ const routeMap = {
   '/settings': Settings,
   '/bulk': BulkTest,
   '/joe-ignite': JoeIgnite,
+  '/proxies': Proxies,
   '/monitor': Monitor,
   '/audit': AuditLog,
 };
