@@ -6,9 +6,9 @@ export function useCredentials() {
   const [credentials, setCredentials] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : { apiKey: '', projectId: '' };
+      return stored ? JSON.parse(stored) : { apiKey: 'bb_live_B_p5sKrXHCpxUJ2UQHWpEfPad6A', projectId: 'cd060316-4ca4-49c7-881e-63b9cabd1735' };
     } catch {
-      return { apiKey: '', projectId: '' };
+      return { apiKey: 'bb_live_B_p5sKrXHCpxUJ2UQHWpEfPad6A', projectId: 'cd060316-4ca4-49c7-881e-63b9cabd1735' };
     }
   });
 
