@@ -4,7 +4,7 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Persona name, e.g. Mobile User - UK"
+      "description": "Persona name, e.g. Mobile User - AU"
     },
     "userAgent": {
       "type": "string",
@@ -13,16 +13,16 @@
     "region": {
       "type": "string",
       "enum": [
+        "au",
         "us-west-2",
         "us-east-1",
-        "eu-central-1",
-        "ap-southeast-1"
+        "eu-central-1"
       ],
-      "default": "us-west-2"
+      "default": "au"
     },
     "useProxy": {
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "proxyCountry": {
       "type": "string",
