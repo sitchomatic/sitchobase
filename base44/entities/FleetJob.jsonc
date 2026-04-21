@@ -1,0 +1,67 @@
+{
+  "name": "FleetJob",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Stagehand natural language prompt"
+    },
+    "sessionCount": {
+      "type": "number",
+      "default": 1
+    },
+    "region": {
+      "type": "string",
+      "enum": [
+        "us-west-2",
+        "us-east-1",
+        "eu-central-1",
+        "ap-southeast-1"
+      ],
+      "default": "us-west-2"
+    },
+    "personaId": {
+      "type": "string"
+    },
+    "contextId": {
+      "type": "string"
+    },
+    "keepAlive": {
+      "type": "boolean",
+      "default": false
+    },
+    "useProxy": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "sessionIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "sessionCount"
+  ]
+}

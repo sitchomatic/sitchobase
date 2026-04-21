@@ -1,0 +1,53 @@
+{
+  "name": "Persona",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Persona name, e.g. Mobile User - UK"
+    },
+    "userAgent": {
+      "type": "string",
+      "description": "Browser user agent string"
+    },
+    "region": {
+      "type": "string",
+      "enum": [
+        "us-west-2",
+        "us-east-1",
+        "eu-central-1",
+        "ap-southeast-1"
+      ],
+      "default": "us-west-2"
+    },
+    "useProxy": {
+      "type": "boolean",
+      "default": false
+    },
+    "proxyCountry": {
+      "type": "string",
+      "description": "ISO country code for geo proxy"
+    },
+    "deviceType": {
+      "type": "string",
+      "enum": [
+        "desktop",
+        "mobile",
+        "tablet"
+      ],
+      "default": "desktop"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
