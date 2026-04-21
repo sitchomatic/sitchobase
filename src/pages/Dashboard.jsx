@@ -5,7 +5,7 @@ import MetricCard from '@/components/shared/MetricCard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Activity, Clock, Globe, Zap, Layers, TrendingUp, Play, XCircle } from 'lucide-react';
+import { RefreshCw, Activity, Clock, Globe, Zap, Layers, TrendingUp, Play, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -15,6 +15,8 @@ export default function Dashboard() {
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [apiStatus, setApiStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
+  const [apiLatency, setApiLatency] = useState(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
@@ -34,6 +36,20 @@ export default function Dashboard() {
   }, [credentials, isConfigured]);
 
   useEffect(() => { load(); }, [load]);
+
+  const testApi = useCallback(async () => {
+    if (!isConfigured) return;
+    setApiStatus('testing');
+    setApiLatency(null);
+    const start = Date.now();
+    try {
+      await listSessions(credentials.apiKey);
+      setApiLatency(Date.now() - start);
+      setApiStatus('ok');
+    } catch {
+      setApiStatus('error');
+    }
+  }, [credentials, isConfigured]);
 
   // Auto-refresh every 15s
   useEffect(() => {
@@ -138,6 +154,39 @@ export default function Dashboard() {
                 <Layers className="w-4 h-4" /> Manage Contexts
               </Button>
             </Link>
+          </div>
+
+          {/* API Health Test */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+            <div className="text-sm font-semibold text-white">API Health</div>
+            <div className="flex items-center gap-3">
+              <div className={`flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${
+                apiStatus === 'ok'      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                apiStatus === 'error'   ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                apiStatus === 'testing' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' :
+                'bg-gray-800 border-gray-700 text-gray-500'
+              }`}>
+                {apiStatus === 'ok'      && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                {apiStatus === 'error'   && <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                {apiStatus === 'testing' && <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />}
+                {!apiStatus             && <Globe className="w-3.5 h-3.5 flex-shrink-0" />}
+                <span>
+                  {apiStatus === 'ok'      ? `OK · ${apiLatency}ms` :
+                   apiStatus === 'error'   ? 'Unreachable' :
+                   apiStatus === 'testing' ? 'Pinging…' :
+                   'Not tested'}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={testApi}
+                disabled={apiStatus === 'testing'}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 text-xs h-8 px-3"
+              >
+                Test
+              </Button>
+            </div>
           </div>
 
           {/* Status ring */}
