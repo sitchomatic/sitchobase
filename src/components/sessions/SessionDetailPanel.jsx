@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSession, getSessionLogs, getSessionRecording, formatBytes } from '@/lib/browserbaseApi';
+import { bbClient, formatBytes } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SessionRecordingPlayer from '@/components/sessions/SessionRecordingPlayer';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { X, ExternalLink, RefreshCw, Terminal, Film, Info } from 'lucide-react';
 import { format } from 'date-fns';
 
-export default function SessionDetailPanel({ session, credentials, onClose }) {
+export default function SessionDetailPanel({ session, onClose }) {
   const [detail, setDetail] = useState(session);
   const [logs, setLogs] = useState([]);
   const [recording, setRecording] = useState(null);
@@ -16,9 +16,9 @@ export default function SessionDetailPanel({ session, credentials, onClose }) {
   const refresh = async () => {
     setLoading(true);
     const [d, l, r] = await Promise.allSettled([
-      getSession(credentials.apiKey, session.id),
-      getSessionLogs(credentials.apiKey, session.id),
-      getSessionRecording(credentials.apiKey, session.id),
+      bbClient.getSession(session.id),
+      bbClient.getSessionLogs(session.id),
+      bbClient.getSessionRecording(session.id),
     ]);
     if (d.status === 'fulfilled') setDetail(d.value);
     if (l.status === 'fulfilled') setLogs(Array.isArray(l.value) ? l.value : []);

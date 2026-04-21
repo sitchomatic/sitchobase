@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { listContexts, createContext, deleteContext } from '@/lib/browserbaseApi';
+import { bbClient } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
 export default function Contexts() {
-  const { credentials, isConfigured } = useCredentials();
+  const { isConfigured } = useCredentials();
   const [contexts, setContexts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -18,38 +18,25 @@ export default function Contexts() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    try {
-      const data = await listContexts(credentials.apiKey);
-      setContexts(Array.isArray(data) ? data : []);
-    } catch (err) {
-      toast.error(`Failed to load contexts: ${err.message}`);
-      setContexts([]);
-    }
+    const data = await bbClient.listContexts();
+    setContexts(Array.isArray(data) ? data : []);
     setLoading(false);
-  }, [credentials, isConfigured]);
+  }, [isConfigured]);
 
   useEffect(() => { load(); }, [load]);
 
   const create = async () => {
     setCreating(true);
-    try {
-      const ctx = await createContext(credentials.apiKey, credentials.projectId);
-      setContexts(prev => [ctx, ...prev]);
-      toast.success('Context created');
-    } catch (err) {
-      toast.error(`Failed to create context: ${err.message}`);
-    }
+    const ctx = await bbClient.createContext();
+    setContexts(prev => [ctx, ...prev]);
+    toast.success('Context created');
     setCreating(false);
   };
 
   const remove = async (id) => {
-    try {
-      await deleteContext(credentials.apiKey, id);
-      setContexts(prev => prev.filter(c => c.id !== id));
-      toast.success('Context deleted');
-    } catch (err) {
-      toast.error(`Failed to delete context: ${err.message}`);
-    }
+    await bbClient.deleteContext(id);
+    setContexts(prev => prev.filter(c => c.id !== id));
+    toast.success('Context deleted');
   };
 
   const copy = (text) => {
@@ -93,18 +80,17 @@ export default function Contexts() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loading && contexts.length === 0 && (
+            <div className="col-span-3 text-center py-8 text-gray-500 text-sm">Loading contexts…</div>
+          )}
           {contexts.map(ctx => (
             <div key={ctx.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
                   <Layers className="w-5 h-5 text-purple-400" />
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => remove(ctx.id)}
-                  className="w-7 h-7 text-gray-600 hover:text-red-400"
-                >
+                <Button size="icon" variant="ghost" onClick={() => remove(ctx.id)}
+                  className="w-7 h-7 text-gray-600 hover:text-red-400">
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -115,12 +101,10 @@ export default function Contexts() {
                   <code className="text-xs font-mono text-gray-300 truncate flex-1 bg-gray-800 rounded px-2 py-1">
                     {ctx.id}
                   </code>
-                  <button onClick={() => copy(ctx.id)} className="text-gray-600 hover:text-gray-300 flex-shrink-0">
-                    {copiedId === ctx.id ? (
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
+                  <button onClick={() => copy(ctx.id)} className="text-gray-600 hover:text-gray-300 flex-shrink-0 ml-1">
+                    {copiedId === ctx.id
+                      ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -135,8 +119,11 @@ export default function Contexts() {
                 </div>
               )}
 
-              <div className="pt-2 border-t border-gray-800 text-xs text-gray-600">
-                Cipher: {ctx.cipherAlgorithm || 'AES-256-CBC'}
+              <div className="pt-2 border-t border-gray-800 flex items-center justify-between">
+                <span className="text-xs text-gray-600">Cipher: {ctx.cipherAlgorithm || 'AES-256-CBC'}</span>
+                {ctx.createdAt && (
+                  <span className="text-xs text-gray-700">{formatDistanceToNow(new Date(ctx.createdAt))} ago</span>
+                )}
               </div>
             </div>
           ))}

@@ -1,17 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { listSessions, getProjectUsage, formatBytes } from '@/lib/browserbaseApi';
+import { bbClient, formatBytes } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import MetricCard from '@/components/shared/MetricCard';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Clock, Globe, Activity, Zap, RefreshCw } from 'lucide-react';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell
+} from 'recharts';
+import { TrendingUp, Clock, Globe, Activity, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, subHours } from 'date-fns';
 
 const COLORS = ['#10b981','#f59e0b','#ef4444','#6b7280','#8b5cf6'];
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs">
+      <div className="text-gray-400 mb-1">{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ color: p.color }}>{p.name}: {p.value}</div>
+      ))}
+    </div>
+  );
+};
+
 export default function Analytics() {
-  const { credentials, isConfigured } = useCredentials();
+  const { isConfigured } = useCredentials();
   const [sessions, setSessions] = useState([]);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,13 +35,13 @@ export default function Analytics() {
     if (!isConfigured) return;
     setLoading(true);
     const [sess, usg] = await Promise.allSettled([
-      listSessions(credentials.apiKey),
-      getProjectUsage(credentials.apiKey, credentials.projectId),
+      bbClient.listSessions(),
+      bbClient.getProjectUsage(),
     ]);
-    if (sess.status === 'fulfilled') setSessions(sess.value);
+    if (sess.status === 'fulfilled') setSessions(Array.isArray(sess.value) ? sess.value : []);
     if (usg.status === 'fulfilled') setUsage(usg.value);
     setLoading(false);
-  }, [credentials, isConfigured]);
+  }, [isConfigured]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -47,48 +62,37 @@ export default function Analytics() {
     count: sessions.filter(s => s.region === r).length,
   })).filter(d => d.count > 0);
 
-  // Simulate hourly burn rate data
-  const burnData = Array.from({ length: 12 }, (_, i) => {
-    const hour = subHours(new Date(), 11 - i);
-    const running = Math.floor(Math.random() * 15);
-    return {
-      hour: format(hour, 'HH:mm'),
-      sessions: running,
-      minutes: running * 5,
-    };
+  // Hourly activity from real session data
+  const hourlyMap = {};
+  sessions.forEach(s => {
+    const h = format(new Date(s.createdAt), 'HH:00');
+    hourlyMap[h] = (hourlyMap[h] || 0) + 1;
+  });
+  const activityData = Array.from({ length: 12 }, (_, i) => {
+    const hour = format(subHours(new Date(), 11 - i), 'HH:00');
+    return { hour, sessions: hourlyMap[hour] || 0 };
   });
 
   const totalProxyMB = usage ? (usage.proxyBytes / 1024 / 1024).toFixed(2) : 0;
-  const avgDuration = sessions.filter(s => s.startedAt && s.endedAt).reduce((acc, s) => {
-    return acc + (new Date(s.endedAt) - new Date(s.startedAt)) / 1000;
-  }, 0) / Math.max(sessions.filter(s => s.endedAt).length, 1);
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-        <div className="text-gray-400 mb-1">{label}</div>
-        {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color }}>{p.name}: {p.value}</div>
-        ))}
-      </div>
-    );
-  };
+  const completedSessions = sessions.filter(s => s.startedAt && s.endedAt);
+  const avgDuration = completedSessions.length > 0
+    ? completedSessions.reduce((acc, s) => acc + (new Date(s.endedAt) - new Date(s.startedAt)) / 1000, 0) / completedSessions.length
+    : 0;
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Analytics & Burn-Rate</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Real-time usage and cost tracking</p>
+          <p className="text-sm text-gray-500 mt-0.5">Real-time usage and cost tracking · {sessions.length} total sessions</p>
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}
           className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
         </Button>
       </div>
 
-      {/* Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard label="Total Sessions" value={sessions.length} icon={Activity} accent="emerald" />
         <MetricCard label="Browser Minutes" value={usage?.browserMinutes?.toLocaleString() ?? '—'} icon={Clock} accent="blue" />
@@ -97,11 +101,10 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Burn rate */}
         <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-5">
           <div className="text-sm font-semibold text-white mb-4">Session Activity (Last 12h)</div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={burnData}>
+            <AreaChart data={activityData}>
               <defs>
                 <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -110,18 +113,17 @@ export default function Analytics() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
               <XAxis dataKey="hour" tick={{ fill: '#6b7280', fontSize: 10 }} />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Area type="monotone" dataKey="sessions" stroke="#10b981" fill="url(#grad)" name="Sessions" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Status distribution */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
           <div className="text-sm font-semibold text-white mb-4">Status Distribution</div>
           {byStatus.length === 0 ? (
-            <div className="text-center py-8 text-gray-600 text-xs">No data yet</div>
+            <div className="text-center py-8 text-gray-600 text-xs">{loading ? 'Loading…' : 'No data yet'}</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={140}>
@@ -148,23 +150,20 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Region breakdown */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <div className="text-sm font-semibold text-white mb-4">Sessions by Region</div>
-        {byRegion.length === 0 ? (
-          <div className="text-center py-6 text-gray-600 text-xs">No region data</div>
-        ) : (
+      {byRegion.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div className="text-sm font-semibold text-white mb-4">Sessions by Region</div>
           <ResponsiveContainer width="100%" height={120}>
             <BarChart data={byRegion} barSize={32}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
               <XAxis dataKey="region" tick={{ fill: '#6b7280', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} name="Sessions" />
             </BarChart>
           </ResponsiveContainer>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

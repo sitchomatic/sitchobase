@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { batchCreateSessions } from '@/lib/browserbaseApi';
+import { bbClient } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -10,19 +10,27 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+
+const REGIONS = [
+  { value: 'us-west-2',    label: 'us-west-2 🇺🇸' },
+  { value: 'us-east-1',    label: 'us-east-1 🇺🇸' },
+  { value: 'eu-central-1', label: 'eu-central-1 🇩🇪' },
+  { value: 'ap-southeast-1', label: 'ap-southeast-1 🇸🇬' },
+];
 
 export default function FleetLauncher() {
-  const { credentials, isConfigured } = useCredentials();
+  const { isConfigured } = useCredentials();
   const [count, setCount] = useState(3);
-  const [region, setRegion] = useState('au');
+  const [region, setRegion] = useState('us-west-2');
   const [keepAlive, setKeepAlive] = useState(false);
   const [useProxy, setUseProxy] = useState(true);
   const [sessionTimeout, setSessionTimeout] = useState(300);
   const [tag, setTag] = useState('');
   const [launching, setLaunching] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [results, setResults] = useState([]);
   const [errors, setErrors] = useState([]);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
 
   if (!isConfigured) return <CredentialsGuard />;
 
@@ -32,23 +40,23 @@ export default function FleetLauncher() {
     setErrors([]);
     setProgress({ done: 0, total: count });
 
-    const options = {
-      projectId: credentials.projectId,
-      region,
-      keepAlive,
-      timeout: sessionTimeout,
-      ...(useProxy ? { proxies: true } : {}),
-      ...(tag ? { userMetadata: { tag, launchedFrom: 'BBCommandCenter' } } : {}),
-    };
+    try {
+      const options = {
+        region,
+        keepAlive,
+        timeout: sessionTimeout,
+        ...(useProxy ? { proxies: true } : {}),
+        ...(tag ? { userMetadata: { tag, launchedFrom: 'BBCommandCenter' } } : {}),
+      };
 
-    const { results: res, errors: errs } = await batchCreateSessions(
-      credentials.apiKey,
-      count,
-      options,
-      (done, total) => setProgress({ done, total })
-    );
-    setResults(res);
-    setErrors(errs);
+      const res = await bbClient.batchCreateSessions(count, options);
+      setResults(res.results || []);
+      setErrors(res.errors || []);
+      setProgress({ done: count, total: count });
+      toast.success(`${res.results?.length || 0} sessions launched`);
+    } catch (err) {
+      toast.error(`Launch failed: ${err.message}`);
+    }
     setLaunching(false);
   };
 
@@ -58,7 +66,7 @@ export default function FleetLauncher() {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">Fleet Launcher</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Launch concurrent browser sessions with rate-limit protection</p>
+        <p className="text-sm text-gray-500 mt-0.5">Launch concurrent browser sessions via backend proxy</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -67,12 +75,10 @@ export default function FleetLauncher() {
           <div className="text-sm font-semibold text-white">Launch Configuration</div>
 
           <div>
-            <Label className="text-gray-400 text-xs mb-2 block">Session Count: <span className="text-emerald-400 font-bold">{count}</span></Label>
-            <Slider
-              min={1} max={50} step={1} value={[count]}
-              onValueChange={([v]) => setCount(v)}
-              className="w-full"
-            />
+            <Label className="text-gray-400 text-xs mb-2 block">
+              Session Count: <span className="text-emerald-400 font-bold">{count}</span>
+            </Label>
+            <Slider min={1} max={50} step={1} value={[count]} onValueChange={([v]) => setCount(v)} className="w-full" />
             <div className="flex justify-between text-xs text-gray-600 mt-1"><span>1</span><span>50</span></div>
           </div>
 
@@ -83,12 +89,7 @@ export default function FleetLauncher() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-gray-700">
-                {[
-                  { value: 'au',           label: 'au 🇦🇺 Australia' },
-                  { value: 'us-west-2',    label: 'us-west-2' },
-                  { value: 'us-east-1',    label: 'us-east-1' },
-                  { value: 'eu-central-1', label: 'eu-central-1' },
-                ].map(r => (
+                {REGIONS.map(r => (
                   <SelectItem key={r.value} value={r.value} className="text-gray-200">{r.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -97,21 +98,13 @@ export default function FleetLauncher() {
 
           <div>
             <Label className="text-gray-400 text-xs mb-2 block">Timeout: <span className="text-white">{sessionTimeout}s</span></Label>
-            <Slider
-              min={60} max={3600} step={60} value={[sessionTimeout]}
-              onValueChange={([v]) => setSessionTimeout(v)}
-              className="w-full"
-            />
+            <Slider min={60} max={3600} step={60} value={[sessionTimeout]} onValueChange={([v]) => setSessionTimeout(v)} className="w-full" />
           </div>
 
           <div>
             <Label className="text-gray-400 text-xs mb-2 block">Tag / Label</Label>
-            <Input
-              placeholder="e.g. scrape-job-01"
-              value={tag}
-              onChange={e => setTag(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-gray-200"
-            />
+            <Input placeholder="e.g. scrape-job-01" value={tag} onChange={e => setTag(e.target.value)}
+              className="bg-gray-800 border-gray-700 text-gray-200" />
           </div>
 
           <div className="space-y-3 pt-2 border-t border-gray-800">
@@ -129,11 +122,8 @@ export default function FleetLauncher() {
             </div>
           </div>
 
-          <Button
-            onClick={launch}
-            disabled={launching}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold gap-2"
-          >
+          <Button onClick={launch} disabled={launching}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold gap-2">
             {launching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
             {launching ? `Launching… (${progress.done}/${progress.total})` : `Launch ${count} Session${count > 1 ? 's' : ''}`}
           </Button>
@@ -149,12 +139,8 @@ export default function FleetLauncher() {
                 <span>Progress</span><span>{pct}%</span>
               </div>
               <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${pct}%` }}
-                />
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
               </div>
-              <p className="text-xs text-gray-500">Rate-limited: exponential backoff active</p>
             </div>
           )}
 
@@ -169,7 +155,7 @@ export default function FleetLauncher() {
             {results.map(s => (
               <div key={s.id} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                <span className="text-xs font-mono text-gray-300 truncate">{s.id}</span>
+                <span className="text-xs font-mono text-gray-300 truncate flex-1">{s.id}</span>
                 <StatusBadge status={s.status} />
               </div>
             ))}

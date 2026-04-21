@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { getProjectUsage, listSessions } from '@/lib/browserbaseApi';
+import { bbClient } from '@/lib/bbClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Settings as SettingsIcon, Key, CheckCircle, AlertCircle, Loader2, Trash2, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import {
+  Settings as SettingsIcon, Key, CheckCircle, AlertCircle,
+  Loader2, Trash2, ExternalLink, Eye, EyeOff
+} from 'lucide-react';
 
 export default function Settings() {
   const { credentials, saveCredentials, clearCredentials, isConfigured } = useCredentials();
@@ -29,24 +32,26 @@ export default function Settings() {
       toast.error('Enter credentials first');
       return;
     }
+    // Save first so bbClient picks them up
+    saveCredentials(form);
     setTesting(true);
     setTestResult(null);
+
     const [sessions, usage] = await Promise.allSettled([
-      listSessions(form.apiKey),
-      getProjectUsage(form.apiKey, form.projectId),
+      bbClient.listSessions(),
+      bbClient.getProjectUsage(),
     ]);
 
-    if (sessions.status === 'fulfilled' && usage.status === 'fulfilled') {
-      setTestResult({ success: true, sessions: sessions.value.length, usage: usage.value });
+    if (sessions.status === 'fulfilled') {
+      setTestResult({
+        success: true,
+        sessions: Array.isArray(sessions.value) ? sessions.value.length : 0,
+        usage: usage.status === 'fulfilled' ? usage.value : null,
+      });
       toast.success('Connection successful!');
     } else {
-      const sessErr = sessions.reason;
-      const isCors = sessErr instanceof TypeError && sessErr.message.includes('fetch');
-      const errMsg = isCors
-        ? 'CORS block: The Browserbase API does not allow direct browser requests. This is expected in a browser-only app. Your credentials are saved correctly — API calls will work when proxied through a backend.'
-        : (sessErr?.message || usage.reason?.message || 'Unknown error');
-      setTestResult({ success: false, cors: isCors, error: errMsg });
-      toast.error(isCors ? 'Browser CORS block (credentials are fine)' : 'Connection failed');
+      setTestResult({ success: false, error: sessions.reason?.message || 'Unknown error' });
+      toast.error('Connection failed');
     }
     setTesting(false);
   };
@@ -83,10 +88,8 @@ export default function Settings() {
                 onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
                 className="bg-gray-800 border-gray-700 text-gray-200 pr-10"
               />
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300"
-              >
+              <button onClick={() => setShowKey(!showKey)}
+                className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300">
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
@@ -114,8 +117,6 @@ export default function Settings() {
           <div className={`flex items-start gap-2.5 p-3 rounded-lg text-sm ${
             testResult.success
               ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
-              : testResult.cors
-              ? 'bg-orange-500/10 border border-orange-500/30 text-orange-300'
               : 'bg-red-500/10 border border-red-500/30 text-red-300'
           }`}>
             {testResult.success
@@ -124,15 +125,10 @@ export default function Settings() {
             <div>
               {testResult.success ? (
                 <>
-                  <div className="font-semibold">Connected successfully</div>
+                  <div className="font-semibold">Connected successfully via backend proxy</div>
                   <div className="text-xs mt-0.5 opacity-75">
-                    {testResult.sessions} sessions · {testResult.usage?.browserMinutes} browser minutes used
+                    {testResult.sessions} sessions · {testResult.usage?.browserMinutes ?? '—'} browser minutes used
                   </div>
-                </>
-              ) : testResult.cors ? (
-                <>
-                  <div className="font-semibold">Browser CORS block — credentials are correct</div>
-                  <div className="text-xs mt-0.5 opacity-75">{testResult.error}</div>
                 </>
               ) : (
                 <>
@@ -168,10 +164,11 @@ export default function Settings() {
       )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
-        <div className="text-sm font-semibold text-white">Security Note</div>
+        <div className="text-sm font-semibold text-white">How It Works</div>
         <p className="text-xs text-gray-500">
-          Credentials are stored in your browser's local storage. They are never sent to any third-party server.
-          All API calls go directly to <code className="text-emerald-400">api.browserbase.com</code>.
+          Credentials are stored in your browser's local storage and sent to our secure backend proxy.
+          All Browserbase API calls are made server-side, completely bypassing browser CORS restrictions.
+          Your API key is never exposed to third parties.
         </p>
       </div>
     </div>

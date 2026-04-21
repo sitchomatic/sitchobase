@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { createSession } from '@/lib/browserbaseApi';
+import { bbClient } from '@/lib/bbClient';
 import { base44 } from '@/api/base44Client';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Terminal, Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 
 const EXAMPLES = [
   'Navigate to google.com and take a screenshot of the homepage',
@@ -19,14 +19,21 @@ const EXAMPLES = [
   'Navigate to github.com/trending and list the top 5 trending repositories',
 ];
 
+const REGIONS = [
+  { value: 'us-west-2',    label: 'us-west-2 🇺🇸' },
+  { value: 'us-east-1',    label: 'us-east-1 🇺🇸' },
+  { value: 'eu-central-1', label: 'eu-central-1 🇩🇪' },
+  { value: 'ap-southeast-1', label: 'ap-southeast-1 🇸🇬' },
+];
+
 export default function StagehandAI() {
-  const { credentials, isConfigured } = useCredentials();
+  const { isConfigured } = useCredentials();
   const [prompt, setPrompt] = useState('');
   const [sessionCount, setSessionCount] = useState(1);
-  const [region, setRegion] = useState('au');
+  const [region, setRegion] = useState('us-west-2');
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [createdSessions, setCreatedSessions] = useState([]);
 
   if (!isConfigured) return <CredentialsGuard />;
 
@@ -34,28 +41,31 @@ export default function StagehandAI() {
     if (!prompt.trim()) return;
     setRunning(true);
     setResults([]);
-    setSessions([]);
+    setCreatedSessions([]);
 
-    // First create sessions
-    const createdSessions = [];
-    for (let i = 0; i < sessionCount; i++) {
-      const s = await createSession(credentials.apiKey, {
-        projectId: credentials.projectId,
-        region,
-        userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
-      });
-      createdSessions.push(s);
+    // Create sessions via backend proxy (no CORS)
+    const batchResult = await bbClient.batchCreateSessions(sessionCount, {
+      region,
+      userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
+    });
+
+    const sessions = batchResult?.results || [];
+    setCreatedSessions(sessions);
+
+    if (sessions.length === 0) {
+      toast.error('Failed to create sessions');
+      setRunning(false);
+      return;
     }
-    setSessions(createdSessions);
 
-    // Use InvokeLLM to simulate Stagehand-like task decomposition
+    // Use LLM to generate the execution plan
     const taskPlan = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are Stagehand, a browser automation AI. A user wants to execute this task across ${sessionCount} concurrent Browserbase browser sessions:
+      prompt: `You are Stagehand, a browser automation AI. A user wants to execute this task across ${sessions.length} concurrent Browserbase browser sessions:
 
 "${prompt}"
 
-Project ID: ${credentials.projectId}
-Sessions created: ${createdSessions.map(s => s.id).join(', ')}
+Sessions created: ${sessions.map(s => s.id).join(', ')}
+Region: ${region}
 
 Please provide:
 1. Step-by-step breakdown of the automation plan
@@ -77,11 +87,12 @@ Be specific and technical. Format as a structured execution plan.`,
     });
 
     setResults([{
-      sessionIds: createdSessions.map(s => s.id),
+      sessionIds: sessions.map(s => s.id),
       plan: taskPlan,
       prompt,
       timestamp: new Date().toLocaleTimeString(),
     }]);
+    toast.success(`${sessions.length} sessions created with execution plan`);
     setRunning(false);
   };
 
@@ -113,8 +124,7 @@ Be specific and technical. Format as a structured execution plan.`,
                 <Label className="text-gray-400 text-xs mb-2 block">
                   Concurrent Sessions: <span className="text-purple-400 font-bold">{sessionCount}</span>
                 </Label>
-                <Slider min={1} max={10} step={1} value={[sessionCount]}
-                  onValueChange={([v]) => setSessionCount(v)} />
+                <Slider min={1} max={10} step={1} value={[sessionCount]} onValueChange={([v]) => setSessionCount(v)} />
               </div>
               <div>
                 <Label className="text-gray-400 text-xs mb-2 block">Region</Label>
@@ -123,12 +133,7 @@ Be specific and technical. Format as a structured execution plan.`,
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-gray-700">
-                    {[
-                      { value: 'au',           label: 'au 🇦🇺 Australia' },
-                      { value: 'us-west-2',    label: 'us-west-2' },
-                      { value: 'us-east-1',    label: 'us-east-1' },
-                      { value: 'eu-central-1', label: 'eu-central-1' },
-                    ].map(r => (
+                    {REGIONS.map(r => (
                       <SelectItem key={r.value} value={r.value} className="text-gray-200">{r.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -136,11 +141,8 @@ Be specific and technical. Format as a structured execution plan.`,
               </div>
             </div>
 
-            <Button
-              onClick={execute}
-              disabled={running || !prompt.trim()}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2"
-            >
+            <Button onClick={execute} disabled={running || !prompt.trim()}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold gap-2">
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
               {running ? 'Executing…' : `Execute on ${sessionCount} Session${sessionCount > 1 ? 's' : ''}`}
             </Button>
@@ -205,17 +207,14 @@ Be specific and technical. Format as a structured execution plan.`,
           ))}
         </div>
 
-        {/* Examples */}
+        {/* Sidebar */}
         <div className="space-y-3">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <div className="text-sm font-semibold text-white mb-3">Example Prompts</div>
             <div className="space-y-2">
               {EXAMPLES.map((ex, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPrompt(ex)}
-                  className="w-full text-left text-xs text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2.5 flex items-start gap-2 transition-colors"
-                >
+                <button key={i} onClick={() => setPrompt(ex)}
+                  className="w-full text-left text-xs text-gray-400 bg-gray-800 hover:bg-gray-700 rounded-lg px-3 py-2.5 flex items-start gap-2 transition-colors">
                   <ChevronRight className="w-3 h-3 text-purple-400 flex-shrink-0 mt-0.5" />
                   {ex}
                 </button>
@@ -223,14 +222,14 @@ Be specific and technical. Format as a structured execution plan.`,
             </div>
           </div>
 
-          {sessions.length > 0 && (
+          {createdSessions.length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
               <div className="text-sm font-semibold text-white mb-3">Created Sessions</div>
               <div className="space-y-1.5">
-                {sessions.map(s => (
+                {createdSessions.map(s => (
                   <div key={s.id} className="flex items-center gap-2 text-xs">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <code className="text-gray-400 font-mono">{s.id.slice(0, 20)}…</code>
+                    <code className="text-gray-400 font-mono truncate">{s.id}</code>
                   </div>
                 ))}
               </div>
