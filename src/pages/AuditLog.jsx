@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Shield, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { RefreshCw, Search, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
 const CATEGORY_COLORS = {

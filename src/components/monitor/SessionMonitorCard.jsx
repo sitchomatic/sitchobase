@@ -35,9 +35,10 @@ function useCDP(connectUrl, enabled) {
     }), []);
 
   const onEvent = useCallback((method, handler) => {
-    eventListenersRef.current.push({ method, handler });
+    const entry = { method, handler };
+    eventListenersRef.current.push(entry);
     return () => {
-      eventListenersRef.current = eventListenersRef.current.filter(l => l !== handler);
+      eventListenersRef.current = eventListenersRef.current.filter(l => l !== entry);
     };
   }, []);
 

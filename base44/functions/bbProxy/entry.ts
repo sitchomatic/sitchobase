@@ -57,11 +57,21 @@ Deno.serve(async (req) => {
         break;
       }
 
-      // BB docs: update session uses POST (not PUT), only accepts { status: "REQUEST_RELEASE" }
+      // BB docs: update session uses POST (not PUT).
+      // If caller passes data.userMetadata we send that; otherwise default to REQUEST_RELEASE (stop session).
       case 'updateSession': {
-        const payload = { status: 'REQUEST_RELEASE' };
-        if (projectId) payload.projectId = projectId;
-        result = await bbFetch(`/sessions/${params.sessionId}`, 'POST', apiKey, payload);
+        const { sessionId, data: updateData } = params;
+        let payload;
+        if (updateData?.userMetadata) {
+          // Mirror Mode / metadata broadcast — send userMetadata to BB
+          payload = { userMetadata: updateData.userMetadata };
+          if (projectId) payload.projectId = projectId;
+        } else {
+          // Default: stop/release the session
+          payload = { status: 'REQUEST_RELEASE' };
+          if (projectId) payload.projectId = projectId;
+        }
+        result = await bbFetch(`/sessions/${sessionId}`, 'POST', apiKey, payload);
         break;
       }
 

@@ -44,7 +44,7 @@ export const bbClient = {
   listSessions: (status = null) => call('listSessions', status ? { status } : {}),
   getSession: (sessionId) => call('getSession', { sessionId }),
   createSession: (options = {}) => call('createSession', { options }),
-  updateSession: (sessionId, data) => call('updateSession', { sessionId, data }),
+  updateSession: (sessionId, data) => call('updateSession', { sessionId, data: data ?? {} }),
   getSessionLogs: (sessionId) => call('getSessionLogs', { sessionId }),
   getSessionRecording: (sessionId) => call('getSessionRecording', { sessionId }),
 

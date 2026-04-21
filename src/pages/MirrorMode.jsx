@@ -52,13 +52,13 @@ export default function MirrorMode() {
     const sessionIds = [...selectedIds];
     let successCount = 0;
 
-    await Promise.allSettled(
+    const settled = await Promise.allSettled(
       sessionIds.map(async (sessionId) => {
         const cmdPayload = { command: actionType, url: masterUrl, selector, text: textInput, ts: Date.now() };
         await bbClient.updateSession(sessionId, { userMetadata: { mirrorCommand: JSON.stringify(cmdPayload) } });
-        successCount++;
       })
     );
+    successCount = settled.filter(r => r.status === 'fulfilled').length;
 
     setBroadcastLog(prev => [
       {

@@ -18,6 +18,7 @@ import {
   CheckCircle, AlertCircle, Globe, Code2, Shield, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 const REGIONS = [
   { value: 'us-west-2',    label: 'us-west-2' },
@@ -119,7 +120,13 @@ export default function BulkTest() {
     }
     await Promise.all(chains);
 
-    const successCount = jobResults.filter(r => r.status === 'completed').length;
+    // Count from the final accumulated results (not stale state)
+    setJobResults(prev => {
+      const successCount = prev.filter(r => r.status === 'completed').length;
+      const failCount = prev.filter(r => r.status === 'error').length;
+      auditLog({ action: 'BULK_TEST_RUN', category: 'bulk', details: { script: selectedScript.name, rows: csvRows.length, success: successCount, failed: failCount, region } });
+      return prev;
+    });
     setRunning(false);
     toast.success(`Bulk test complete`);
   };

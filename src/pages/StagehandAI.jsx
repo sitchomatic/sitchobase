@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Terminal, Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { auditLog } from '@/lib/auditLog';
 
 const EXAMPLES = [
   'Navigate to google.com and take a screenshot of the homepage',
@@ -93,6 +94,7 @@ Be specific and technical. Format as a structured execution plan.`,
       timestamp: new Date().toLocaleTimeString(),
     }]);
     toast.success(`${sessions.length} sessions created with execution plan`);
+    auditLog({ action: 'STAGEHAND_RUN', category: 'session', details: { sessionCount: sessions.length, region, promptPreview: prompt.slice(0, 80) } });
     setRunning(false);
   };
 
