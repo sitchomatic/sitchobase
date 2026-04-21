@@ -38,8 +38,12 @@ export default function Analytics() {
     value: sessions.filter(x => x.status === s).length,
   })).filter(d => d.value > 0);
 
-  const byRegion = ['us-west-2','us-east-1','eu-central-1','ap-southeast-1'].map(r => ({
-    region: r.replace('us-west-2','USW').replace('us-east-1','USE').replace('eu-central-1','EU').replace('ap-southeast-1','AP'),
+  const regionLabelMap = {
+    'us-west-2': 'USW', 'us-east-1': 'USE', 'eu-central-1': 'EU',
+    'ap-southeast-1': 'AP', 'au': 'AU',
+  };
+  const byRegion = Object.entries(regionLabelMap).map(([r, label]) => ({
+    region: label,
     count: sessions.filter(s => s.region === r).length,
   })).filter(d => d.count > 0);
 

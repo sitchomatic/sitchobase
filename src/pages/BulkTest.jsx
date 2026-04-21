@@ -82,16 +82,14 @@ export default function BulkTest() {
     setJobResults([]);
     setRunProgress({ done: 0, total: csvRows.length });
 
-    const results = [];
+    let successCount = 0;
 
     // Process rows with concurrency limit
     const queue = [...csvRows.entries()]; // [[index, row], ...]
-    const inFlight = new Set();
 
     const processNext = async () => {
       if (queue.length === 0) return;
       const [rowIdx, row] = queue.shift();
-      inFlight.add(rowIdx);
 
       const interpolatedScript = interpolate(selectedScript.script, row);
       const rowResult = { rowIdx, row, status: 'running', sessionId: null, script: interpolatedScript, error: null };
@@ -114,9 +112,10 @@ export default function BulkTest() {
           }
         );
         const sess = session.results?.[0];
+        if (sess) successCount++;
         setJobResults(prev => prev.map(r =>
           r.rowIdx === rowIdx
-            ? { ...r, status: sess ? 'running' : 'error', sessionId: sess?.id ?? null, error: sess ? null : 'Session failed' }
+            ? { ...r, status: sess ? 'completed' : 'error', sessionId: sess?.id ?? null, error: sess ? null : 'Session failed' }
             : r
         ));
       } catch (err) {
@@ -125,7 +124,6 @@ export default function BulkTest() {
         ));
       }
 
-      inFlight.delete(rowIdx);
       setRunProgress(p => ({ ...p, done: p.done + 1 }));
       await processNext();
     };
@@ -138,13 +136,13 @@ export default function BulkTest() {
     await Promise.all(chains);
 
     setRunning(false);
-    toast.success(`Bulk test complete: ${results.length} sessions launched`);
+    toast.success(`Bulk test complete: ${successCount} sessions launched`);
   };
 
   if (!isConfigured) return <CredentialsGuard />;
 
   const pct = runProgress.total > 0 ? Math.round((runProgress.done / runProgress.total) * 100) : 0;
-  const doneCount = jobResults.filter(r => r.status !== 'running').length;
+  const doneCount = jobResults.filter(r => r.status === 'completed').length;
   const errorCount = jobResults.filter(r => r.status === 'error').length;
 
   return (
@@ -376,7 +374,7 @@ export default function BulkTest() {
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {jobResults.map((r, i) => (
                   <div key={i} className={`flex items-start gap-2 rounded-lg px-3 py-2 text-xs ${
-                    r.status === 'error' ? 'bg-red-500/10' : r.status === 'running' ? 'bg-gray-800/60' : 'bg-gray-800/40'
+                    r.status === 'error' ? 'bg-red-500/10' : r.status === 'running' ? 'bg-gray-800/60' : r.status === 'completed' ? 'bg-emerald-500/5' : 'bg-gray-800/40'
                   }`}>
                     {r.status === 'running' ? (
                       <Loader2 className="w-3 h-3 text-orange-400 animate-spin flex-shrink-0 mt-0.5" />

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Send, Loader2, RefreshCw, CheckCircle, Globe, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ACTIONS = [
   { label: 'Navigate', icon: Globe, type: 'navigate' },
@@ -30,8 +31,13 @@ export default function MirrorMode() {
 
   const loadSessions = async () => {
     setLoading(true);
-    const data = await listSessions(credentials.apiKey, 'RUNNING');
-    setSessions(data);
+    try {
+      const data = await listSessions(credentials.apiKey, 'RUNNING');
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error(`Failed to load sessions: ${err.message}`);
+      setSessions([]);
+    }
     setLoading(false);
   };
 
