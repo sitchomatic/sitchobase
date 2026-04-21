@@ -6,6 +6,7 @@ import JoeIgniteCsvPicker from '@/components/joeIgnite/JoeIgniteCsvPicker';
 import JoeIgniteRowCard from '@/components/joeIgnite/JoeIgniteRowCard';
 import JoeIgniteSummaryBar from '@/components/joeIgnite/JoeIgniteSummaryBar';
 import JoeIgniteModeToggle from '@/components/joeIgnite/JoeIgniteModeToggle';
+import JoeIgniteProxySourceToggle from '@/components/joeIgnite/JoeIgniteProxySourceToggle';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -27,6 +28,7 @@ export default function JoeIgnite() {
 
   const [loaded, setLoaded] = useState(null);
   const [mode, setMode] = useState(() => localStorage.getItem('joe_ignite_mode') || 'browser');
+  const [proxySource, setProxySource] = useState(() => localStorage.getItem('joe_ignite_proxy_source') || 'bb-au');
   const [concurrency, setConcurrency] = useState(JOE_IGNITE_CONFIG.DEFAULT_CONCURRENCY);
   const [rows, setRows] = useState([]);
   const [running, setRunning] = useState(false);
@@ -36,6 +38,7 @@ export default function JoeIgnite() {
   const pollTimerRef = useRef(null);
 
   useEffect(() => { localStorage.setItem('joe_ignite_mode', mode); }, [mode]);
+  useEffect(() => { localStorage.setItem('joe_ignite_proxy_source', proxySource); }, [proxySource]);
 
   const { data: proxyPool = [] } = useQuery({
     queryKey: ['proxyPool'],
@@ -79,6 +82,7 @@ export default function JoeIgnite() {
       credentials: loaded.credentials,
       concurrency,
       batchId,
+      proxySource,
       shouldAbort: () => abortRef.current,
       onRowUpdate: (patch) => {
         setRows((prev) => prev.map((r) => (r.email === patch.email ? { ...r, ...patch } : r)));
@@ -98,6 +102,7 @@ export default function JoeIgnite() {
       concurrency,
       batchId,
       projectId: bbCreds?.projectId,
+      proxySource,
     });
     if (res.data?.error) {
       toast.error(`Serverless start failed: ${res.data.error}`);
@@ -182,30 +187,6 @@ export default function JoeIgnite() {
         </div>
       </div>
 
-      {/* Proxy pool status */}
-      <Link to="/proxies"
-        className={`block rounded-xl border px-4 py-3 flex items-center gap-3 hover:bg-gray-900/60 transition ${
-          enabledProxies.length > 0
-            ? 'border-emerald-500/30 bg-emerald-500/5'
-            : 'border-yellow-500/30 bg-yellow-500/5'
-        }`}>
-        <Shield className={`w-4 h-4 ${enabledProxies.length > 0 ? 'text-emerald-400' : 'text-yellow-400'}`} />
-        <div className="flex-1 text-xs">
-          {enabledProxies.length > 0 ? (
-            <>
-              <span className="text-emerald-400 font-semibold">{enabledProxies.length} proxies active</span>
-              <span className="text-gray-400"> · rotated round-robin across sessions</span>
-            </>
-          ) : (
-            <>
-              <span className="text-yellow-400 font-semibold">No proxies in pool</span>
-              <span className="text-gray-400"> · sessions use Browserbase default IPs. Click to add proxies.</span>
-            </>
-          )}
-        </div>
-        <span className="text-[11px] text-gray-500">Manage →</span>
-      </Link>
-
       {/* CSV */}
       <div ref={pickerRef}>
         <JoeIgniteCsvPicker loaded={loaded} onLoaded={handleLoaded} onClear={handleClear} />
@@ -217,6 +198,21 @@ export default function JoeIgnite() {
           <div>
             <Label className="text-gray-400 text-xs mb-2 block">Run mode</Label>
             <JoeIgniteModeToggle mode={mode} onChange={setMode} disabled={running} />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-gray-400 text-xs">Proxy source</Label>
+              <Link to="/proxies" className="text-[10px] text-gray-500 hover:text-emerald-400">
+                Manage pool →
+              </Link>
+            </div>
+            <JoeIgniteProxySourceToggle
+              value={proxySource}
+              onChange={setProxySource}
+              disabled={running}
+              poolCount={enabledProxies.length}
+            />
           </div>
 
           <div>

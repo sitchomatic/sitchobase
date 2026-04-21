@@ -15,12 +15,13 @@ export async function runJoeIgniteBatch({
   onRowUpdate,
   onComplete,
   shouldAbort,
+  proxySource = 'none', // 'none' | 'bb-au' | 'pool'
 }) {
   const queue = credentials.map((c, i) => ({ ...c, index: i }));
   const inflight = new Set();
 
-  // Load proxy pool once per batch and create round-robin picker
-  const proxyPool = await fetchEnabledProxies().catch(() => []);
+  // Load external proxy pool only when selected
+  const proxyPool = proxySource === 'pool' ? await fetchEnabledProxies().catch(() => []) : [];
   const pickProxy = createRoundRobinPicker(proxyPool);
 
   const runOne = async (cred) => {
@@ -33,14 +34,18 @@ export async function runJoeIgniteBatch({
     let attempts = 0;
     let results = { joe: null, ignition: null };
     let detailsTrail = [];
-    const assignedProxy = pickProxy();
+    const assignedProxy = proxySource === 'pool' ? pickProxy() : null;
 
     try {
       const sessionOpts = {
         browserSettings: { viewport: { width: 1366, height: 768 } },
-        userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxyId: assignedProxy?.id },
+        userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: assignedProxy?.id },
       };
-      if (assignedProxy) sessionOpts.proxies = [toBrowserbaseProxy(assignedProxy)];
+      if (proxySource === 'bb-au') {
+        sessionOpts.proxies = [{ type: 'browserbase', geolocation: { country: 'AU' } }];
+      } else if (assignedProxy) {
+        sessionOpts.proxies = [toBrowserbaseProxy(assignedProxy)];
+      }
       session = await bbClient.createSession(sessionOpts);
       sessionId = session.id;
       update({ sessionId });
@@ -100,7 +105,10 @@ export async function runJoeIgniteBatch({
       }).catch(() => {});
     }
 
-    update({ ...payload, phase: 'done', proxyLabel: assignedProxy?.label || assignedProxy?.server });
+    const proxyLabel = proxySource === 'bb-au'
+      ? 'BB AU'
+      : (assignedProxy?.label || assignedProxy?.server || null);
+    update({ ...payload, phase: 'done', proxyLabel });
   };
 
   // Worker pool

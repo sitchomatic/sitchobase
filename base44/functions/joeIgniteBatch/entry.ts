@@ -172,7 +172,7 @@ async function readState(cdp, sessionId) {
 }
 
 // ── process one credential ─────────────────────────────────────────────────
-async function processCredential({ cred, batchId, apiKey, projectId, base44, proxy }) {
+async function processCredential({ cred, batchId, apiKey, projectId, base44, proxy, proxySource }) {
   const rowPatch = {
     batchId, email: cred.email, status: 'running',
     attempts: 0, startedAt: new Date().toISOString(),
@@ -191,9 +191,11 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44, pro
     const sessionBody = {
       projectId,
       browserSettings: { viewport: { width: 1366, height: 768 } },
-      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxyId: proxy?.id },
+      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: proxy?.id },
     };
-    if (proxy) {
+    if (proxySource === 'bb-au') {
+      sessionBody.proxies = [{ type: 'browserbase', geolocation: { country: 'AU' } }];
+    } else if (proxy) {
       const p = { type: 'external', server: proxy.server };
       if (proxy.username) p.username = proxy.username;
       if (proxy.password) p.password = proxy.password;
@@ -280,7 +282,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { credentials, concurrency = 4, batchId, projectId } = await req.json();
+    const { credentials, concurrency = 4, batchId, projectId, proxySource = 'none' } = await req.json();
     const apiKey = Deno.env.get('Api_key');
     if (!apiKey) return Response.json({ error: 'Api_key secret not configured' }, { status: 400 });
     if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 });
@@ -295,9 +297,12 @@ Deno.serve(async (req) => {
       })
     ));
 
-    // Load proxy pool (enabled only) for round-robin assignment
-    const allProxies = await base44.asServiceRole.entities.ProxyPool.list('-created_date', 500);
-    const proxyPool = allProxies.filter((p) => p.enabled !== false && p.server);
+    // Load external proxy pool only when selected
+    let proxyPool = [];
+    if (proxySource === 'pool') {
+      const all = await base44.asServiceRole.entities.ProxyPool.list('-created_date', 500);
+      proxyPool = all.filter((p) => p.enabled !== false && p.server);
+    }
     let proxyCursor = 0;
     const nextProxy = () => {
       if (proxyPool.length === 0) return null;
@@ -307,12 +312,15 @@ Deno.serve(async (req) => {
     };
 
     // Return immediately so the client isn't blocked; run workers in background.
-    const queue = credentials.map((c) => ({ cred: c, proxy: nextProxy() }));
+    const queue = credentials.map((c) => ({
+      cred: c,
+      proxy: proxySource === 'pool' ? nextProxy() : null,
+    }));
     const workers = Array.from({ length: Math.max(1, Math.min(concurrency, 8)) }, async () => {
       while (queue.length) {
         const item = queue.shift();
         if (!item) return;
-        try { await processCredential({ cred: item.cred, batchId, apiKey, projectId, base44, proxy: item.proxy }); }
+        try { await processCredential({ cred: item.cred, batchId, apiKey, projectId, base44, proxy: item.proxy, proxySource }); }
         catch (err) { console.error(`row failed ${item.cred.email}: ${err.message}`); }
       }
     });
