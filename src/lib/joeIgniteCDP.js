@@ -167,12 +167,17 @@ async function readPageState(cdp, sessionId) {
 }
 
 /**
- * After clicking submit, poll the page for up to POST_SUBMIT_WAIT_MS looking
- * for any definitive signal (success banner, temp-lock, perm-ban, "incorrect").
- * Returns as soon as a signal is found, otherwise returns the last snapshot.
+ * After clicking submit, poll the page looking for any definitive signal
+ * (success banner, temp-lock, perm-ban, "incorrect"). Returns as SOON as a
+ * signal is detected — the max-wait is only a cap for when the site gives
+ * no response at all. First attempt gets a longer cap (site can be slow to
+ * respond the first time); retries use a shorter cap.
  */
-async function waitForResponse(cdp, sessionId) {
-  const deadline = Date.now() + JOE_IGNITE_CONFIG.POST_SUBMIT_WAIT_MS;
+async function waitForResponse(cdp, sessionId, attempt) {
+  const maxWait = attempt === 1
+    ? JOE_IGNITE_CONFIG.POST_SUBMIT_WAIT_FIRST_MS
+    : JOE_IGNITE_CONFIG.POST_SUBMIT_WAIT_RETRY_MS;
+  const deadline = Date.now() + maxWait;
   let lastState = { url: '', text: '', successBanner: false };
   while (Date.now() < deadline) {
     lastState = await readPageState(cdp, sessionId);
@@ -212,8 +217,8 @@ export async function runCredentialInSession({ connectUrl, email, password, onPr
           await jitter(300, 600);
         }
         await fillAndSubmit(cdp, site.session, site.cfg.selectors, email, password, attempt > 1);
-        // Poll for up to 7s waiting for the site's (often delayed) response
-        const { outcome } = await waitForResponse(cdp, site.session);
+        // Returns as soon as DOM has a definitive response; cap = 7s on first press, 3s on retries
+        const { outcome } = await waitForResponse(cdp, site.session, attempt);
         return outcome;
       } catch (err) {
         return 'ERROR';

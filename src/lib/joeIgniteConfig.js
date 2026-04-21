@@ -6,8 +6,9 @@ export const JOE_IGNITE_CONFIG = {
   MAX_ATTEMPTS: 4,
   USE_PARALLEL_SITES: true,
   DEFAULT_CONCURRENCY: 4,
-  POST_SUBMIT_WAIT_MS: 7000,        // max wait for a delayed response after pressing Login
-  POST_SUBMIT_POLL_MS: 500,         // how often we re-check the DOM during that wait
+  POST_SUBMIT_WAIT_FIRST_MS: 7000,  // max wait for first login press (site can delay up to ~6.5s)
+  POST_SUBMIT_WAIT_RETRY_MS: 3000,  // shorter cap on attempts 2-4 — site is already warm
+  POST_SUBMIT_POLL_MS: 400,         // how often we re-check the DOM during that wait
 
   SITES: {
     joe: {
