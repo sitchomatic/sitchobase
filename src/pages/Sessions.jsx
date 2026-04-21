@@ -7,8 +7,18 @@ import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Eye } from 'lucide-react';
+import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+
+const ARCHIVED_KEY = 'bb_archived_sessions';
+
+function getArchived() {
+  try { return new Set(JSON.parse(localStorage.getItem(ARCHIVED_KEY) || '[]')); } catch { return new Set(); }
+}
+function saveArchived(set) {
+  localStorage.setItem(ARCHIVED_KEY, JSON.stringify([...set]));
+}
 
 export default function Sessions() {
   const { isConfigured } = useCredentials();
@@ -17,6 +27,11 @@ export default function Sessions() {
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
+
+  // Bulk selection
+  const [checkedIds, setCheckedIds] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [archived, setArchived] = useState(getArchived);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
@@ -38,8 +53,75 @@ export default function Sessions() {
   if (!isConfigured) return <CredentialsGuard />;
 
   const filtered = sessions.filter(s =>
-    !search || s.id.toLowerCase().includes(search.toLowerCase()) || (s.region && s.region.includes(search))
+    (!search || s.id.toLowerCase().includes(search.toLowerCase()) || (s.region && s.region.includes(search))) &&
+    !archived.has(s.id)
   );
+
+  const allChecked = filtered.length > 0 && filtered.every(s => checkedIds.has(s.id));
+  const someChecked = checkedIds.size > 0;
+
+  const toggleCheck = (id, e) => {
+    e.stopPropagation();
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setCheckedIds(allChecked ? new Set() : new Set(filtered.map(s => s.id)));
+  };
+
+  const clearSelection = () => setCheckedIds(new Set());
+
+  const bulkCancel = async () => {
+    const ids = [...checkedIds].filter(id => {
+      const s = sessions.find(x => x.id === id);
+      return s && (s.status === 'RUNNING' || s.status === 'PENDING');
+    });
+    if (!ids.length) { toast.error('No running/pending sessions selected'); return; }
+    setBulkLoading(true);
+    const results = await Promise.allSettled(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' })));
+    const ok = results.filter(r => r.status === 'fulfilled').length;
+    toast.success(`Cancelled ${ok} of ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
+    clearSelection();
+    setBulkLoading(false);
+    load();
+  };
+
+  const bulkArchive = () => {
+    const ids = [...checkedIds];
+    const next = new Set(archived);
+    ids.forEach(id => next.add(id));
+    saveArchived(next);
+    setArchived(next);
+    if (selected && ids.includes(selected.id)) setSelected(null);
+    toast.success(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
+    clearSelection();
+  };
+
+  const bulkDelete = async () => {
+    const ids = [...checkedIds];
+    setBulkLoading(true);
+    // Try to release running sessions; then archive/hide all
+    const runningIds = ids.filter(id => {
+      const s = sessions.find(x => x.id === id);
+      return s && (s.status === 'RUNNING' || s.status === 'PENDING');
+    });
+    if (runningIds.length) {
+      await Promise.allSettled(runningIds.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' })));
+    }
+    // Remove from local view by archiving
+    const next = new Set(archived);
+    ids.forEach(id => next.add(id));
+    saveArchived(next);
+    setArchived(next);
+    if (selected && ids.includes(selected.id)) setSelected(null);
+    toast.success(`Deleted ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
+    clearSelection();
+    setBulkLoading(false);
+  };
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -76,6 +158,44 @@ export default function Sessions() {
           </div>
         </div>
 
+        {/* Bulk action bar */}
+        {someChecked && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
+            <span className="text-xs text-gray-300 font-medium flex-1">
+              {checkedIds.size} selected
+            </span>
+            <Button size="sm" onClick={bulkCancel} disabled={bulkLoading}
+              className="h-7 px-2.5 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
+              {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+              Cancel
+            </Button>
+            <Button size="sm" onClick={bulkArchive} disabled={bulkLoading}
+              className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+              <Archive className="w-3 h-3" /> Archive
+            </Button>
+            <Button size="sm" onClick={bulkDelete} disabled={bulkLoading}
+              className="h-7 px-2.5 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
+              {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+              Delete
+            </Button>
+            <button onClick={clearSelection} className="text-gray-500 hover:text-gray-300 ml-1">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Select-all header */}
+        {filtered.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-1.5 border-b border-gray-800 bg-gray-900/40">
+            <button onClick={toggleAll} className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+              {allChecked
+                ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                : <Square className="w-3.5 h-3.5" />}
+              Select all
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto divide-y divide-gray-800/60">
           {loading && filtered.length === 0 && (
             <div className="text-center py-16 text-gray-500 text-sm">Loading sessions…</div>
@@ -84,10 +204,18 @@ export default function Sessions() {
             <div className="text-center py-16 text-gray-600 text-sm">No sessions found</div>
           )}
           {filtered.map(s => (
-            <div key={s.id} onClick={() => setSelected(s)}
+            <div key={s.id}
+              onClick={() => setSelected(s)}
               className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
                 selected?.id === s.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'
-              }`}>
+              } ${checkedIds.has(s.id) ? 'bg-emerald-500/5' : ''}`}>
+              {/* Checkbox */}
+              <button onClick={e => toggleCheck(s.id, e)}
+                className="flex-shrink-0 text-gray-500 hover:text-emerald-400 transition-colors">
+                {checkedIds.has(s.id)
+                  ? <CheckSquare className="w-4 h-4 text-emerald-400" />
+                  : <Square className="w-4 h-4" />}
+              </button>
               <StatusBadge status={s.status} />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-mono text-gray-200 truncate">{s.id}</div>
