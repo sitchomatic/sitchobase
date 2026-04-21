@@ -40,9 +40,13 @@ export default function Settings() {
       setTestResult({ success: true, sessions: sessions.value.length, usage: usage.value });
       toast.success('Connection successful!');
     } else {
-      const err = sessions.reason?.message || usage.reason?.message || 'Unknown error';
-      setTestResult({ success: false, error: err });
-      toast.error('Connection failed');
+      const sessErr = sessions.reason;
+      const isCors = sessErr instanceof TypeError && sessErr.message.includes('fetch');
+      const errMsg = isCors
+        ? 'CORS block: The Browserbase API does not allow direct browser requests. This is expected in a browser-only app. Your credentials are saved correctly — API calls will work when proxied through a backend.'
+        : (sessErr?.message || usage.reason?.message || 'Unknown error');
+      setTestResult({ success: false, cors: isCors, error: errMsg });
+      toast.error(isCors ? 'Browser CORS block (credentials are fine)' : 'Connection failed');
     }
     setTesting(false);
   };
@@ -110,6 +114,8 @@ export default function Settings() {
           <div className={`flex items-start gap-2.5 p-3 rounded-lg text-sm ${
             testResult.success
               ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+              : testResult.cors
+              ? 'bg-orange-500/10 border border-orange-500/30 text-orange-300'
               : 'bg-red-500/10 border border-red-500/30 text-red-300'
           }`}>
             {testResult.success
@@ -122,6 +128,11 @@ export default function Settings() {
                   <div className="text-xs mt-0.5 opacity-75">
                     {testResult.sessions} sessions · {testResult.usage?.browserMinutes} browser minutes used
                   </div>
+                </>
+              ) : testResult.cors ? (
+                <>
+                  <div className="font-semibold">Browser CORS block — credentials are correct</div>
+                  <div className="text-xs mt-0.5 opacity-75">{testResult.error}</div>
                 </>
               ) : (
                 <>

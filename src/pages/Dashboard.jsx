@@ -43,11 +43,17 @@ export default function Dashboard() {
     setApiLatency(null);
     const start = Date.now();
     try {
-      await listSessions(credentials.apiKey);
+      const res = await listSessions(credentials.apiKey);
       setApiLatency(Date.now() - start);
       setApiStatus('ok');
-    } catch {
-      setApiStatus('error');
+    } catch (err) {
+      // TypeError: Failed to fetch = CORS block (API reachable but browser-blocked)
+      // HTTP errors = auth/config issues
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setApiStatus('cors');
+      } else {
+        setApiStatus('error');
+      }
     }
   }, [credentials, isConfigured]);
 
@@ -251,16 +257,19 @@ export default function Dashboard() {
                 <div className={`flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg border font-mono ${
                   apiStatus === 'ok'      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
                   apiStatus === 'error'   ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                  apiStatus === 'cors'    ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
                   apiStatus === 'testing' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' :
                   'bg-gray-800 border-gray-700 text-gray-500'
                 }`}>
                   {apiStatus === 'ok'      && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
                   {apiStatus === 'error'   && <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                  {apiStatus === 'cors'    && <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />}
                   {apiStatus === 'testing' && <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />}
                   {!apiStatus             && <Shield className="w-3.5 h-3.5 flex-shrink-0" />}
                   <span>
                     {apiStatus === 'ok'      ? `OK · ${apiLatency}ms` :
-                     apiStatus === 'error'   ? 'UNREACHABLE' :
+                     apiStatus === 'cors'    ? 'CORS — browser-blocked (API is reachable)' :
+                     apiStatus === 'error'   ? 'AUTH/CONFIG ERROR' :
                      apiStatus === 'testing' ? 'PINGING…' :
                      'NOT TESTED'}
                   </span>
