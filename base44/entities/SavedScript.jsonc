@@ -1,0 +1,29 @@
+{
+  "name": "SavedScript",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable script name"
+    },
+    "script": {
+      "type": "string",
+      "description": "The automation script body. Use {{column_name}} placeholders matching CSV headers."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional notes about what this script does"
+    },
+    "placeholders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Auto-extracted list of {{placeholder}} names from the script"
+    }
+  },
+  "required": [
+    "name",
+    "script"
+  ]
+}

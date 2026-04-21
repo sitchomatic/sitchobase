@@ -2,12 +2,13 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal
+  Zap, Globe, Network, Eye, Terminal, FlaskConical
 } from 'lucide-react';
 
 const navItems = [
   { label: 'Command Center', icon: LayoutGrid, path: '/' },
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
+  { label: 'Bulk Test', icon: FlaskConical, path: '/bulk' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
   { label: 'Contexts', icon: Layers, path: '/contexts' },
