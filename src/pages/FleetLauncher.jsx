@@ -14,7 +14,7 @@ import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock } from 'lu
 export default function FleetLauncher() {
   const { credentials, isConfigured } = useCredentials();
   const [count, setCount] = useState(3);
-  const [region, setRegion] = useState('us-west-2');
+  const [region, setRegion] = useState('ap-southeast-1');
   const [keepAlive, setKeepAlive] = useState(false);
   const [useProxy, setUseProxy] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState(300);
@@ -83,8 +83,13 @@ export default function FleetLauncher() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-gray-800 border-gray-700">
-                {['us-west-2','us-east-1','eu-central-1','ap-southeast-1'].map(r => (
-                  <SelectItem key={r} value={r} className="text-gray-200">{r}</SelectItem>
+                {[
+                  { value: 'ap-southeast-1', label: 'ap-southeast-1 🇦🇺' },
+                  { value: 'us-west-2',      label: 'us-west-2' },
+                  { value: 'us-east-1',      label: 'us-east-1' },
+                  { value: 'eu-central-1',   label: 'eu-central-1' },
+                ].map(r => (
+                  <SelectItem key={r.value} value={r.value} className="text-gray-200">{r.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
