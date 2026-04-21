@@ -60,9 +60,6 @@ export const bbClient = {
   // Batch
   batchCreateSessions: (count, options = {}) => call('batchCreateSessions', { count, options }),
 
-  // Commands
-  sendCommand: (sessionId, command, commandParams = {}) => call('sendCommand', { sessionId, command, commandParams }),
-  captureScreenshot: (sessionId) => call('captureScreenshot', { sessionId }),
 };
 
 export function formatBytes(bytes) {

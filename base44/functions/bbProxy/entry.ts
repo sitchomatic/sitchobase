@@ -118,20 +118,8 @@ Deno.serve(async (req) => {
         break;
       }
 
-      // ── Session CDP commands (mouse, keyboard) via userMetadata broadcast ─
-      case 'sendCommand': {
-        const { sessionId, command, commandParams } = params;
-        // BB update session only accepts REQUEST_RELEASE — store command via metadata approach
-        // We do a regular GET then re-post won't work; use metadata via a workaround:
-        // Store the command intent in our own entities for client polling
-        result = { ok: true, method: 'queued', command, note: 'Command queued. BB REST does not support arbitrary metadata writes on active sessions.' };
-        break;
-      }
-
-      case 'captureScreenshot': {
-        result = { ok: true, sessionId: params.sessionId, screenshotUrl: null, note: 'Screenshot capture requires CDP WebSocket access, not available via REST proxy.' };
-        break;
-      }
+      // sendCommand / captureScreenshot are handled directly via CDP WebSocket
+      // in the frontend (SessionCDPPanel) — the proxy does not implement them.
 
       // ── Batch create sessions ─────────────────────────────
       case 'batchCreateSessions': {

@@ -9,7 +9,8 @@ import PullToRefresh from '@/components/shared/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X } from 'lucide-react';
+import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X, LayoutGrid, List } from 'lucide-react';
+import SessionCardGrid from '@/components/sessions/SessionCardGrid';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
@@ -35,6 +36,9 @@ export default function Sessions() {
   const [checkedIds, setCheckedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [archived, setArchived] = useState(getArchived);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('bb_sessions_view') || 'list');
+
+  useEffect(() => { localStorage.setItem('bb_sessions_view', viewMode); }, [viewMode]);
 
   const { data: sessions = [], isFetching: loading, refetch } = useQuery({
     queryKey: ['sessions', filter, isConfigured],
@@ -164,11 +168,23 @@ export default function Sessions() {
               <h1 className="text-lg font-bold text-white">Live Sessions</h1>
               <p className="text-xs text-gray-500">{sessions.length} sessions · auto-refreshes every 10s</p>
             </div>
-            <Button size="sm" variant="outline" onClick={load} disabled={loading}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5 min-h-[44px]">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-md border border-gray-700 overflow-hidden">
+                <button onClick={() => setViewMode('list')}
+                  className={`min-h-[44px] px-2.5 text-xs flex items-center gap-1.5 ${viewMode === 'list' ? 'bg-gray-800 text-emerald-400' : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}>
+                  <List className="w-3.5 h-3.5" /> List
+                </button>
+                <button onClick={() => setViewMode('grid')}
+                  className={`min-h-[44px] px-2.5 text-xs flex items-center gap-1.5 border-l border-gray-700 ${viewMode === 'grid' ? 'bg-gray-800 text-emerald-400' : 'bg-gray-900 text-gray-400 hover:bg-gray-800'}`}>
+                  <LayoutGrid className="w-3.5 h-3.5" /> Grid
+                </button>
+              </div>
+              <Button size="sm" variant="outline" onClick={load} disabled={loading}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5 min-h-[44px]">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -228,14 +244,27 @@ export default function Sessions() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-800/60">
+        <div className={`flex-1 overflow-y-auto ${viewMode === 'list' ? 'divide-y divide-gray-800/60' : ''}`}>
           {loading && filtered.length === 0 && (
             <div className="text-center py-16 text-gray-500 text-sm">Loading sessions…</div>
           )}
           {!loading && filtered.length === 0 && (
             <div className="text-center py-16 text-gray-600 text-sm">No sessions found</div>
           )}
-          {filtered.map(s => (
+          {viewMode === 'grid' && filtered.length > 0 && (
+            <SessionCardGrid
+              sessions={filtered}
+              selectedId={selectedSession?.id}
+              checkedIds={checkedIds}
+              onToggleCheck={(id) => setCheckedIds(prev => {
+                const next = new Set(prev);
+                next.has(id) ? next.delete(id) : next.add(id);
+                return next;
+              })}
+              onOpen={(id) => navigate(`/sessions/${id}`)}
+            />
+          )}
+          {viewMode === 'list' && filtered.map(s => (
             <div key={s.id}
               onClick={() => navigate(`/sessions/${s.id}`)}
               className={`flex min-h-[44px] items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${

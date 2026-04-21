@@ -9,9 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock } from 'lucide-react';
+import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock, Video, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
+import { VIEWPORT_PRESETS } from '@/components/fleet/FleetLaunchPresets';
+import FleetMetadataForm from '@/components/fleet/FleetMetadataForm';
+import FleetContextPicker from '@/components/fleet/FleetContextPicker';
 
 const REGIONS = [
   { value: 'us-west-2',    label: 'us-west-2 🇺🇸' },
@@ -26,8 +29,12 @@ export default function FleetLauncher() {
   const [region, setRegion] = useState('us-west-2');
   const [keepAlive, setKeepAlive] = useState(false);
   const [useProxy, setUseProxy] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const [viewportPreset, setViewportPreset] = useState('desktop_1920');
   const [sessionTimeout, setSessionTimeout] = useState(300);
   const [tag, setTag] = useState('');
+  const [contextId, setContextId] = useState('');
+  const [metadata, setMetadata] = useState({ testRun: '', variant: '', priority: 'normal', task: '' });
   const [launching, setLaunching] = useState(false);
   const [results, setResults] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -42,12 +49,30 @@ export default function FleetLauncher() {
     setProgress({ done: 0, total: count });
 
     try {
+      const vp = VIEWPORT_PRESETS.find(v => v.value === viewportPreset);
+
+      const userMetadata = {
+        launchedFrom: 'BBCommandCenter',
+        ...(tag ? { tag } : {}),
+        ...(metadata.testRun ? { testRun: metadata.testRun } : {}),
+        ...(metadata.variant ? { variant: metadata.variant } : {}),
+        ...(metadata.priority ? { priority: metadata.priority } : {}),
+        ...(metadata.task ? { task: metadata.task } : {}),
+      };
+
+      const browserSettings = {
+        viewport: { width: vp.width, height: vp.height },
+        recordSession: recording,
+        ...(contextId ? { context: { id: contextId, persist: true } } : {}),
+      };
+
       const options = {
         region,
         keepAlive,
         timeout: sessionTimeout,
+        browserSettings,
         ...(useProxy ? { proxies: true } : {}),
-        ...(tag ? { userMetadata: { tag, launchedFrom: 'BBCommandCenter' } } : {}),
+        userMetadata,
       };
 
       const res = await bbClient.batchCreateSessions(count, options);
@@ -55,7 +80,21 @@ export default function FleetLauncher() {
       setErrors(res.errors || []);
       setProgress({ done: count, total: count });
       toast.success(`${res.results?.length || 0} sessions launched`);
-      auditLog({ action: 'FLEET_LAUNCHED', category: 'fleet', details: { count: res.results?.length || 0, region, tag: tag || undefined, keepAlive, useProxy } });
+      auditLog({
+        action: 'FLEET_LAUNCHED',
+        category: 'fleet',
+        details: {
+          count: res.results?.length || 0,
+          region,
+          tag: tag || undefined,
+          keepAlive,
+          useProxy,
+          recording,
+          viewport: viewportPreset,
+          contextId: contextId || undefined,
+          metadata: userMetadata,
+        },
+      });
     } catch (err) {
       toast.error(`Launch failed: ${err.message}`);
     }
@@ -65,7 +104,7 @@ export default function FleetLauncher() {
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">Fleet Launcher</h1>
         <p className="text-sm text-gray-500 mt-0.5">Launch concurrent browser sessions via backend proxy</p>
@@ -84,18 +123,35 @@ export default function FleetLauncher() {
             <div className="flex justify-between text-xs text-gray-600 mt-1"><span>1</span><span>50</span></div>
           </div>
 
-          <div>
-            <Label className="text-gray-400 text-xs mb-2 block">Region</Label>
-            <Select value={region} onValueChange={setRegion}>
-              <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-200">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700">
-                {REGIONS.map(r => (
-                  <SelectItem key={r.value} value={r.value} className="text-gray-200">{r.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-gray-400 text-xs mb-2 block">Region</Label>
+              <Select value={region} onValueChange={setRegion}>
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-200 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  {REGIONS.map(r => (
+                    <SelectItem key={r.value} value={r.value} className="text-gray-200">{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-gray-400 text-xs mb-2 block flex items-center gap-1.5">
+                <Monitor className="w-3 h-3 text-cyan-400" /> Viewport
+              </Label>
+              <Select value={viewportPreset} onValueChange={setViewportPreset}>
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-200 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  {VIEWPORT_PRESETS.map(v => (
+                    <SelectItem key={v.value} value={v.value} className="text-gray-200">{v.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -109,6 +165,9 @@ export default function FleetLauncher() {
               className="bg-gray-800 border-gray-700 text-gray-200" />
           </div>
 
+          <FleetContextPicker contextId={contextId} setContextId={setContextId} />
+          <FleetMetadataForm metadata={metadata} setMetadata={setMetadata} />
+
           <div className="space-y-3 pt-2 border-t border-gray-800">
             <div className="flex items-center justify-between">
               <Label className="text-gray-300 text-sm flex items-center gap-2">
@@ -121,6 +180,12 @@ export default function FleetLauncher() {
                 <Shield className="w-3.5 h-3.5 text-blue-400" /> Residential Proxy
               </Label>
               <Switch checked={useProxy} onCheckedChange={setUseProxy} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-gray-300 text-sm flex items-center gap-2">
+                <Video className="w-3.5 h-3.5 text-red-400" /> Record Session
+              </Label>
+              <Switch checked={recording} onCheckedChange={setRecording} />
             </div>
           </div>
 
@@ -153,7 +218,7 @@ export default function FleetLauncher() {
             </div>
           )}
 
-          <div className="space-y-2 max-h-72 overflow-y-auto">
+          <div className="space-y-2 max-h-96 overflow-y-auto">
             {results.map(s => (
               <div key={s.id} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
