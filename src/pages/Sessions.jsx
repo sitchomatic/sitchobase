@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
@@ -13,6 +13,8 @@ import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, 
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const ARCHIVED_KEY = 'bb_archived_sessions';
 
@@ -26,7 +28,8 @@ function saveArchived(set) {
 export default function Sessions() {
   const { isConfigured } = useCredentials();
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
+  const { id: sessionId } = useParams();
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [checkedIds, setCheckedIds] = useState(new Set());
@@ -73,12 +76,17 @@ export default function Sessions() {
     return () => clearInterval(t);
   }, [load, isConfigured]);
 
-  if (!isConfigured) return <CredentialsGuard />;
-
   const filtered = sessions.filter(s =>
     (!search || s.id.toLowerCase().includes(search.toLowerCase()) || (s.region && s.region.includes(search))) &&
     !archived.has(s.id)
   );
+
+  const selectedSession = useMemo(
+    () => filtered.find(s => s.id === sessionId) || sessions.find(s => s.id === sessionId) || null,
+    [filtered, sessions, sessionId]
+  );
+
+  if (!isConfigured) return <CredentialsGuard />;
 
   const allChecked = filtered.length > 0 && filtered.every(s => checkedIds.has(s.id));
   const someChecked = checkedIds.size > 0;
@@ -118,7 +126,7 @@ export default function Sessions() {
     ids.forEach(id => next.add(id));
     saveArchived(next);
     setArchived(next);
-    if (selected && ids.includes(selected.id)) setSelected(null);
+    if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
     toast.success(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
     clearSelection();
   };
@@ -139,7 +147,7 @@ export default function Sessions() {
     ids.forEach(id => next.add(id));
     saveArchived(next);
     setArchived(next);
-    if (selected && ids.includes(selected.id)) setSelected(null);
+    if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
     toast.success(`Deleted ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
     auditLog({ action: 'SESSIONS_BULK_DELETED', category: 'session', details: { count: ids.length } });
     clearSelection();
@@ -157,7 +165,7 @@ export default function Sessions() {
               <p className="text-xs text-gray-500">{sessions.length} sessions · auto-refreshes every 10s</p>
             </div>
             <Button size="sm" variant="outline" onClick={load} disabled={loading}
-              className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
+              className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5 min-h-[44px]">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
@@ -189,20 +197,20 @@ export default function Sessions() {
               {checkedIds.size} selected
             </span>
             <Button size="sm" onClick={bulkCancel} disabled={bulkLoading}
-              className="h-7 px-2.5 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
+              className="min-h-[44px] px-2.5 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
               {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
               Cancel
             </Button>
             <Button size="sm" onClick={bulkArchive} disabled={bulkLoading}
-              className="h-7 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+              className="min-h-[44px] px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
               <Archive className="w-3 h-3" /> Archive
             </Button>
             <Button size="sm" onClick={bulkDelete} disabled={bulkLoading}
-              className="h-7 px-2.5 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
+              className="min-h-[44px] px-2.5 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
               {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
               Delete
             </Button>
-            <button onClick={clearSelection} className="text-gray-500 hover:text-gray-300 ml-1">
+            <button onClick={clearSelection} className="min-h-[44px] min-w-[44px] text-gray-500 hover:text-gray-300 ml-1 inline-flex items-center justify-center">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -211,7 +219,7 @@ export default function Sessions() {
         {/* Select-all header */}
         {filtered.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-1.5 border-b border-gray-800 bg-gray-900/40">
-            <button onClick={toggleAll} className="flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+            <button onClick={toggleAll} className="min-h-[44px] flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors">
               {allChecked
                 ? <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
                 : <Square className="w-3.5 h-3.5" />}
@@ -229,13 +237,13 @@ export default function Sessions() {
           )}
           {filtered.map(s => (
             <div key={s.id}
-              onClick={() => setSelected(s)}
-              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                selected?.id === s.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'
-              } ${checkedIds.has(s.id) ? 'bg-emerald-500/5' : ''}`}>
+              onClick={() => navigate(`/sessions/${s.id}`)}
+              className={`flex min-h-[44px] items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                selectedSession?.id === s.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'
+                } ${checkedIds.has(s.id) ? 'bg-emerald-500/5' : ''}`}>
               {/* Checkbox */}
               <button onClick={e => toggleCheck(s.id, e)}
-                className="flex-shrink-0 text-gray-500 hover:text-emerald-400 transition-colors">
+                className="min-h-[44px] min-w-[44px] flex-shrink-0 text-gray-500 hover:text-emerald-400 transition-colors inline-flex items-center justify-center">
                 {checkedIds.has(s.id)
                   ? <CheckSquare className="w-4 h-4 text-emerald-400" />
                   : <Square className="w-4 h-4" />}
@@ -262,9 +270,19 @@ export default function Sessions() {
         </div>
       </div>
 
-      {selected && (
-        <SessionDetailPanel session={selected} onClose={() => setSelected(null)} />
-      )}
+      <AnimatePresence>
+        {selectedSession && (
+          <motion.div
+            key={selectedSession.id}
+            initial={{ x: 32, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 32, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            <SessionDetailPanel session={selectedSession} onClose={() => navigate(-1)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
     </PullToRefresh>
   );

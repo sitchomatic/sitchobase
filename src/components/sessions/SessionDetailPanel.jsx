@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { bbClient, formatBytes } from '@/lib/bbClient';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -14,6 +15,7 @@ import { format } from 'date-fns';
 
 export default function SessionDetailPanel({ session, onClose }) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState(session);
   const [logs, setLogs] = useState([]);
   const [recording, setRecording] = useState(null);
@@ -40,8 +42,8 @@ export default function SessionDetailPanel({ session, onClose }) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-center gap-2 min-w-0">
           {isMobile && (
-            <Button size="icon" variant="ghost" onClick={onClose}
-              className="text-gray-400 hover:text-white md:hidden">
+            <Button size="icon" variant="ghost" onClick={() => navigate(-1)}
+              className="text-gray-400 hover:text-white md:hidden min-h-[44px] min-w-[44px]">
               <ChevronLeft className="w-4 h-4" />
             </Button>
           )}
@@ -50,11 +52,11 @@ export default function SessionDetailPanel({ session, onClose }) {
         </div>
         <div className="flex items-center gap-1">
           <Button size="icon" variant="ghost" onClick={refresh} disabled={loading}
-            className="w-7 h-7 text-gray-500 hover:text-gray-200">
+            className="text-gray-500 hover:text-gray-200 min-h-[44px] min-w-[44px]">
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <Button size="icon" variant="ghost" onClick={onClose}
-            className="text-gray-500 hover:text-gray-200">
+            className="text-gray-500 hover:text-gray-200 min-h-[44px] min-w-[44px]">
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>
@@ -64,7 +66,7 @@ export default function SessionDetailPanel({ session, onClose }) {
         <TabsList className="px-4 py-2 bg-transparent border-b border-gray-800 rounded-none justify-start gap-1 h-auto flex-wrap">
           {[['info','Info',Info],['logs','Logs',Terminal],['recording','Replay',Film],['control','Control',Gamepad2],['cmd','Live',Radio],['shots','Shots',ImageIcon],['cdp','CDP',Cpu]].map(([val,label,Icon]) => (
             <TabsTrigger key={val} value={val}
-              className="text-xs px-2.5 py-1 data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-400 text-gray-500 rounded-md gap-1">
+              className="min-h-[44px] text-xs px-2.5 py-1 data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-400 text-gray-500 rounded-md gap-1">
               <Icon className="w-3 h-3" />{label}
             </TabsTrigger>
           ))}

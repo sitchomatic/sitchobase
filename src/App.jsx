@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -24,6 +24,7 @@ import BulkTest from './pages/BulkTest';
 import Monitor from './pages/Monitor';
 import AuditLog from './pages/AuditLog.jsx';
 import TestReports from './pages/TestReports';
+import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -53,6 +54,7 @@ const AuthenticatedApp = () => {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/sessions" element={<Sessions />} />
+        <Route path="/sessions/:id" element={<Sessions />} />
         <Route path="/fleet" element={<FleetLauncher />} />
         <Route path="/mirror" element={<MirrorMode />} />
         <Route path="/contexts" element={<Contexts />} />
@@ -64,6 +66,7 @@ const AuthenticatedApp = () => {
         <Route path="/reports" element={<TestReports />} />
         <Route path="/monitor" element={<Monitor />} />
         <Route path="/audit" element={<AuditLog />} />
+        <Route path="/audit/:id" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

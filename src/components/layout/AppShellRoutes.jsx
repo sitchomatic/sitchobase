@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import Dashboard from '@/pages/Dashboard';
 import Sessions from '@/pages/Sessions';
 import FleetLauncher from '@/pages/FleetLauncher';
@@ -27,20 +28,28 @@ const routeMap = {
   '/audit': AuditLog,
 };
 
+const rootPathFor = (pathname) => {
+  if (pathname.startsWith('/sessions')) return '/sessions';
+  if (pathname.startsWith('/audit')) return '/audit';
+  return Object.keys(routeMap).find((path) => path === pathname) || pathname;
+};
+
 export default function AppShellRoutes({ pathname }) {
-  const ActiveComponent = routeMap[pathname] || PageNotFound;
+  const activeRootPath = rootPathFor(pathname);
+  const ActiveComponent = routeMap[activeRootPath] || PageNotFound;
 
   return (
-    <>
-      {Object.entries(routeMap).map(([path, Component]) => {
-        const isActive = path === pathname;
-        return (
-          <div key={path} className={isActive ? 'block min-h-full' : 'hidden min-h-full'}>
-            <Component />
-          </div>
-        );
-      })}
-      {!routeMap[pathname] && <PageNotFound />}
-    </>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={activeRootPath}
+        initial={{ x: 24, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: -24, opacity: 0 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+        className="min-h-full"
+      >
+        <ActiveComponent />
+      </motion.div>
+    </AnimatePresence>
   );
 }
