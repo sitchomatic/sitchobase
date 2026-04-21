@@ -5,6 +5,7 @@ import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import JoeIgniteCsvPicker from '@/components/joeIgnite/JoeIgniteCsvPicker';
 import JoeIgniteRowCard from '@/components/joeIgnite/JoeIgniteRowCard';
 import JoeIgniteSummaryBar from '@/components/joeIgnite/JoeIgniteSummaryBar';
+import JoeIgniteModeToggle from '@/components/joeIgnite/JoeIgniteModeToggle';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -12,20 +13,26 @@ import { Flame, Play, StopCircle, Download, Loader2 } from 'lucide-react';
 import { JOE_IGNITE_CONFIG } from '@/lib/joeIgniteConfig';
 import { runJoeIgniteBatch } from '@/lib/joeIgniteRunner';
 import { buildJoeIgniteExports, downloadCSV } from '@/lib/joeIgniteExport';
+import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
 export default function JoeIgnite() {
-  const { isConfigured } = useCredentials();
+  const { isConfigured, credentials: bbCreds } = useCredentials();
   const location = useLocation();
   const pickerRef = useRef(null);
 
   const [loaded, setLoaded] = useState(null);
+  const [mode, setMode] = useState(() => localStorage.getItem('joe_ignite_mode') || 'browser');
   const [concurrency, setConcurrency] = useState(JOE_IGNITE_CONFIG.DEFAULT_CONCURRENCY);
   const [rows, setRows] = useState([]);
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [activeBatchId, setActiveBatchId] = useState(null);
   const abortRef = useRef(false);
+  const pollTimerRef = useRef(null);
+
+  useEffect(() => { localStorage.setItem('joe_ignite_mode', mode); }, [mode]);
 
   // Autofocus CSV picker when navigated with ?pick=1 (from the Command Center button)
   useEffect(() => {
@@ -37,6 +44,9 @@ export default function JoeIgnite() {
       }, 200);
     }
   }, [location.search, loaded]);
+
+  // Cleanup poll timer on unmount
+  useEffect(() => () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); }, []);
 
   if (!isConfigured) return <CredentialsGuard />;
 
@@ -50,20 +60,11 @@ export default function JoeIgnite() {
     setLoaded(null);
     setRows([]);
     setFinished(false);
+    setActiveBatchId(null);
   };
 
-  const start = async () => {
-    if (!loaded) return;
-    setRunning(true);
-    setFinished(false);
+  const startBrowserMode = async (batchId) => {
     abortRef.current = false;
-    const batchId = `joe-ignite-${Date.now()}`;
-    auditLog({
-      action: 'JOE_IGNITE_STARTED',
-      category: 'bulk',
-      details: { batchId, count: loaded.credentials.length, concurrency },
-    });
-
     await runJoeIgniteBatch({
       credentials: loaded.credentials,
       concurrency,
@@ -76,15 +77,76 @@ export default function JoeIgnite() {
         setRunning(false);
         setFinished(true);
         toast.success('Joe Ignite batch complete');
-        auditLog({ action: 'JOE_IGNITE_COMPLETED', category: 'bulk', details: { batchId } });
+        auditLog({ action: 'JOE_IGNITE_COMPLETED', category: 'bulk', details: { batchId, mode: 'browser' } });
       },
     });
   };
 
+  const startServerlessMode = async (batchId) => {
+    const res = await base44.functions.invoke('joeIgniteBatch', {
+      credentials: loaded.credentials,
+      concurrency,
+      batchId,
+      projectId: bbCreds?.projectId,
+    });
+    if (res.data?.error) {
+      toast.error(`Serverless start failed: ${res.data.error}`);
+      setRunning(false);
+      return;
+    }
+    toast.success('Serverless batch dispatched');
+
+    // Poll the entity every 4s to update the UI.
+    const poll = async () => {
+      const records = await base44.entities.JoeIgniteRun.filter({ batchId });
+      if (records.length > 0) {
+        setRows((prev) => prev.map((r) => {
+          const rec = records.find((x) => x.email === r.email);
+          return rec ? { ...r, ...rec } : r;
+        }));
+        const pending = records.filter((r) => r.status === 'queued' || r.status === 'running').length;
+        if (pending === 0 && records.length >= loaded.credentials.length) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+          setRunning(false);
+          setFinished(true);
+          toast.success('Serverless batch complete');
+          auditLog({ action: 'JOE_IGNITE_COMPLETED', category: 'bulk', details: { batchId, mode: 'serverless' } });
+        }
+      }
+    };
+    await poll();
+    pollTimerRef.current = setInterval(poll, 4000);
+  };
+
+  const start = async () => {
+    if (!loaded) return;
+    setRunning(true);
+    setFinished(false);
+    const batchId = `joe-ignite-${Date.now()}`;
+    setActiveBatchId(batchId);
+    auditLog({
+      action: 'JOE_IGNITE_STARTED',
+      category: 'bulk',
+      details: { batchId, mode, count: loaded.credentials.length, concurrency },
+    });
+
+    if (mode === 'serverless') await startServerlessMode(batchId);
+    else await startBrowserMode(batchId);
+  };
+
   const stop = () => {
-    abortRef.current = true;
-    setRunning(false);
-    toast.info('Stopping after current in-flight sessions…');
+    if (mode === 'browser') {
+      abortRef.current = true;
+      setRunning(false);
+      toast.info('Stopping after current in-flight sessions…');
+    } else {
+      // Serverless: we can stop polling but backend keeps running until natural finish
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+      setRunning(false);
+      toast.info('Stopped polling. Serverless batch continues in the background.');
+    }
   };
 
   const exportAll = () => {
@@ -119,8 +181,16 @@ export default function JoeIgnite() {
       {loaded && (
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-4">
           <div>
+            <Label className="text-gray-400 text-xs mb-2 block">Run mode</Label>
+            <JoeIgniteModeToggle mode={mode} onChange={setMode} disabled={running} />
+          </div>
+
+          <div>
             <Label className="text-gray-400 text-xs mb-2 block">
               Concurrent workers: <span className="text-emerald-400 font-bold">{concurrency}</span>
+              {mode === 'serverless' && concurrency > 8 && (
+                <span className="ml-2 text-[10px] text-yellow-400">(serverless capped at 8)</span>
+              )}
             </Label>
             <Slider min={1} max={12} step={1} value={[concurrency]}
               onValueChange={([v]) => setConcurrency(v)} disabled={running} />
@@ -134,7 +204,7 @@ export default function JoeIgnite() {
               </Button>
             ) : (
               <Button onClick={stop} variant="destructive" className="gap-2 flex-1 min-w-[180px]">
-                <StopCircle className="w-4 h-4" /> Stop After In-Flight
+                <StopCircle className="w-4 h-4" /> {mode === 'browser' ? 'Stop After In-Flight' : 'Stop Polling'}
               </Button>
             )}
             {(finished || rows.some((r) => r.status !== 'queued')) && (
@@ -143,6 +213,14 @@ export default function JoeIgnite() {
               </Button>
             )}
           </div>
+
+          {mode === 'serverless' && (
+            <div className="text-[11px] text-gray-500 bg-gray-950 border border-gray-800 rounded-lg px-3 py-2">
+              ⚡ Serverless mode: batch runs on the backend and writes results to the database.
+              Safe to close this tab — results will be here when you come back.
+              Batches should be modest (~25 creds or fewer) due to backend timeouts.
+            </div>
+          )}
         </div>
       )}
 
@@ -155,7 +233,8 @@ export default function JoeIgnite() {
           </div>
           {running && (
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500 py-4">
-              <Loader2 className="w-4 h-4 animate-spin" /> Batch in progress…
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {mode === 'serverless' ? `Polling batch ${activeBatchId}…` : 'Batch in progress…'}
             </div>
           )}
         </>
