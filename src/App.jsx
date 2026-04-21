@@ -21,7 +21,7 @@ import StagehandAI from './pages/StagehandAI';
 import Settings from './pages/Settings';
 import BulkTest from './pages/BulkTest';
 import Monitor from './pages/Monitor';
-import AuditLog from './pages/AuditLog';
+import AuditLog from './pages/AuditLog.jsx';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();

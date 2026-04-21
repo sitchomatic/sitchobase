@@ -17,29 +17,6 @@ export default function Monitor() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(null);
-  const [tick, setTick] = useState(0);
-
-  const load = useCallback(async () => {
-    if (!isConfigured) return;
-    setLoading(true);
-    const data = await bbClient.listSessions('RUNNING');
-    setSessions(Array.isArray(data) ? data : []);
-    setLoading(false);
-  }, [isConfigured]);
-
-  // Initial load + auto-refresh session list every 15s
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    if (!isConfigured) return;
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
-  }, [load, isConfigured]);
-
-  // Duration ticker for metric cards
-  useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   if (!isConfigured) return <CredentialsGuard />;
 

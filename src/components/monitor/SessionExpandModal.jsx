@@ -4,8 +4,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
-import { Button } from '@/components/ui/button';
-import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity, Wifi, WifiOff } from 'lucide-react';
+import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity } from 'lucide-react';
 
 function useCDP(connectUrl) {
   const wsRef = useRef(null);
@@ -60,7 +59,6 @@ export default function SessionExpandModal({ session, onClose }) {
   const [screenshot, setScreenshot] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [logs, setLogs] = useState([]);
-  const [tick, setTick] = useState(0);
   const logCountRef = useRef(0);
   const logEndRef = useRef(null);
 
@@ -108,11 +106,6 @@ export default function SessionExpandModal({ session, onClose }) {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  // Duration ticker
-  useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col overflow-hidden">
