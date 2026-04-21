@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { base44 } from '@/api/base44Client';
 import { bbClient } from '@/lib/bbClient';
 import { parseCSV, extractPlaceholders, interpolate } from '@/lib/csvParser';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import ScriptEditor from '@/components/bulk/ScriptEditor';
+import TestSuiteEditor from '@/components/bulk/TestSuiteEditor';
 import CsvUploader from '@/components/bulk/CsvUploader';
 import StatusBadge from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import {
   FlaskConical, Plus, Pencil, Trash2, ChevronRight, Zap, Loader2,
-  CheckCircle, AlertCircle, Globe, Code2, Shield, FileText
+  CheckCircle, AlertCircle, Globe, Code2, Shield, FileText, Layers, BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
@@ -30,8 +31,11 @@ const REGIONS = [
 export default function BulkTest() {
   const { isConfigured } = useCredentials();
   const [scripts, setScripts] = useState([]);
+  const [suites, setSuites] = useState([]);
   const [selectedScript, setSelectedScript] = useState(null);
+  const [selectedSuite, setSelectedSuite] = useState(null);
   const [editingScript, setEditingScript] = useState(null);
+  const [editingSuite, setEditingSuite] = useState(null);
   const [scriptsLoading, setScriptsLoading] = useState(true);
   const [csvHeaders, setCsvHeaders] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
@@ -44,9 +48,18 @@ export default function BulkTest() {
   const [runProgress, setRunProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
-    base44.entities.SavedScript.list('-updated_date', 50)
-      .then(s => setScripts(Array.isArray(s) ? s : []))
-      .catch(() => setScripts([]))
+    Promise.all([
+      base44.entities.SavedScript.list('-updated_date', 50),
+      base44.entities.TestSuite.list('-updated_date', 50),
+    ])
+      .then(([savedScripts, savedSuites]) => {
+        setScripts(Array.isArray(savedScripts) ? savedScripts : []);
+        setSuites(Array.isArray(savedSuites) ? savedSuites : []);
+      })
+      .catch(() => {
+        setScripts([]);
+        setSuites([]);
+      })
       .finally(() => setScriptsLoading(false));
   }, []);
 
@@ -65,6 +78,15 @@ export default function BulkTest() {
     setEditingScript(null);
   };
 
+  const handleSuiteSaved = (saved) => {
+    setSuites(prev => {
+      const exists = prev.find(s => s.id === saved.id);
+      return exists ? prev.map(s => s.id === saved.id ? saved : s) : [saved, ...prev];
+    });
+    setSelectedSuite(saved);
+    setEditingSuite(null);
+  };
+
   const deleteScript = async (id) => {
     await base44.entities.SavedScript.delete(id);
     setScripts(prev => prev.filter(s => s.id !== id));
@@ -72,9 +94,16 @@ export default function BulkTest() {
     toast.success('Script deleted');
   };
 
+  const suiteScripts = useMemo(() => {
+    if (!selectedSuite) return [];
+    return selectedSuite.scenarioIds.map(id => scripts.find(script => script.id === id)).filter(Boolean);
+  }, [selectedSuite, scripts]);
+
   const scriptPlaceholders = selectedScript ? extractPlaceholders(selectedScript.script) : [];
-  const missingCols = scriptPlaceholders.filter(p => !csvHeaders.includes(p));
-  const canRun = !running && selectedScript && csvRows.length > 0 && missingCols.length === 0 && isConfigured;
+  const suitePlaceholders = [...new Set(suiteScripts.flatMap(script => extractPlaceholders(script.script)))];
+  const activePlaceholders = selectedSuite ? suitePlaceholders : scriptPlaceholders;
+  const missingCols = activePlaceholders.filter(p => !csvHeaders.includes(p));
+  const canRun = !running && (selectedSuite || selectedScript) && csvRows.length > 0 && missingCols.length === 0 && isConfigured;
 
   const runBulkTest = async () => {
     if (!canRun) return;
@@ -88,8 +117,10 @@ export default function BulkTest() {
       if (queue.length === 0) return;
       const [rowIdx, row] = queue.shift();
 
-      const interpolatedScript = interpolate(selectedScript.script, row);
-      setJobResults(prev => [...prev, { rowIdx, row, status: 'running', sessionId: null, error: null, script: interpolatedScript }]);
+      const scenarioSequence = selectedSuite
+        ? suiteScripts.map(script => ({ name: script.name, script: interpolate(script.script, row) }))
+        : [{ name: selectedScript.name, script: interpolate(selectedScript.script, row) }];
+      setJobResults(prev => [...prev, { rowIdx, row, status: 'running', sessionId: null, error: null, script: scenarioSequence[0]?.script, scenarios: scenarioSequence }]);
 
       const options = {
         region,
@@ -97,8 +128,9 @@ export default function BulkTest() {
         userMetadata: {
           bulkTestRow: rowIdx,
           ...(url ? { targetUrl: url } : {}),
-          scriptName: selectedScript.name,
+          scriptName: selectedSuite ? selectedSuite.name : selectedScript.name,
           launchedFrom: 'BBCommandCenter-BulkTest',
+          scenarioCount: selectedSuite ? suiteScripts.length : 1,
         },
       };
 
@@ -124,7 +156,18 @@ export default function BulkTest() {
     setJobResults(prev => {
       const successCount = prev.filter(r => r.status === 'completed').length;
       const failCount = prev.filter(r => r.status === 'error').length;
-      auditLog({ action: 'BULK_TEST_RUN', category: 'bulk', details: { script: selectedScript.name, rows: csvRows.length, success: successCount, failed: failCount, region } });
+      const successRate = prev.length ? Math.round((successCount / prev.length) * 100) : 0;
+      auditLog({ action: 'BULK_TEST_RUN', category: 'bulk', details: { script: selectedSuite ? selectedSuite.name : selectedScript.name, rows: csvRows.length, success: successCount, failed: failCount, region } });
+      base44.entities.TestRun.create({
+        suiteId: selectedSuite?.id || selectedScript.id,
+        suiteName: selectedSuite ? selectedSuite.name : selectedScript.name,
+        status: 'completed',
+        totalSessions: prev.length,
+        passedSessions: successCount,
+        failedSessions: failCount,
+        successRate,
+        results: prev,
+      });
       return prev;
     });
     setRunning(false);
@@ -144,8 +187,7 @@ export default function BulkTest() {
           <FlaskConical className="w-5 h-5 text-orange-400" /> Bulk Concurrent Test
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Upload a CSV, pick a script with <code className="text-emerald-400 bg-gray-800 px-1 rounded text-xs">{'{{placeholders}}'}</code>,
-          and launch one session per row concurrently.
+          Build reusable scenario sequences, run them across batch-launched browser sessions, and review aggregated success rates.
         </p>
       </div>
 
@@ -200,6 +242,33 @@ export default function BulkTest() {
             </div>
           </div>
 
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan-400" /> Test Suites
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => setEditingSuite('new')}
+                className="h-7 px-2 text-xs text-cyan-400 hover:bg-cyan-500/10 gap-1">
+                <Plus className="w-3 h-3" /> New
+              </Button>
+            </div>
+
+            <div className="space-y-1.5">
+              {suites.map(suite => (
+                <div key={suite.id} onClick={() => setSelectedSuite(suite)}
+                  className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                    selectedSuite?.id === suite.id ? 'bg-cyan-500/10 border border-cyan-500/30' : 'hover:bg-gray-800 border border-transparent'
+                  }`}>
+                  <ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-gray-200 truncate">{suite.name}</div>
+                    <div className="text-xs text-gray-600 truncate">{suite.scenarioIds?.length || 0} scenarios</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {editingScript !== null && (
             <ScriptEditor
               script={editingScript === 'new' ? null : editingScript}
@@ -207,11 +276,20 @@ export default function BulkTest() {
               onCancel={() => setEditingScript(null)}
             />
           )}
+
+          {editingSuite !== null && (
+            <TestSuiteEditor
+              suite={editingSuite === 'new' ? null : editingSuite}
+              scripts={scripts}
+              onSave={handleSuiteSaved}
+              onCancel={() => setEditingSuite(null)}
+            />
+          )}
         </div>
 
         {/* CSV + config */}
         <div className="space-y-4">
-          {selectedScript && (
+          {selectedScript && !selectedSuite && (
             <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-purple-300">{selectedScript.name}</span>
@@ -233,6 +311,25 @@ export default function BulkTest() {
             </div>
           )}
 
+          {selectedSuite && (
+            <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-cyan-300">{selectedSuite.name}</span>
+                <button onClick={() => setEditingSuite(selectedSuite)}
+                  className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1">
+                  <Pencil className="w-3 h-3" /> Edit
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {suiteScripts.map((script, index) => (
+                  <div key={script.id} className="text-xs text-gray-300 bg-gray-800/60 rounded-lg px-3 py-2">
+                    <span className="text-cyan-400 mr-2">{index + 1}.</span>{script.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
             <div className="text-sm font-semibold text-white flex items-center gap-2">
               <FileText className="w-4 h-4 text-blue-400" /> CSV Data
@@ -240,7 +337,7 @@ export default function BulkTest() {
             <CsvUploader
               headers={csvHeaders}
               rows={csvRows}
-              requiredColumns={scriptPlaceholders}
+              requiredColumns={activePlaceholders}
               onLoad={handleCsvLoad}
               onClear={() => { setCsvHeaders([]); setCsvRows([]); }}
             />
@@ -296,7 +393,8 @@ export default function BulkTest() {
             {csvRows.length > 0 && selectedScript && (
               <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex justify-between"><span>Rows</span><span className="text-white">{csvRows.length}</span></div>
-                <div className="flex justify-between"><span>Script</span><span className="text-purple-300 truncate max-w-[120px]">{selectedScript.name}</span></div>
+                <div className="flex justify-between"><span>Scenario</span><span className="text-purple-300 truncate max-w-[120px]">{selectedSuite ? selectedSuite.name : selectedScript?.name}</span></div>
+                <div className="flex justify-between"><span>Steps</span><span className="text-cyan-300">{selectedSuite ? suiteScripts.length : 1}</span></div>
                 <div className="flex justify-between"><span>Concurrency</span><span className="text-orange-400">{concurrency}×</span></div>
                 {missingCols.length > 0 && (
                   <div className="text-red-400 pt-1">⚠ Missing: {missingCols.map(c => `{{${c}}}`).join(', ')}</div>
@@ -309,6 +407,16 @@ export default function BulkTest() {
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {running ? `Running… (${runProgress.done}/${runProgress.total})` : csvRows.length > 0 ? `Run ${csvRows.length} Row${csvRows.length > 1 ? 's' : ''}` : 'Upload CSV to run'}
             </Button>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+            <a href="/reports" className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-800/40 px-3 py-3 hover:bg-gray-800 transition-colors">
+              <div>
+                <div className="text-sm font-semibold text-white flex items-center gap-2"><BarChart3 className="w-4 h-4 text-cyan-400" /> Test Report Dashboard</div>
+                <div className="text-xs text-gray-500 mt-0.5">View aggregated suite runs and success rates</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </a>
           </div>
 
           {(running || jobResults.length > 0) && (
@@ -348,6 +456,7 @@ export default function BulkTest() {
                         ))}
                       </div>
                       {r.sessionId && <div className="font-mono text-gray-500 truncate">{r.sessionId}</div>}
+                      {r.scenarios?.length > 0 && <div className="text-gray-600">{r.scenarios.length} scenario step{r.scenarios.length !== 1 ? 's' : ''}</div>}
                       {r.error && <div className="text-red-400">{r.error}</div>}
                     </div>
                   </div>

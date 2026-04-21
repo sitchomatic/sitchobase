@@ -1,0 +1,49 @@
+{
+  "name": "TestRun",
+  "type": "object",
+  "properties": {
+    "suiteId": {
+      "type": "string",
+      "description": "Related test suite ID"
+    },
+    "suiteName": {
+      "type": "string",
+      "description": "Snapshot of suite name"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed"
+      ],
+      "default": "running"
+    },
+    "totalSessions": {
+      "type": "number",
+      "default": 0
+    },
+    "passedSessions": {
+      "type": "number",
+      "default": 0
+    },
+    "failedSessions": {
+      "type": "number",
+      "default": 0
+    },
+    "successRate": {
+      "type": "number",
+      "default": 0
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Per-session execution results"
+    }
+  },
+  "required": [
+    "suiteId",
+    "suiteName"
+  ]
+}

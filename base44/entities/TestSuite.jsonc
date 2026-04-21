@@ -1,0 +1,25 @@
+{
+  "name": "TestSuite",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the automated test suite"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional notes about the suite"
+    },
+    "scenarioIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Ordered list of SavedScript IDs included in the suite"
+    }
+  },
+  "required": [
+    "name",
+    "scenarioIds"
+  ]
+}
