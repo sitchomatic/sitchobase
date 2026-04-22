@@ -2,7 +2,7 @@
 
 **About**
 
-View and Edit your app on [Base44.com](https://base44.com) 
+View and edit your app on [Base44.com](https://base44.com)
 
 This project contains everything you need to run your app locally.
 
@@ -34,7 +34,7 @@ VITE_BASE44_API_KEY=your_base44_api_key
 
 Treat the key as a secret — `.env.local` is gitignored; do not commit it. Do **not** set `VITE_BASE44_API_KEY` in any environment that produces a deployed build: Vite inlines `VITE_*` variables into the client bundle, which would make the key publicly readable.
 
-**Known limitation when using `VITE_BASE44_API_KEY`:** The `bbProxy` Base44 function (invoked from the Settings "Test Connection" button and the Contexts page list) does not accept `api_key` header authentication. Requests route through the user-session flow on the Base44 side and return 404 under API key authentication. Every other page in the app works fine. If you need Test Connection or Contexts listing to work locally, run with an interactive Google login instead of setting `VITE_BASE44_API_KEY`.
+**Known limitation when using `VITE_BASE44_API_KEY`:** The `bbProxy` Base44 function (invoked from the Settings "Test Connection" button and the Contexts page list) does not accept `api_key` header authentication. Requests route through the user-session flow on the Base44 side and return an HTTP 404 under API key authentication. Every other page in the app works fine. If you need Test Connection or Contexts listing to work locally, run with an interactive Google login instead of setting `VITE_BASE44_API_KEY`.
 
 Run the app: `npm run dev`
 
