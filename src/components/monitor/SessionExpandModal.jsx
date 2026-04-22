@@ -136,6 +136,16 @@ export default function SessionExpandModal({ session, onClose }) {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
+  // Validate debugger URL scheme
+  const isValidDebuggerUrl = (url) => {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col overflow-hidden">
@@ -149,7 +159,7 @@ export default function SessionExpandModal({ session, onClose }) {
           <span><Globe className="inline w-3 h-3 mr-1" />{formatBytes(session.proxyBytes)}</span>
           <span><Activity className="inline w-3 h-3 mr-1" />{session.region}</span>
         </div>
-        {session.debuggerFullscreenUrl && (
+        {isValidDebuggerUrl(session.debuggerFullscreenUrl) && (
           <a
             href={session.debuggerFullscreenUrl}
             target="_blank"

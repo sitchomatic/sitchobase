@@ -27,7 +27,28 @@ export default function CloudFunctionLibrary({ onLaunch }) {
     if (saving) return;
     setSaving(true);
     try {
-      await saveFunction(form);
+      const trimmedName = form.name.trim();
+      const trimmedDescription = form.description.trim();
+      const trimmedScript = form.script.trim();
+
+      if (!trimmedName) {
+        setSaving(false);
+        toast.error('Function name cannot be empty');
+        return;
+      }
+
+      if (!trimmedScript) {
+        setSaving(false);
+        toast.error('Function script cannot be empty');
+        return;
+      }
+
+      await saveFunction({
+        ...form,
+        name: trimmedName,
+        description: trimmedDescription,
+        script: trimmedScript,
+      });
       setForm({ name: '', description: '', script: '', runtime: 'playwright' });
       setOpen(false);
       toast.success('Cloud function saved');
