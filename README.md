@@ -26,6 +26,14 @@ VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
 VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
 ```
 
+Optional: to run locally against the published Base44 backend without an interactive Google login, set a Base44 API key. When set, the SDK authenticates every request via the `api_key` header (the documented server-side SDK pattern) and the user-session flow is skipped.
+
+```
+VITE_BASE44_API_KEY=your_base44_api_key
+```
+
+Treat the key as a secret — `.env.local` is gitignored; do not commit it.
+
 Run the app: `npm run dev`
 
 **Publish your changes**
