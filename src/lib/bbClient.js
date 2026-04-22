@@ -81,10 +81,10 @@ export const API_KEY_BBPROXY_MESSAGE =
   'interactive Google login — not the local VITE_BASE44_API_KEY. Unset ' +
   'VITE_BASE44_API_KEY and sign in via Base44 to use it.';
 
-async function callOnce(action, extras = {}) {
+async function callOnce(action, extras = {}, skipRetries = false) {
   const creds = readStoredCredentials();
   if (canUseDirectBrowserbase(creds)) {
-    return callDirect(action, extras, creds);
+    return callDirect(action, extras, creds, skipRetries);
   }
   const payload = { action, ...extras };
   if (creds.projectId) payload.projectId = creds.projectId;
@@ -107,8 +107,16 @@ async function callOnce(action, extras = {}) {
 // must have a case here: unknown actions throw so we notice at call time
 // instead of silently going dark. To add a new action, implement the REST
 // helper in browserbaseApi.js and add a case below.
-async function callDirect(action, extras, creds) {
+async function callDirect(action, extras, creds, skipRetries = false) {
   const { apiKey, projectId } = creds;
+
+  // Non-idempotent actions must never reach callDirect without the retry-loop
+  // caller acknowledging them with skipRetries=true. Guards against a future
+  // caller bypassing call() and re-introducing duplicate-resource risk.
+  const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
+  if (nonIdempotentActions.includes(action) && !skipRetries) {
+    throw new Error(`bbClient: non-idempotent action "${action}" called without skipRetries flag`);
+  }
 
   switch (action) {
     case 'listSessions':
@@ -185,17 +193,25 @@ export function isLikelyApiKeyBbProxyFailure(err) {
  * call() wraps callOnce with auto-retry + exponential backoff.
  * On network/5xx errors, retries up to maxRetries times before throwing.
  * Non-idempotent actions (createSession, createContext, batchCreateSessions,
- * updateSession) are not retried to avoid duplicate resource creation.
+ * updateSession) are never retried — regardless of transport — to avoid
+ * duplicate resource creation. In the direct path we take an early-return
+ * with skipRetries=true so callDirect's guard is satisfied; in the bbProxy
+ * path we still enter the retry loop but short-circuit on the first error.
  */
 async function call(action, extras = {}, maxRetries = 3) {
-  // Non-idempotent actions should not be retried automatically
   const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
-  const shouldRetry = !nonIdempotentActions.includes(action);
+  const isNonIdempotent = nonIdempotentActions.includes(action);
+  const creds = readStoredCredentials();
+
+  if (isNonIdempotent && canUseDirectBrowserbase(creds)) {
+    // Direct path requires skipRetries=true to pass callDirect's guard.
+    return await callOnce(action, extras, true);
+  }
 
   let delay = 800;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await callOnce(action, extras);
+      return await callOnce(action, extras, false);
     } catch (err) {
       const isRetryable = err.message?.includes('fetch') ||
         err.message?.includes('network') ||
@@ -203,7 +219,7 @@ async function call(action, extras = {}, maxRetries = 3) {
         err.message?.includes('502') ||
         err.message?.includes('503') ||
         err.message?.includes('504');
-      if (!shouldRetry || !isRetryable || attempt === maxRetries) throw err;
+      if (isNonIdempotent || !isRetryable || attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, delay));
       delay = Math.min(delay * 2, 8000);
     }
