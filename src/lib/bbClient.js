@@ -1,28 +1,66 @@
 /**
- * Frontend client for the bbProxy backend function.
- * All Browserbase API calls go through here — no more CORS issues.
+ * Frontend client for Browserbase API calls.
+ *
+ * Two transports, chosen at call time:
+ *   1. Direct — bypass the bbProxy Base44 function and hit Browserbase's REST
+ *      API directly from the browser via the Vite dev proxy (/bb/v1). Used
+ *      when we are running with VITE_BASE44_API_KEY set (local dev only) AND
+ *      a Browserbase API key is stored in bb_credentials. This is the path
+ *      that actually works under api_key auth — bbProxy rejects it.
+ *   2. bbProxy — the original path. Routes the same calls through a Base44
+ *      server function that proxies to Browserbase. Requires a real user
+ *      session (interactive Google login), so it is the right transport for
+ *      production and for locally-logged-in users.
  */
 import { base44 } from '@/api/base44Client';
+import * as bb from './browserbaseApi';
 
 // Cost constants (Browserbase pricing — update if pricing changes)
 export const BB_COST_PER_MINUTE = 0.009; // USD per browser minute
 
 // True when the Base44 SDK is authenticated via an `api_key` header (local dev
 // shortcut) instead of an interactive user session. Exposed for UIs that want
-// to explain why bbProxy-backed features fail under this auth mode.
+// to branch on auth mode.
 export const isUsingApiKeyAuth = () => Boolean(import.meta.env.VITE_BASE44_API_KEY);
 
-// The bbProxy Base44 function does not accept `api_key` header auth — it
-// requires a real user session and returns 404/405 under api_key mode. This
-// message is rendered by UI surfaces that invoke bbProxy.
+function readStoredCredentials() {
+  try {
+    const stored = typeof localStorage !== 'undefined'
+      ? localStorage.getItem('bb_credentials')
+      : null;
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+// True when we can — and should — talk to Browserbase directly from the
+// browser instead of routing through bbProxy. Requires: api_key auth mode
+// (so bbProxy would fail anyway), a running Vite dev server (for the /bb
+// CORS proxy), and a stored Browserbase API key. Exposed so UIs can skip
+// the old "bbProxy doesn't support api_key" limitation banner when the
+// direct path will actually succeed.
+export function canUseDirectBrowserbase() {
+  if (!isUsingApiKeyAuth()) return false;
+  // import.meta.env.DEV is only true under `vite` / `vite build --mode development`.
+  // Production builds must continue to go through bbProxy.
+  if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
+  const { apiKey } = readStoredCredentials();
+  return Boolean(apiKey);
+}
+
+// Kept for external callers — bbProxy-only limitation UX in surfaces where
+// the direct path cannot help.
 export const API_KEY_BBPROXY_MESSAGE =
   'This action uses the bbProxy Base44 function, which only works with an ' +
   'interactive Google login — not the local VITE_BASE44_API_KEY. Unset ' +
   'VITE_BASE44_API_KEY and sign in via Base44 to use it.';
 
 async function callOnce(action, extras = {}) {
-  const stored = localStorage.getItem('bb_credentials');
-  const creds = stored ? JSON.parse(stored) : {};
+  const creds = readStoredCredentials();
+  if (canUseDirectBrowserbase()) {
+    return callDirect(action, extras, creds);
+  }
   const payload = { action, ...extras };
   if (creds.projectId) payload.projectId = creds.projectId;
   try {
@@ -36,6 +74,46 @@ async function callOnce(action, extras = {}) {
       throw wrapped;
     }
     throw err;
+  }
+}
+
+// Map bbProxy action names + extras onto the direct Browserbase REST client
+// in src/lib/browserbaseApi.js. Anything that isn't implemented directly
+// falls back to bbProxy by returning undefined — callOnce re-dispatches.
+async function callDirect(action, extras, creds) {
+  const { apiKey, projectId } = creds;
+  switch (action) {
+    case 'listSessions':
+      return bb.listSessions(apiKey, extras.status ?? null);
+    case 'getSession':
+      return bb.getSession(apiKey, extras.sessionId);
+    case 'createSession':
+      return bb.createSession(apiKey, {
+        projectId,
+        ...(extras.options ?? {}),
+      });
+    case 'updateSession':
+      return bb.updateSession(apiKey, extras.sessionId, extras.data ?? {});
+    case 'getSessionLogs':
+      return bb.getSessionLogs(apiKey, extras.sessionId);
+    case 'getSessionRecording':
+      return bb.getSessionRecording(apiKey, extras.sessionId);
+    case 'getProjectUsage':
+      return bb.getProjectUsage(apiKey, projectId);
+    case 'listContexts':
+      return bb.listContexts(apiKey);
+    case 'createContext':
+      return bb.createContext(apiKey, projectId);
+    case 'deleteContext':
+      return bb.deleteContext(apiKey, extras.contextId);
+    case 'batchCreateSessions':
+      return bb.batchCreateSessions(apiKey, extras.count, {
+        projectId,
+        ...(extras.options ?? {}),
+      });
+    default:
+      // Unknown action — fall through to bbProxy so future additions keep working.
+      throw new Error(`bbClient: direct path has no mapping for action "${action}"`);
   }
 }
 

@@ -16,5 +16,20 @@ export default defineConfig({
       visualEditAgent: true
     }),
     react(),
-  ]
+  ],
+  server: {
+    proxy: {
+      // Dev-only CORS-stripping proxy for the Browserbase REST API. Used by
+      // src/lib/browserbaseApi.js when VITE_BASE44_API_KEY is set so that
+      // local dev no longer needs to route Session / Context / Usage calls
+      // through the bbProxy Base44 function (which requires an interactive
+      // Google login). Production builds never hit this proxy.
+      '/bb': {
+        target: 'https://api.browserbase.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/bb/, ''),
+      },
+    },
+  },
 });

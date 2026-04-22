@@ -6,7 +6,35 @@ vi.mock('@/api/base44Client', () => ({
   base44: { functions: { invoke: vi.fn() } },
 }));
 
+// Stub the direct Browserbase REST client — bbClient dispatches to this when
+// the direct path is eligible. Tests assert the dispatch, not the network.
+vi.mock('./browserbaseApi', () => ({
+  listSessions: vi.fn(async () => [{ id: 'sess_1' }]),
+  getSession: vi.fn(async () => ({ id: 'sess_1' })),
+  createSession: vi.fn(async () => ({ id: 'sess_new' })),
+  updateSession: vi.fn(async () => ({ id: 'sess_1', status: 'COMPLETED' })),
+  getSessionLogs: vi.fn(async () => []),
+  getSessionRecording: vi.fn(async () => ({ events: [] })),
+  getProjectUsage: vi.fn(async () => ({ browserMinutes: 0 })),
+  listContexts: vi.fn(async () => [{ id: 'ctx_1' }]),
+  createContext: vi.fn(async () => ({ id: 'ctx_new' })),
+  deleteContext: vi.fn(async () => ({})),
+  batchCreateSessions: vi.fn(async () => ({ results: [], errors: [] })),
+}));
+
 const ORIGINAL_ENV = { ...import.meta.env };
+
+// Minimal localStorage shim for the Node test environment. Scoped per-test
+// via beforeEach.
+function installLocalStorage(initial = {}) {
+  const store = new Map(Object.entries(initial));
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+    clear: () => store.clear(),
+  };
+}
 
 describe('isLikelyApiKeyBbProxyFailure', () => {
   let isLikelyApiKeyBbProxyFailure;
@@ -69,5 +97,125 @@ describe('isUsingApiKeyAuth', () => {
     import.meta.env.VITE_BASE44_API_KEY = '';
     const { isUsingApiKeyAuth } = await import('./bbClient');
     expect(isUsingApiKeyAuth()).toBe(false);
+  });
+});
+
+describe('canUseDirectBrowserbase', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    installLocalStorage();
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(import.meta.env)) {
+      if (!(key in ORIGINAL_ENV)) delete import.meta.env[key];
+    }
+    Object.assign(import.meta.env, ORIGINAL_ENV);
+    delete globalThis.localStorage;
+  });
+
+  it('is true when api_key auth + dev mode + stored BB key all hold', async () => {
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(true);
+  });
+
+  it('is false when VITE_BASE44_API_KEY is unset (user-session auth)', async () => {
+    import.meta.env.VITE_BASE44_API_KEY = '';
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+
+  it('is false in a non-dev build (no Vite proxy available)', async () => {
+    import.meta.env.DEV = false;
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+
+  it('is false when no Browserbase API key is stored', async () => {
+    localStorage.removeItem('bb_credentials');
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+
+  it('is false when stored credentials are malformed JSON', async () => {
+    localStorage.setItem('bb_credentials', 'not-json');
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+});
+
+describe('bbClient dispatch', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    installLocalStorage();
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(import.meta.env)) {
+      if (!(key in ORIGINAL_ENV)) delete import.meta.env[key];
+    }
+    Object.assign(import.meta.env, ORIGINAL_ENV);
+    delete globalThis.localStorage;
+  });
+
+  it('routes to the direct Browserbase client when api_key + dev + creds', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { base44 } = await import('@/api/base44Client');
+    const { bbClient } = await import('./bbClient');
+
+    const sessions = await bbClient.listSessions();
+
+    expect(bb.listSessions).toHaveBeenCalledWith('bb_live_abc', null);
+    expect(base44.functions.invoke).not.toHaveBeenCalled();
+    expect(sessions).toEqual([{ id: 'sess_1' }]);
+  });
+
+  it('passes projectId through to createSession on the direct path', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    await bbClient.createSession({ keepAlive: true });
+
+    expect(bb.createSession).toHaveBeenCalledWith(
+      'bb_live_abc',
+      { projectId: 'proj_1', keepAlive: true },
+    );
+  });
+
+  it('falls back to bbProxy when the direct path is not eligible', async () => {
+    import.meta.env.DEV = false;
+    import.meta.env.VITE_BASE44_API_KEY = '';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { base44 } = await import('@/api/base44Client');
+    base44.functions.invoke.mockResolvedValueOnce({ data: { data: [{ id: 's' }] } });
+    const { bbClient } = await import('./bbClient');
+
+    const result = await bbClient.listSessions();
+
+    expect(bb.listSessions).not.toHaveBeenCalled();
+    expect(base44.functions.invoke).toHaveBeenCalledWith(
+      'bbProxy',
+      expect.objectContaining({ action: 'listSessions', projectId: 'proj_1' }),
+    );
+    expect(result).toEqual([{ id: 's' }]);
   });
 });

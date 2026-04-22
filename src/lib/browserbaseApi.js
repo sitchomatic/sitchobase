@@ -1,4 +1,11 @@
-const BB_BASE_URL = 'https://api.browserbase.com/v1';
+// In Vite dev builds we go through a local proxy (see vite.config.js) so the
+// browser can hit the Browserbase REST API despite its lack of CORS. In any
+// other runtime (prod build, Node tests) we fall back to the real host, which
+// the bbClient dispatcher will only reach after deciding it is safe to do so.
+const BB_BASE_URL =
+  typeof import.meta !== 'undefined' && import.meta.env?.DEV
+    ? '/bb/v1'
+    : 'https://api.browserbase.com/v1';
 
 function getHeaders(apiKey) {
   return {

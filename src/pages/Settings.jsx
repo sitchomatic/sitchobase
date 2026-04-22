@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, isUsingApiKeyAuth } from '@/lib/bbClient';
+import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,17 +77,32 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Configure your Browserbase credentials</p>
       </div>
 
-      {isUsingApiKeyAuth() && (
+      {isUsingApiKeyAuth() && canUseDirectBrowserbase() && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">Local dev: direct Browserbase API</div>
+            <div className="text-xs mt-0.5 opacity-80">
+              <code className="bg-emerald-500/10 px-1 rounded">VITE_BASE44_API_KEY</code> is set
+              and a Browserbase API key is stored — Test Connection and the
+              Contexts list bypass the bbProxy function and hit Browserbase
+              directly via the Vite dev proxy.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUsingApiKeyAuth() && !canUseDirectBrowserbase() && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30 text-amber-200">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
             <div className="font-semibold">Local API key auth in use</div>
             <div className="text-xs mt-0.5 opacity-80">
-              You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>.
-              The Test Connection button and the Contexts list go through the
-              bbProxy Base44 function, which only works with an interactive
-              Google login. Unset the env var and sign in via Base44 to use
-              those two features locally.
+              You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>
+              {' '}but no Browserbase API key is stored yet. Test Connection and
+              the Contexts list go through the bbProxy Base44 function, which
+              only works with an interactive Google login. Save your Browserbase
+              API key below to enable the direct-API path instead.
             </div>
           </div>
         </div>
