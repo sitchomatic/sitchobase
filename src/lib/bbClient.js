@@ -119,11 +119,15 @@ async function callDirect(action, extras, creds) {
       return bb.listSessions(apiKey, extras.status ?? null);
     case 'getSession':
       return bb.getSession(apiKey, extras.sessionId);
-    case 'createSession':
+    case 'createSession': {
+      // Ensure stored projectId is authoritative by deleting any caller-supplied override
+      const options = { ...(extras.options ?? {}) };
+      delete options.projectId;
       return bb.createSession(apiKey, {
+        ...options,
         projectId,
-        ...(extras.options ?? {}),
       });
+    }
     case 'updateSession': {
       // Mirror bbProxy semantics: BB docs say update session is POST (not
       // PUT), and bbClient.updateSession(sessionId) with no data is the
@@ -151,11 +155,15 @@ async function callDirect(action, extras, creds) {
       return bb.createContext(apiKey, projectId);
     case 'deleteContext':
       return bb.deleteContext(apiKey, extras.contextId);
-    case 'batchCreateSessions':
+    case 'batchCreateSessions': {
+      // Ensure stored projectId is authoritative by deleting any caller-supplied override
+      const options = { ...(extras.options ?? {}) };
+      delete options.projectId;
       return bb.batchCreateSessions(apiKey, extras.count, {
+        ...options,
         projectId,
-        ...(extras.options ?? {}),
       });
+    }
     default:
       // Unknown action — fail loudly so a new bbProxy case doesn't silently
       // lose the direct-dispatch benefit the next time someone adds one.
@@ -173,8 +181,14 @@ export function isLikelyApiKeyBbProxyFailure(err) {
 /**
  * call() wraps callOnce with auto-retry + exponential backoff.
  * On network/5xx errors, retries up to maxRetries times before throwing.
+ * Non-idempotent actions (createSession, createContext, batchCreateSessions,
+ * updateSession) are not retried to avoid duplicate resource creation.
  */
 async function call(action, extras = {}, maxRetries = 3) {
+  // Non-idempotent actions should not be retried automatically
+  const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
+  const shouldRetry = !nonIdempotentActions.includes(action);
+
   let delay = 800;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -186,7 +200,7 @@ async function call(action, extras = {}, maxRetries = 3) {
         err.message?.includes('502') ||
         err.message?.includes('503') ||
         err.message?.includes('504');
-      if (!isRetryable || attempt === maxRetries) throw err;
+      if (!shouldRetry || !isRetryable || attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, delay));
       delay = Math.min(delay * 2, 8000);
     }
