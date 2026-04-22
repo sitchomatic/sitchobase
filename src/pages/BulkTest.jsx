@@ -7,7 +7,6 @@ import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import ScriptEditor from '@/components/bulk/ScriptEditor';
 import TestSuiteEditor from '@/components/bulk/TestSuiteEditor';
 import CsvUploader from '@/components/bulk/CsvUploader';
-import StatusBadge from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

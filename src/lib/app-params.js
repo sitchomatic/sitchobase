@@ -39,9 +39,14 @@ const getAppParams = () => {
 		storage.removeItem('base44_access_token');
 		storage.removeItem('token');
 	}
+	// When a Base44 API key is configured (local dev / CI), auth happens via the
+	// `api_key` request header — not a user session. Skip reading a user-session
+	// access_token so AuthProvider doesn't attempt `base44.auth.me()` with a value
+	// that isn't a user session.
+	const useApiKey = Boolean(import.meta.env.VITE_BASE44_API_KEY);
 	return {
 		appId: getAppParamValue("app_id", { defaultValue: import.meta.env.VITE_BASE44_APP_ID }),
-		token: getAppParamValue("access_token", { removeFromUrl: true }),
+		token: useApiKey ? null : getAppParamValue("access_token", { removeFromUrl: true }),
 		fromUrl: getAppParamValue("from_url", { defaultValue: window.location.href }),
 		functionsVersion: getAppParamValue("functions_version", { defaultValue: import.meta.env.VITE_BASE44_FUNCTIONS_VERSION }),
 		appBaseUrl: getAppParamValue("app_base_url", { defaultValue: import.meta.env.VITE_BASE44_APP_BASE_URL }),

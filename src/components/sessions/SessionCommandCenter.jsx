@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Activity, MousePointer2, Keyboard, Camera, Globe, AlertCircle,
-  CheckCircle, Clock, RefreshCw, Pause, Play, Filter, Trash2, ArrowDown
+  CheckCircle, Clock, RefreshCw, Pause, Play, Trash2, ArrowDown
 } from 'lucide-react';
 
 const EVENT_TYPES = {

@@ -20,7 +20,6 @@ import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Shield } from 'lucide-react';
 
 export default function JoeIgnite() {
   const { isConfigured, credentials: bbCreds } = useCredentials();
