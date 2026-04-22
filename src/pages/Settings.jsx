@@ -104,10 +104,11 @@ export default function Settings() {
             <div className="font-semibold">Local API key auth in use</div>
             <div className="text-xs mt-0.5 opacity-80">
               You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>
-              {' '}but no Browserbase API key is stored yet. Test Connection and
-              the Contexts list go through the bbProxy Base44 function, which
-              only works with an interactive Google login. Save your Browserbase
-              API key below to enable the direct-API path instead.
+              {' '}but the direct Browserbase API path isn't available yet.
+              Save a Browserbase API key <strong>and</strong> Project ID below
+              to enable it. Until then, Test Connection and the Contexts list
+              go through the bbProxy Base44 function, which only works with an
+              interactive Google login.
             </div>
           </div>
         </div>

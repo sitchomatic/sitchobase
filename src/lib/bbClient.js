@@ -51,9 +51,11 @@ function readStoredCredentials() {
 // True when we can — and should — talk to Browserbase directly from the
 // browser instead of routing through bbProxy. Requires: api_key auth mode
 // (so bbProxy would fail anyway), a running Vite dev server (for the /bb
-// CORS proxy), and stored Browserbase credentials with a non-empty API key.
-// Note: projectId is validated per-action in callDirect for actions that
-// require it (createSession, getProjectUsage, createContext, batchCreateSessions).
+// CORS proxy), and stored Browserbase credentials with both a non-empty
+// API key and project ID. projectId is required up front (not per-action)
+// so the Settings "direct API" banner never lights up for a configuration
+// that would fail the moment a projectId-bound call is made (createSession,
+// getProjectUsage, createContext, batchCreateSessions).
 // Exposed so UIs can skip the old "bbProxy doesn't support api_key" limitation
 // banner when the direct path is available.
 export function canUseDirectBrowserbase(creds) {
@@ -63,10 +65,12 @@ export function canUseDirectBrowserbase(creds) {
   if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
   // Accept already-parsed creds so hot paths (callOnce) don't parse
   // localStorage twice on every API call.
-  const { apiKey } = creds ?? readStoredCredentials();
+  const { apiKey, projectId } = creds ?? readStoredCredentials();
   return (
     typeof apiKey === 'string' &&
-    apiKey.trim().length > 0
+    apiKey.trim().length > 0 &&
+    typeof projectId === 'string' &&
+    projectId.trim().length > 0
   );
 }
 
@@ -106,14 +110,6 @@ async function callOnce(action, extras = {}) {
 async function callDirect(action, extras, creds) {
   const { apiKey, projectId } = creds;
 
-  // Actions that require projectId — fail early if it's missing
-  const requiresProjectId = ['createSession', 'getProjectUsage', 'createContext', 'batchCreateSessions'];
-  if (requiresProjectId.includes(action)) {
-    if (!projectId || typeof projectId !== 'string' || projectId.trim().length === 0) {
-      throw new Error(`bbClient: action "${action}" requires a valid projectId in bb_credentials`);
-    }
-  }
-
   switch (action) {
     case 'listSessions':
       return bb.listSessions(apiKey, extras.status ?? null);
@@ -144,7 +140,14 @@ async function callDirect(action, extras, creds) {
     case 'getSessionLogs':
       return bb.getSessionLogs(apiKey, extras.sessionId);
     case 'getSessionRecording':
-      return bb.getSessionRecording(apiKey, extras.sessionId);
+      // Mirror bbProxy: the Browserbase Session Recording REST endpoint is
+      // deprecated, so return the same synthetic notice instead of making
+      // a network call that's likely to fail. Keep this message in sync
+      // with base44/functions/bbProxy/entry.ts.
+      return {
+        deprecated: true,
+        message: 'The Browserbase Session Recording API has been deprecated. Contact support@browserbase.com for alternatives.',
+      };
     case 'getProjectUsage':
       return bb.getProjectUsage(apiKey, projectId);
     case 'listContexts':
