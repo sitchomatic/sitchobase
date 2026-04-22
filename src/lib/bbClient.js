@@ -7,13 +7,43 @@ import { base44 } from '@/api/base44Client';
 // Cost constants (Browserbase pricing — update if pricing changes)
 export const BB_COST_PER_MINUTE = 0.009; // USD per browser minute
 
+// True when the Base44 SDK is authenticated via an `api_key` header (local dev
+// shortcut) instead of an interactive user session. Exposed for UIs that want
+// to explain why bbProxy-backed features fail under this auth mode.
+export const isUsingApiKeyAuth = () => Boolean(import.meta.env.VITE_BASE44_API_KEY);
+
+// The bbProxy Base44 function does not accept `api_key` header auth — it
+// requires a real user session and returns 404/405 under api_key mode. This
+// message is rendered by UI surfaces that invoke bbProxy.
+export const API_KEY_BBPROXY_MESSAGE =
+  'This action uses the bbProxy Base44 function, which only works with an ' +
+  'interactive Google login — not the local VITE_BASE44_API_KEY. Unset ' +
+  'VITE_BASE44_API_KEY and sign in via Base44 to use it.';
+
 async function callOnce(action, extras = {}) {
   const stored = localStorage.getItem('bb_credentials');
   const creds = stored ? JSON.parse(stored) : {};
   const payload = { action, ...extras };
   if (creds.projectId) payload.projectId = creds.projectId;
-  const res = await base44.functions.invoke('bbProxy', payload);
-  return res.data.data;
+  try {
+    const res = await base44.functions.invoke('bbProxy', payload);
+    return res.data.data;
+  } catch (err) {
+    if (isUsingApiKeyAuth() && isLikelyApiKeyBbProxyFailure(err)) {
+      const wrapped = new Error(API_KEY_BBPROXY_MESSAGE);
+      wrapped.isApiKeyBbProxyLimitation = true;
+      wrapped.cause = err;
+      throw wrapped;
+    }
+    throw err;
+  }
+}
+
+function isLikelyApiKeyBbProxyFailure(err) {
+  const status = err?.response?.status ?? err?.status;
+  if (status === 404 || status === 405) return true;
+  const msg = String(err?.message ?? '');
+  return /\b(404|405)\b/.test(msg);
 }
 
 /**
