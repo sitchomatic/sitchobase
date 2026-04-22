@@ -14,19 +14,35 @@
  * the 404 suppression + cross-page cache in one place: once any surface
  * learns the entity is missing, every other surface's dropdown/picker
  * hides itself on the next render without triggering another fetch.
+ *
+ * All state is shared at the module level across hook instances:
+ *  - `unavailableCache` broadcasts entity-missing.
+ *  - `itemsCache`        broadcasts the list so a save from one surface
+ *                        updates every other mounted picker immediately.
+ *  - `inFlightList`      dedupes concurrent initial mounts (two pickers on
+ *                        the same page only fire one network request and
+ *                        thus only one potential 404 log line).
  */
 import { useCallback, useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 
-// Module-level: all hook instances across all pages share this. Tests reset it
-// via __resetCloudFunctionsCacheForTests.
+// ── Module-level shared state ────────────────────────────────────────────────
 let unavailableCache = false;
-const listeners = new Set();
+let itemsCache = [];
+let inFlightList = null;
 
-function setUnavailable(next) {
+const unavailableListeners = new Set();
+const itemsListeners = new Set();
+
+function broadcastUnavailable(next) {
   if (unavailableCache === next) return;
   unavailableCache = next;
-  listeners.forEach((l) => l(next));
+  unavailableListeners.forEach((l) => l(next));
+}
+
+function broadcastItems(next) {
+  itemsCache = next;
+  itemsListeners.forEach((l) => l(next));
 }
 
 export function isEntityMissingError(err) {
@@ -37,17 +53,21 @@ export function isEntityMissingError(err) {
 }
 
 export function useCloudFunctions({ autoload = true } = {}) {
-  const [items, setItems] = useState([]);
+  const [items, setItemsState] = useState(itemsCache);
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailableState] = useState(unavailableCache);
   const [error, setError] = useState(null);
 
-  // Subscribe to module-level unavailable flag so once one hook instance
-  // discovers the 404, every other mounted instance flips over without
-  // re-fetching.
+  // Subscribe to module-level broadcasts so one hook instance learning the
+  // entity is missing (or saving a new function) updates every other
+  // mounted instance on the next render with no extra network traffic.
   useEffect(() => {
-    listeners.add(setUnavailableState);
-    return () => { listeners.delete(setUnavailableState); };
+    unavailableListeners.add(setUnavailableState);
+    itemsListeners.add(setItemsState);
+    return () => {
+      unavailableListeners.delete(setUnavailableState);
+      itemsListeners.delete(setItemsState);
+    };
   }, []);
 
   const reload = useCallback(async () => {
@@ -55,21 +75,38 @@ export function useCloudFunctions({ autoload = true } = {}) {
       setUnavailableState(true);
       return [];
     }
+
+    // Dedup concurrent callers: two <CloudFunctionPicker>s mounted on the
+    // same page at the same time should share one list() promise, otherwise
+    // the Base44 SDK logs the 404 twice before unavailableCache flips.
+    if (!inFlightList) {
+      inFlightList = (async () => {
+        try {
+          const data = await base44.entities.CloudFunction.list('-updated_date', 50);
+          const next = Array.isArray(data) ? data : [];
+          broadcastItems(next);
+          return { ok: true, data: next };
+        } catch (err) {
+          if (isEntityMissingError(err)) {
+            broadcastUnavailable(true);
+            return { ok: true, data: [] };
+          }
+          return { ok: false, error: err };
+        } finally {
+          inFlightList = null;
+        }
+      })();
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const data = await base44.entities.CloudFunction.list('-updated_date', 50);
-      const next = Array.isArray(data) ? data : [];
-      setItems(next);
-      return next;
-    } catch (err) {
-      if (isEntityMissingError(err)) {
-        setUnavailable(true);
-        setUnavailableState(true);
+      const result = await inFlightList;
+      if (!result.ok) {
+        setError(result.error);
         return [];
       }
-      setError(err);
-      return [];
+      return result.data;
     } finally {
       setLoading(false);
     }
@@ -81,8 +118,6 @@ export function useCloudFunctions({ autoload = true } = {}) {
     (async () => {
       const data = await reload();
       if (cancelled) return;
-      // reload() already called setItems; nothing extra needed, but retain
-      // the cancelled check so tests can unmount without stale updates.
       void data;
     })();
     return () => { cancelled = true; };
@@ -96,12 +131,11 @@ export function useCloudFunctions({ autoload = true } = {}) {
     }
     try {
       const saved = await base44.entities.CloudFunction.create(payload);
-      setItems((prev) => [saved, ...prev]);
+      broadcastItems([saved, ...itemsCache]);
       return saved;
     } catch (err) {
       if (isEntityMissingError(err)) {
-        setUnavailable(true);
-        setUnavailableState(true);
+        broadcastUnavailable(true);
         err.entityMissing = true;
       }
       throw err;
@@ -118,8 +152,12 @@ export function useCloudFunctions({ autoload = true } = {}) {
   };
 }
 
-// Test-only: clear the module-level unavailable cache between tests.
+// Test-only: clear every module-level cache between tests so suites don't
+// leak state into each other.
 export function __resetCloudFunctionsCacheForTests() {
   unavailableCache = false;
-  listeners.forEach((l) => l(false));
+  itemsCache = [];
+  inFlightList = null;
+  unavailableListeners.forEach((l) => l(false));
+  itemsListeners.forEach((l) => l([]));
 }

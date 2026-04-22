@@ -12,9 +12,12 @@ import { toast } from 'sonner';
 export default function CloudFunctionLibrary({ onLaunch }) {
   const { items, unavailable, saveFunction } = useCloudFunctions();
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', script: '', runtime: 'playwright' });
 
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       await saveFunction(form);
       setForm({ name: '', description: '', script: '', runtime: 'playwright' });
@@ -27,6 +30,8 @@ export default function CloudFunctionLibrary({ onLaunch }) {
       } else {
         toast.error(`Save failed: ${err?.message || 'unknown error'}`);
       }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -92,7 +97,9 @@ export default function CloudFunctionLibrary({ onLaunch }) {
               <Label className="text-xs text-gray-400 mb-1 block">Script</Label>
               <Textarea value={form.script} onChange={e => setForm(prev => ({ ...prev, script: e.target.value }))} className="bg-gray-800 border-gray-700 text-gray-200 min-h-[180px] font-mono text-xs" />
             </div>
-            <Button onClick={save} disabled={!form.name || !form.script} className="w-full bg-cyan-500 hover:bg-cyan-600 text-black">Save Function</Button>
+            <Button onClick={save} disabled={saving || !form.name || !form.script} className="w-full bg-cyan-500 hover:bg-cyan-600 text-black">
+              {saving ? 'Saving…' : 'Save Function'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
