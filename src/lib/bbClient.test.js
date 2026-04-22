@@ -143,24 +143,20 @@ describe('canUseDirectBrowserbase', () => {
     expect(canUseDirectBrowserbase()).toBe(false);
   });
 
-  it('is true when projectId is missing (projectId validated per-action in callDirect)', async () => {
+  it('is false when projectId is missing (gate requires both apiKey and projectId)', async () => {
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc' }));
     const { canUseDirectBrowserbase } = await import('./bbClient');
-    // canUseDirectBrowserbase only gates on apiKey; projectId is checked
-    // per-action inside callDirect for actions that need it.
-    expect(canUseDirectBrowserbase()).toBe(true);
+    expect(canUseDirectBrowserbase()).toBe(false);
   });
 
-  it('is false when apiKey is whitespace-only, true when only projectId is whitespace', async () => {
+  it('is false when apiKey or projectId is whitespace-only', async () => {
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: '   ', projectId: 'proj_1' }));
     let { canUseDirectBrowserbase } = await import('./bbClient');
     expect(canUseDirectBrowserbase()).toBe(false);
     vi.resetModules();
-    // projectId whitespace doesn't block the gate — only apiKey matters here.
-    // Actions requiring projectId will fail early inside callDirect.
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc', projectId: '  ' }));
     ({ canUseDirectBrowserbase } = await import('./bbClient'));
-    expect(canUseDirectBrowserbase()).toBe(true);
+    expect(canUseDirectBrowserbase()).toBe(false);
   });
 
   it('is false when stored credentials are malformed JSON', async () => {
@@ -288,5 +284,52 @@ describe('bbClient dispatch', () => {
     await bbClient.getContext('ctx_1');
 
     expect(bb.getContext).toHaveBeenCalledWith('bb_live_abc', 'ctx_1');
+  });
+
+  it('does not retry createSession on the bbProxy path when the server returns a 500', async () => {
+    // Regression for the duplicate-session risk: non-idempotent actions must
+    // short-circuit the retry loop regardless of transport, so a flaky 500
+    // never produces two Browserbase sessions.
+    import.meta.env.DEV = false;
+    import.meta.env.VITE_BASE44_API_KEY = '';
+    const { base44 } = await import('@/api/base44Client');
+    const err500 = new Error('Request failed with status 500');
+    base44.functions.invoke.mockRejectedValue(err500);
+    const { bbClient } = await import('./bbClient');
+
+    await expect(bbClient.createSession({ keepAlive: true })).rejects.toBe(err500);
+    expect(base44.functions.invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('still retries idempotent actions on the bbProxy path after a 500', async () => {
+    import.meta.env.DEV = false;
+    import.meta.env.VITE_BASE44_API_KEY = '';
+    const { base44 } = await import('@/api/base44Client');
+    base44.functions.invoke
+      .mockRejectedValueOnce(new Error('Request failed with status 500'))
+      .mockResolvedValueOnce({ data: { data: [{ id: 's' }] } });
+    const { bbClient } = await import('./bbClient');
+
+    const result = await bbClient.listSessions();
+    expect(result).toEqual([{ id: 's' }]);
+    expect(base44.functions.invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('getSessionRecording returns the deprecation notice without a network call', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    const result = await bbClient.getSessionRecording('sess_1');
+
+    expect(bb.getSessionRecording).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      deprecated: true,
+      message: expect.stringContaining('deprecated'),
+    });
   });
 });

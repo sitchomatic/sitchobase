@@ -51,9 +51,11 @@ function readStoredCredentials() {
 // True when we can — and should — talk to Browserbase directly from the
 // browser instead of routing through bbProxy. Requires: api_key auth mode
 // (so bbProxy would fail anyway), a running Vite dev server (for the /bb
-// CORS proxy), and stored Browserbase credentials with a non-empty API key.
-// Note: projectId is validated per-action in callDirect for actions that
-// require it (createSession, getProjectUsage, createContext, batchCreateSessions).
+// CORS proxy), and stored Browserbase credentials with both a non-empty
+// API key and project ID. projectId is required up front (not per-action)
+// so the Settings "direct API" banner never lights up for a configuration
+// that would fail the moment a projectId-bound call is made (createSession,
+// getProjectUsage, createContext, batchCreateSessions).
 // Exposed so UIs can skip the old "bbProxy doesn't support api_key" limitation
 // banner when the direct path is available.
 export function canUseDirectBrowserbase(creds) {
@@ -63,10 +65,12 @@ export function canUseDirectBrowserbase(creds) {
   if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
   // Accept already-parsed creds so hot paths (callOnce) don't parse
   // localStorage twice on every API call.
-  const { apiKey } = creds ?? readStoredCredentials();
+  const { apiKey, projectId } = creds ?? readStoredCredentials();
   return (
     typeof apiKey === 'string' &&
-    apiKey.trim().length > 0
+    apiKey.trim().length > 0 &&
+    typeof projectId === 'string' &&
+    projectId.trim().length > 0
   );
 }
 
@@ -106,15 +110,9 @@ async function callOnce(action, extras = {}, skipRetries = false) {
 async function callDirect(action, extras, creds, skipRetries = false) {
   const { apiKey, projectId } = creds;
 
-  // Actions that require projectId — fail early if it's missing
-  const requiresProjectId = ['createSession', 'getProjectUsage', 'createContext', 'batchCreateSessions'];
-  if (requiresProjectId.includes(action)) {
-    if (!projectId || typeof projectId !== 'string' || projectId.trim().length === 0) {
-      throw new Error(`bbClient: action "${action}" requires a valid projectId in bb_credentials`);
-    }
-  }
-
-  // Non-idempotent actions that should skip retries in the direct path
+  // Non-idempotent actions must never reach callDirect without the retry-loop
+  // caller acknowledging them with skipRetries=true. Guards against a future
+  // caller bypassing call() and re-introducing duplicate-resource risk.
   const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
   if (nonIdempotentActions.includes(action) && !skipRetries) {
     throw new Error(`bbClient: non-idempotent action "${action}" called without skipRetries flag`);
@@ -126,11 +124,12 @@ async function callDirect(action, extras, creds, skipRetries = false) {
     case 'getSession':
       return bb.getSession(apiKey, extras.sessionId);
     case 'createSession': {
+      // Ensure stored projectId is authoritative by deleting any caller-supplied override
       const options = { ...(extras.options ?? {}) };
       delete options.projectId;
       return bb.createSession(apiKey, {
-        projectId,
         ...options,
+        projectId,
       });
     }
     case 'updateSession': {
@@ -149,7 +148,14 @@ async function callDirect(action, extras, creds, skipRetries = false) {
     case 'getSessionLogs':
       return bb.getSessionLogs(apiKey, extras.sessionId);
     case 'getSessionRecording':
-      return bb.getSessionRecording(apiKey, extras.sessionId);
+      // Mirror bbProxy: the Browserbase Session Recording REST endpoint is
+      // deprecated, so return the same synthetic notice instead of making
+      // a network call that's likely to fail. Keep this message in sync
+      // with base44/functions/bbProxy/entry.ts.
+      return {
+        deprecated: true,
+        message: 'The Browserbase Session Recording API has been deprecated. Contact support@browserbase.com for alternatives.',
+      };
     case 'getProjectUsage':
       return bb.getProjectUsage(apiKey, projectId);
     case 'listContexts':
@@ -161,11 +167,12 @@ async function callDirect(action, extras, creds, skipRetries = false) {
     case 'deleteContext':
       return bb.deleteContext(apiKey, extras.contextId);
     case 'batchCreateSessions': {
+      // Ensure stored projectId is authoritative by deleting any caller-supplied override
       const options = { ...(extras.options ?? {}) };
       delete options.projectId;
       return bb.batchCreateSessions(apiKey, extras.count, {
-        projectId,
         ...options,
+        projectId,
       });
     }
     default:
@@ -185,18 +192,19 @@ export function isLikelyApiKeyBbProxyFailure(err) {
 /**
  * call() wraps callOnce with auto-retry + exponential backoff.
  * On network/5xx errors, retries up to maxRetries times before throwing.
- * For non-idempotent actions (createSession, createContext, batchCreateSessions,
- * updateSession) in the direct Browserbase path, retries are disabled to avoid
- * duplicate operations.
+ * Non-idempotent actions (createSession, createContext, batchCreateSessions,
+ * updateSession) are never retried — regardless of transport — to avoid
+ * duplicate resource creation. In the direct path we take an early-return
+ * with skipRetries=true so callDirect's guard is satisfied; in the bbProxy
+ * path we still enter the retry loop but short-circuit on the first error.
  */
 async function call(action, extras = {}, maxRetries = 3) {
-  // Non-idempotent actions should not retry in the direct path
   const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
+  const isNonIdempotent = nonIdempotentActions.includes(action);
   const creds = readStoredCredentials();
-  const shouldSkipRetries = nonIdempotentActions.includes(action) && canUseDirectBrowserbase(creds);
 
-  if (shouldSkipRetries) {
-    // For non-idempotent actions in direct path, skip retries entirely
+  if (isNonIdempotent && canUseDirectBrowserbase(creds)) {
+    // Direct path requires skipRetries=true to pass callDirect's guard.
     return await callOnce(action, extras, true);
   }
 
@@ -211,7 +219,7 @@ async function call(action, extras = {}, maxRetries = 3) {
         err.message?.includes('502') ||
         err.message?.includes('503') ||
         err.message?.includes('504');
-      if (!isRetryable || attempt === maxRetries) throw err;
+      if (isNonIdempotent || !isRetryable || attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, delay));
       delay = Math.min(delay * 2, 8000);
     }
