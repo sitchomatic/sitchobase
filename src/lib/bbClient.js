@@ -56,12 +56,14 @@ function readStoredCredentials() {
 // createContext, createSession — require projectId). Exposed so UIs can
 // skip the old "bbProxy doesn't support api_key" limitation banner only
 // when the direct path will actually succeed.
-export function canUseDirectBrowserbase() {
+export function canUseDirectBrowserbase(creds) {
   if (!isUsingApiKeyAuth()) return false;
   // import.meta.env.DEV is only true under `vite` / `vite build --mode development`.
   // Production builds must continue to go through bbProxy.
   if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
-  const { apiKey, projectId } = readStoredCredentials();
+  // Accept already-parsed creds so hot paths (callOnce) don't parse
+  // localStorage twice on every API call.
+  const { apiKey, projectId } = creds ?? readStoredCredentials();
   return (
     typeof apiKey === 'string' &&
     apiKey.trim().length > 0 &&
@@ -79,7 +81,7 @@ export const API_KEY_BBPROXY_MESSAGE =
 
 async function callOnce(action, extras = {}) {
   const creds = readStoredCredentials();
-  if (canUseDirectBrowserbase()) {
+  if (canUseDirectBrowserbase(creds)) {
     return callDirect(action, extras, creds);
   }
   const payload = { action, ...extras };

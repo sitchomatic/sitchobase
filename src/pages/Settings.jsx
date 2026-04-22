@@ -167,7 +167,7 @@ export default function Settings() {
               {testResult.success ? (
                 <>
                   <div className="font-semibold">
-                    {isUsingApiKeyAuth() && canUseDirectBrowserbase()
+                    {apiKeyAuth && directEligible
                       ? 'Connected successfully via direct Browserbase API'
                       : 'Connected successfully via backend proxy'}
                   </div>
