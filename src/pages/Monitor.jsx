@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
+import { runWithConcurrency } from '@/lib/concurrency';
 import { base44 } from '@/api/base44Client';
 import PullToRefresh from '@/components/shared/PullToRefresh';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
@@ -42,11 +43,16 @@ export default function Monitor() {
       const baseSessions = Array.isArray(data) ? data : [];
 
       // Browserbase listSessions does NOT include wsUrl / debuggerFullscreenUrl.
-      // Hydrate each running session with its /debug payload in parallel so the
-      // CDP live-view and the embeddable debugger actually work. Failures are
-      // non-fatal: the session just falls through without live-view hydration.
-      const debugResults = await Promise.allSettled(
-        baseSessions.map((session) => bbClient.getSessionDebug(session.id))
+      // Hydrate each running session with its /debug payload so the CDP
+      // live-view and the embeddable debugger actually work. Concurrency is
+      // capped so a 30-session fleet doesn't issue 60 requests per 15s
+      // refresh (debug + logs) and trip Browserbase rate limits. Failures
+      // are non-fatal: the session just falls through without live-view
+      // hydration.
+      const debugResults = await runWithConcurrency(
+        baseSessions,
+        5,
+        (session) => bbClient.getSessionDebug(session.id)
       );
       const nextSessions = baseSessions.map((session, index) => {
         const result = debugResults[index];
@@ -61,7 +67,11 @@ export default function Monitor() {
       });
       setSessions(nextSessions);
 
-      const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
+      const logResults = await runWithConcurrency(
+        nextSessions,
+        5,
+        (session) => bbClient.getSessionLogs(session.id)
+      );
       const nextLogs = {};
       nextSessions.forEach((session, index) => {
         const result = logResults[index];
