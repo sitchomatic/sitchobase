@@ -13,6 +13,7 @@ import JoeIgnite from '@/pages/JoeIgnite';
 import Proxies from '@/pages/Proxies';
 import Monitor from '@/pages/Monitor';
 import AuditLog from '@/pages/AuditLog.jsx';
+import TestReports from '@/pages/TestReports';
 import PageNotFound from '@/lib/PageNotFound';
 
 const routeMap = {
@@ -30,6 +31,7 @@ const routeMap = {
   '/proxies': Proxies,
   '/monitor': Monitor,
   '/audit': AuditLog,
+  '/reports': TestReports,
 };
 
 const rootPathFor = (pathname) => {
