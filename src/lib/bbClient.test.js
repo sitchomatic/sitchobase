@@ -143,20 +143,24 @@ describe('canUseDirectBrowserbase', () => {
     expect(canUseDirectBrowserbase()).toBe(false);
   });
 
-  it('is false when projectId is missing (direct endpoints need it)', async () => {
+  it('is true when projectId is missing (projectId validated per-action in callDirect)', async () => {
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc' }));
     const { canUseDirectBrowserbase } = await import('./bbClient');
-    expect(canUseDirectBrowserbase()).toBe(false);
+    // canUseDirectBrowserbase only gates on apiKey; projectId is checked
+    // per-action inside callDirect for actions that need it.
+    expect(canUseDirectBrowserbase()).toBe(true);
   });
 
-  it('is false when apiKey or projectId is whitespace-only', async () => {
+  it('is false when apiKey is whitespace-only, true when only projectId is whitespace', async () => {
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: '   ', projectId: 'proj_1' }));
     let { canUseDirectBrowserbase } = await import('./bbClient');
     expect(canUseDirectBrowserbase()).toBe(false);
     vi.resetModules();
+    // projectId whitespace doesn't block the gate — only apiKey matters here.
+    // Actions requiring projectId will fail early inside callDirect.
     localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc', projectId: '  ' }));
     ({ canUseDirectBrowserbase } = await import('./bbClient'));
-    expect(canUseDirectBrowserbase()).toBe(false);
+    expect(canUseDirectBrowserbase()).toBe(true);
   });
 
   it('is false when stored credentials are malformed JSON', async () => {
