@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, formatBytes, BB_COST_PER_MINUTE } from '@/lib/bbClient';
+import { bbClient, BB_COST_PER_MINUTE } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import MetricCard from '@/components/shared/MetricCard';
 import {

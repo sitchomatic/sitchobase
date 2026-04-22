@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import EmptyState from '@/components/shared/EmptyState';
 import PersonaCsvImport from '@/components/personas/PersonaCsvImport';
-import { Users, Plus, Trash2, Edit, Shield, Globe, Smartphone, Monitor, Tablet } from 'lucide-react';
+import { Users, Plus, Trash2, Edit, Shield, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 

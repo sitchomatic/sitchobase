@@ -9,8 +9,7 @@ import CloudFunctionLibrary from '@/components/stagehand/CloudFunctionLibrary';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
-import { Terminal, Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
