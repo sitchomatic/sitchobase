@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { pageTransition, slideInVariants } from '@/lib/motion';
 
 const ARCHIVED_KEY = 'bb_archived_sessions';
 
@@ -303,10 +304,8 @@ export default function Sessions() {
         {selectedSession && (
           <motion.div
             key={selectedSession.id}
-            initial={{ x: 32, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 32, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            {...slideInVariants()}
+            transition={pageTransition()}
           >
             <SessionDetailPanel session={selectedSession} onClose={() => navigate(-1)} />
           </motion.div>

@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { rootPathFor } from '@/lib/routing';
+import { pageTransition, pageVariants } from '@/lib/motion';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
@@ -81,10 +82,8 @@ export default function AppLayout() {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={rootPathFor(location.pathname)}
-            initial={{ x: 24, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -24, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            {...pageVariants()}
+            transition={pageTransition()}
             className="min-h-full"
           >
             <Outlet />
