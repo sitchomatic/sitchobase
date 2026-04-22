@@ -1,4 +1,11 @@
-const BB_BASE_URL = 'https://api.browserbase.com/v1';
+// In Vite dev builds we go through a local proxy (see vite.config.js) so the
+// browser can hit the Browserbase REST API despite its lack of CORS. In any
+// other runtime (prod build, Node tests) we fall back to the real host, which
+// the bbClient dispatcher will only reach after deciding it is safe to do so.
+const BB_BASE_URL =
+  typeof import.meta !== 'undefined' && import.meta.env?.DEV
+    ? '/bb/v1'
+    : 'https://api.browserbase.com/v1';
 
 function getHeaders(apiKey) {
   return {
@@ -8,9 +15,13 @@ function getHeaders(apiKey) {
 }
 
 export async function listSessions(apiKey, status = null) {
-  const url = new URL(`${BB_BASE_URL}/sessions`);
-  if (status) url.searchParams.set('status', status);
-  const res = await fetch(url.toString(), { headers: getHeaders(apiKey) });
+  // Build the query string manually so `BB_BASE_URL` can be either an absolute
+  // URL (prod / Node) or a root-relative path (Vite dev proxy). `new URL(path)`
+  // with a single argument requires an absolute URL and throws otherwise.
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${BB_BASE_URL}/sessions${qs}`, {
+    headers: getHeaders(apiKey),
+  });
   if (!res.ok) throw new Error(`List sessions failed: ${res.status}`);
   return res.json();
 }
@@ -37,8 +48,9 @@ export async function createSession(apiKey, options = {}) {
 }
 
 export async function updateSession(apiKey, sessionId, data) {
+  // BB docs: update session uses POST (not PUT). bbProxy mirrors this.
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}`, {
-    method: 'PUT',
+    method: 'POST',
     headers: getHeaders(apiKey),
     body: JSON.stringify(data),
   });
@@ -75,6 +87,14 @@ export async function listContexts(apiKey) {
     headers: getHeaders(apiKey),
   });
   if (!res.ok) throw new Error(`List contexts failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getContext(apiKey, contextId) {
+  const res = await fetch(`${BB_BASE_URL}/contexts/${contextId}`, {
+    headers: getHeaders(apiKey),
+  });
+  if (!res.ok) throw new Error(`Get context failed: ${res.status}`);
   return res.json();
 }
 

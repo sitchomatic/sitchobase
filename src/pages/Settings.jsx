@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, isUsingApiKeyAuth } from '@/lib/bbClient';
+import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +68,11 @@ export default function Settings() {
     toast.success('Credentials cleared');
   };
 
+  // Compute once per render so both banners agree and we don't re-parse
+  // localStorage twice on the same paint.
+  const apiKeyAuth = isUsingApiKeyAuth();
+  const directEligible = apiKeyAuth && canUseDirectBrowserbase();
+
   return (
     <div className="p-6 max-w-2xl space-y-6">
       <div>
@@ -77,17 +82,33 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Configure your Browserbase credentials</p>
       </div>
 
-      {isUsingApiKeyAuth() && (
+      {apiKeyAuth && directEligible && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
+          <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">Local dev: direct Browserbase API</div>
+            <div className="text-xs mt-0.5 opacity-80">
+              <code className="bg-emerald-500/10 px-1 rounded">VITE_BASE44_API_KEY</code> is set
+              and a Browserbase API key is stored — Test Connection and the
+              Contexts list bypass the bbProxy function and hit Browserbase
+              directly via the Vite dev proxy.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {apiKeyAuth && !directEligible && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30 text-amber-200">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
             <div className="font-semibold">Local API key auth in use</div>
             <div className="text-xs mt-0.5 opacity-80">
-              You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>.
-              The Test Connection button and the Contexts list go through the
-              bbProxy Base44 function, which only works with an interactive
-              Google login. Unset the env var and sign in via Base44 to use
-              those two features locally.
+              You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>
+              {' '}but the direct Browserbase API path isn't available yet.
+              Save a Browserbase API key <strong>and</strong> Project ID below
+              to enable it. Until then, Test Connection and the Contexts list
+              go through the bbProxy Base44 function, which only works with an
+              interactive Google login.
             </div>
           </div>
         </div>
@@ -146,7 +167,11 @@ export default function Settings() {
             <div>
               {testResult.success ? (
                 <>
-                  <div className="font-semibold">Connected successfully via backend proxy</div>
+                  <div className="font-semibold">
+                    {apiKeyAuth && directEligible
+                      ? 'Connected successfully via direct Browserbase API'
+                      : 'Connected successfully via backend proxy'}
+                  </div>
                   <div className="text-xs mt-0.5 opacity-75">
                     {testResult.sessions} sessions · {testResult.usage?.browserMinutes ?? '—'} browser minutes used
                   </div>
@@ -194,9 +219,12 @@ export default function Settings() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
         <div className="text-sm font-semibold text-white">How It Works</div>
         <p className="text-xs text-gray-500">
-          Credentials are stored in your browser's local storage and sent to our secure backend proxy.
-          All Browserbase API calls are made server-side, completely bypassing browser CORS restrictions.
-          Your API key is never exposed to third parties.
+          Credentials are stored in your browser's local storage. In production or normal operation,
+          all Browserbase API calls are made server-side via our secure backend proxy, completely
+          bypassing browser CORS restrictions and keeping your API key private. In local development
+          with <code className="bg-gray-800/50 px-1 rounded">VITE_BASE44_API_KEY</code> set and
+          Browserbase credentials saved, Test Connection and Contexts list calls bypass the proxy
+          and go directly to Browserbase via the Vite dev proxy for faster iteration.
         </p>
       </div>
     </div>
