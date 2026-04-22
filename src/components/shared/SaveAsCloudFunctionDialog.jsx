@@ -22,6 +22,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Render a controlled dialog that lets the user save a script or prompt as a Cloud Function.
+ *
+ * @param {object} props - Component props.
+ * @param {boolean} props.open - Whether the dialog is open.
+ * @param {(open: boolean) => void} props.onOpenChange - Callback invoked when the dialog open state should change.
+ * @param {string} props.scriptBody - Initial script or prompt body to edit and save.
+ * @param {string} [props.defaultRuntime='playwright'] - Initial runtime selection (`"playwright"` or `"puppeteer"`).
+ * @param {string} [props.defaultName=''] - Initial name for the Cloud Function.
+ * @param {string} [props.defaultDescription=''] - Initial description for the Cloud Function.
+ * @param {string} [props.title='Save as Cloud Function'] - Dialog title text.
+ * @param {(saved: any) => void} [props.onSaved] - Optional callback invoked with the saved function object after a successful save.
+ * @returns {JSX.Element} A dialog UI that contains form fields for name, runtime, description, and script body, and a button to save the Cloud Function.
+ */
 export default function SaveAsCloudFunctionDialog({
   open,
   onOpenChange,

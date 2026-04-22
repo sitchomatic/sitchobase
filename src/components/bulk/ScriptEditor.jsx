@@ -11,6 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Save, X, Code2, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Render a UI for creating or editing a saved script with fields for name, body, optional description, detected CSV-style placeholders, and controls to load from or save to cloud functions.
+ *
+ * @param {{id?: string, name?: string, script?: string, description?: string}|null} script - Optional SavedScript entity used to initialize the editor fields.
+ * @param {(saved: object) => void} onSave - Callback invoked with the saved SavedScript entity after a successful save.
+ * @param {() => void} onCancel - Callback invoked when the user cancels editing.
+ * @returns {JSX.Element} The ScriptEditor component's rendered element.
+ */
 export default function ScriptEditor({ script, onSave, onCancel }) {
   const [name, setName] = useState(script?.name ?? '');
   const [body, setBody] = useState(script?.script ?? '');

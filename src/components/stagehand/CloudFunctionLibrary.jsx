@@ -9,6 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Terminal, Plus, Play, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Render a Cloud Function Library UI that lists available cloud functions, lets users launch them, and provides a dialog to create a new cloud function when the backend entity is available.
+ *
+ * The component reads functions and availability from useCloudFunctions(), shows an informational panel when cloud functions are not deployed, displays each function with its runtime and a Launch control, and exposes a "New" dialog to create and save functions (with save-state and error handling).
+ *
+ * @param {function(Object): void} onLaunch - Callback invoked with a cloud function item when the user clicks "Launch".
+ * @returns {JSX.Element} The Cloud Function Library React element.
+ */
 export default function CloudFunctionLibrary({ onLaunch }) {
   const { items, unavailable, saveFunction } = useCloudFunctions();
   const [open, setOpen] = useState(false);

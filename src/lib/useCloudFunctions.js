@@ -34,17 +34,35 @@ let inFlightList = null;
 const unavailableListeners = new Set();
 const itemsListeners = new Set();
 
+/**
+ * Update and broadcast the CloudFunction availability flag to registered listeners.
+ *
+ * Does nothing if the value is unchanged to avoid redundant notifications.
+ * @param {boolean} next - `true` when the CloudFunction entity is missing for this app, `false` otherwise.
+ */
 function broadcastUnavailable(next) {
   if (unavailableCache === next) return;
   unavailableCache = next;
   unavailableListeners.forEach((l) => l(next));
 }
 
+/**
+ * Update the shared cloud-functions items cache and notify all registered listeners with the new list.
+ * @param {Array} next - The new array of cloud function items to store and broadcast to listeners.
+ */
 function broadcastItems(next) {
   itemsCache = next;
   itemsListeners.forEach((l) => l(next));
 }
 
+/**
+ * Detects whether an error represents a missing CloudFunction entity.
+ *
+ * Checks for an HTTP 404 status on common error shapes or for message text indicating
+ * "Entity schema ... not found" or a standalone `404` token.
+ * @param {*} err - The error object or value to inspect.
+ * @returns {boolean} `true` if the error indicates the entity is missing (404), `false` otherwise.
+ */
 export function isEntityMissingError(err) {
   const status = err?.response?.status ?? err?.status;
   if (status === 404) return true;
@@ -52,6 +70,23 @@ export function isEntityMissingError(err) {
   return /Entity schema .* not found/i.test(msg) || /\b404\b/.test(msg);
 }
 
+/**
+ * Provide shared, cross-instance state and operations for managing CloudFunction entities.
+ *
+ * Exposes the current list of functions, loading and availability status, last non-missing error,
+ * and actions to reload the list or create a new function. State is synchronized across hook
+ * instances: list requests are deduplicated and updates/broadcasts propagate to all mounted hooks.
+ *
+ * @param {Object} [options] - Hook options.
+ * @param {boolean} [options.autoload=true] - If true, triggers an initial `reload()` on mount.
+ * @returns {{items: Array, loading: boolean, unavailable: boolean, error: Error|null, reload: function(): Promise<Array>, saveFunction: function(Object): Promise<Object>}} An object containing:
+ *  - `items`: current array of CloudFunction entities (may be empty).
+ *  - `loading`: whether a reload operation is in progress.
+ *  - `unavailable`: true if the CloudFunction entity is known to be missing for this app.
+ *  - `error`: the last non-missing error observed by `reload()`, or `null`.
+ *  - `reload`: async function that fetches the list of functions and returns the loaded array (or `[]` on failures).
+ *  - `saveFunction`: async function that creates a CloudFunction from a payload and returns the created entity.
+ */
 export function useCloudFunctions({ autoload = true } = {}) {
   const [items, setItemsState] = useState(itemsCache);
   const [loading, setLoading] = useState(false);
@@ -154,6 +189,11 @@ export function useCloudFunctions({ autoload = true } = {}) {
 
 // Test-only: clear every module-level cache between tests so suites don't
 // leak state into each other.
+/**
+ * Reset module-level caches and notify all subscribers, restoring the hook to its initial state for tests.
+ *
+ * This clears `unavailableCache`, `itemsCache`, and `inFlightList`, then calls all registered `unavailableListeners` with `false` and all `itemsListeners` with an empty array to update mounted hook instances.
+ */
 export function __resetCloudFunctionsCacheForTests() {
   unavailableCache = false;
   itemsCache = [];

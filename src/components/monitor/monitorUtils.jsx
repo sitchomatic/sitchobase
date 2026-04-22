@@ -49,6 +49,21 @@ export function detectStuckSessions(sessions, logsBySession) {
     .sort((a, b) => b.idleMinutes - a.idleMinutes);
 }
 
+/**
+ * Detects and aggregates anomalies for each session based on session state and associated logs.
+ *
+ * @param {Array<Object>} sessions - Array of session objects (must include `id`, `status`, and may include `connectUrl` and `wsUrl`).
+ * @param {Object<string, Array<Object>>} logsBySession - Mapping from session ID to an array of log objects (each log should include `text` and `level`).
+ * @returns {Array<Object>} An array of anomaly objects. Each anomaly has the shape `{ id, sessionId, severity, title, detail }`.
+ *
+ * Detected anomaly types:
+ * - High severity when a session entered a failed state (`status` is `ERROR` or `TIMED_OUT`).
+ * - Medium severity for repeated error logs (three or more error-level logs).
+ * - High severity for access-denied patterns (e.g., "403 forbidden" or "status 403").
+ * - High severity for memory-pressure patterns (e.g., "high memory", "out of memory", "heap").
+ * - High severity for timeout patterns (e.g., "timeout", "timed out").
+ * - Low severity when both `connectUrl` and `wsUrl` are missing (limited live observation).
+ */
 export function detectAnomalies(sessions, logsBySession) {
   return sessions.flatMap((session) => {
     const anomalies = [];
