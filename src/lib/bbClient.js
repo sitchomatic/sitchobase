@@ -51,11 +51,11 @@ function readStoredCredentials() {
 // True when we can — and should — talk to Browserbase directly from the
 // browser instead of routing through bbProxy. Requires: api_key auth mode
 // (so bbProxy would fail anyway), a running Vite dev server (for the /bb
-// CORS proxy), and stored Browserbase credentials with both a non-empty
-// API key and project ID (several direct endpoints — getProjectUsage,
-// createContext, createSession — require projectId). Exposed so UIs can
-// skip the old "bbProxy doesn't support api_key" limitation banner only
-// when the direct path will actually succeed.
+// CORS proxy), and stored Browserbase credentials with a non-empty API key.
+// Note: projectId is validated per-action in callDirect for actions that
+// require it (createSession, getProjectUsage, createContext, batchCreateSessions).
+// Exposed so UIs can skip the old "bbProxy doesn't support api_key" limitation
+// banner when the direct path is available.
 export function canUseDirectBrowserbase(creds) {
   if (!isUsingApiKeyAuth()) return false;
   // import.meta.env.DEV is only true under `vite` / `vite build --mode development`.
@@ -63,12 +63,10 @@ export function canUseDirectBrowserbase(creds) {
   if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
   // Accept already-parsed creds so hot paths (callOnce) don't parse
   // localStorage twice on every API call.
-  const { apiKey, projectId } = creds ?? readStoredCredentials();
+  const { apiKey } = creds ?? readStoredCredentials();
   return (
     typeof apiKey === 'string' &&
-    apiKey.trim().length > 0 &&
-    typeof projectId === 'string' &&
-    projectId.trim().length > 0
+    apiKey.trim().length > 0
   );
 }
 
@@ -107,6 +105,15 @@ async function callOnce(action, extras = {}) {
 // helper in browserbaseApi.js and add a case below.
 async function callDirect(action, extras, creds) {
   const { apiKey, projectId } = creds;
+
+  // Actions that require projectId — fail early if it's missing
+  const requiresProjectId = ['createSession', 'getProjectUsage', 'createContext', 'batchCreateSessions'];
+  if (requiresProjectId.includes(action)) {
+    if (!projectId || typeof projectId !== 'string' || projectId.trim().length === 0) {
+      throw new Error(`bbClient: action "${action}" requires a valid projectId in bb_credentials`);
+    }
+  }
+
   switch (action) {
     case 'listSessions':
       return bb.listSessions(apiKey, extras.status ?? null);
