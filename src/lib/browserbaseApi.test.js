@@ -56,8 +56,34 @@ describe('batchCreateSessions', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('getSessionDebug hits /sessions/{id}/debug and returns the live CDP payload', async () => {
-    vi.useRealTimers();
+  it('returns successful sessions in results on the happy path', async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ id: 'sess_abc' }),
+      json: async () => ({ id: 'sess_abc' }),
+    }));
+
+    const promise = batchCreateSessions('test-key', 2, {});
+    await vi.runAllTimersAsync();
+    const { results, errors } = await promise;
+
+    expect(errors).toHaveLength(0);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ id: 'sess_abc' });
+    // One fetch per successful row — no retries, no over-calling.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('getSessionDebug', () => {
+  const origFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+  });
+
+  it('hits /sessions/{id}/debug and returns the live CDP payload', async () => {
     const payload = {
       wsUrl: 'wss://connect.browserbase.com/debug/sess_1/devtools/browser/abc',
       debuggerUrl: 'https://www.browserbase.com/devtools/inspector.html?wss=abc',
@@ -77,28 +103,8 @@ describe('batchCreateSessions', () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('getSessionDebug throws a recognizable error when the endpoint is not ok', async () => {
-    vi.useRealTimers();
+  it('throws a recognizable error when the endpoint is not ok', async () => {
     globalThis.fetch = vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) }));
     await expect(getSessionDebug('test-key', 'sess_gone')).rejects.toThrow(/Get session debug failed: 404/);
-  });
-
-  it('returns successful sessions in results on the happy path', async () => {
-    globalThis.fetch = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({ id: 'sess_abc' }),
-      json: async () => ({ id: 'sess_abc' }),
-    }));
-
-    const promise = batchCreateSessions('test-key', 2, {});
-    await vi.runAllTimersAsync();
-    const { results, errors } = await promise;
-
-    expect(errors).toHaveLength(0);
-    expect(results).toHaveLength(2);
-    expect(results[0]).toMatchObject({ id: 'sess_abc' });
-    // One fetch per successful row — no retries, no over-calling.
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });

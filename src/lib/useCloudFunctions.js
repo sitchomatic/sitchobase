@@ -28,11 +28,23 @@ import { base44 } from '@/api/base44Client';
 
 // ── Module-level shared state ────────────────────────────────────────────────
 let unavailableCache = false;
+let unavailableAt = 0;
 let itemsCache = [];
 let inFlightList = null;
 
 const unavailableListeners = new Set();
 const itemsListeners = new Set();
+
+// How long to trust a cached "entity missing" verdict before trying again.
+// Five minutes is long enough to prevent 404 spam when the entity is really
+// undeployed, short enough that a mid-session Base44 publish becomes visible
+// without a full page reload.
+export const UNAVAILABLE_TTL_MS = 5 * 60 * 1000;
+
+function isUnavailableStale() {
+  if (!unavailableCache) return false;
+  return Date.now() - unavailableAt > UNAVAILABLE_TTL_MS;
+}
 
 /**
  * Update and broadcast the CloudFunction availability flag to registered listeners.
@@ -41,6 +53,7 @@ const itemsListeners = new Set();
  * @param {boolean} next - `true` when the CloudFunction entity is missing for this app, `false` otherwise.
  */
 function broadcastUnavailable(next) {
+  if (next) unavailableAt = Date.now();
   if (unavailableCache === next) return;
   unavailableCache = next;
   unavailableListeners.forEach((l) => l(next));
@@ -79,12 +92,13 @@ export function isEntityMissingError(err) {
  *
  * @param {Object} [options] - Hook options.
  * @param {boolean} [options.autoload=true] - If true, triggers an initial `reload()` on mount.
- * @returns {{items: Array, loading: boolean, unavailable: boolean, error: Error|null, reload: function(): Promise<Array>, saveFunction: function(Object): Promise<Object>}} An object containing:
+ * @returns {{items: Array, loading: boolean, unavailable: boolean, error: Error|null, reload: function({force?: boolean}=): Promise<Array>, retry: function(): Promise<Array>, saveFunction: function(Object): Promise<Object>}} An object containing:
  *  - `items`: current array of CloudFunction entities (may be empty).
  *  - `loading`: whether a reload operation is in progress.
  *  - `unavailable`: true if the CloudFunction entity is known to be missing for this app.
  *  - `error`: the last non-missing error observed by `reload()`, or `null`.
- *  - `reload`: async function that fetches the list of functions and returns the loaded array (or `[]` on failures).
+ *  - `reload`: async function that fetches the list of functions; pass `{ force: true }` to bypass the unavailable cache.
+ *  - `retry`: convenience wrapper around `reload({ force: true })` for explicit "the entity might be deployed now" retries.
  *  - `saveFunction`: async function that creates a CloudFunction from a payload and returns the created entity.
  */
 export function useCloudFunctions({ autoload = true } = {}) {
@@ -105,10 +119,17 @@ export function useCloudFunctions({ autoload = true } = {}) {
     };
   }, []);
 
-  const reload = useCallback(async () => {
-    if (unavailableCache) {
+  const reload = useCallback(async ({ force = false } = {}) => {
+    // Suppress the fetch while the cached unavailable verdict is still
+    // fresh. `force` (from retry()) and TTL expiry both fall through to
+    // the live request below so a freshly-published entity can recover
+    // without a full page reload.
+    if (unavailableCache && !force && !isUnavailableStale()) {
       setUnavailableState(true);
       return [];
+    }
+    if (unavailableCache && (force || isUnavailableStale())) {
+      broadcastUnavailable(false);
     }
 
     // Dedup concurrent callers: two <CloudFunctionPicker>s mounted on the
@@ -177,12 +198,15 @@ export function useCloudFunctions({ autoload = true } = {}) {
     }
   }, []);
 
+  const retry = useCallback(() => reload({ force: true }), [reload]);
+
   return {
     items,
     loading,
     unavailable,
     error,
     reload,
+    retry,
     saveFunction,
   };
 }
@@ -196,8 +220,15 @@ export function useCloudFunctions({ autoload = true } = {}) {
  */
 export function __resetCloudFunctionsCacheForTests() {
   unavailableCache = false;
+  unavailableAt = 0;
   itemsCache = [];
   inFlightList = null;
   unavailableListeners.forEach((l) => l(false));
   itemsListeners.forEach((l) => l([]));
+}
+
+// Test-only accessor: lets tests assert TTL behaviour without exposing the
+// module internals to production code.
+export function __getUnavailableStateForTests() {
+  return { unavailable: unavailableCache, unavailableAt };
 }

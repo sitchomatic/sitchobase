@@ -11,7 +11,7 @@
  *      relies on this escape hatch to prevent the cross-test state bleed
  *      that would otherwise mask a regression.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // The Base44 client module pulls real env + SDK on import (and reaches into
 // window.location at the top level). Stub it so the helper module can load
@@ -22,7 +22,9 @@ vi.mock('@/api/base44Client', () => ({
 
 const {
   isEntityMissingError,
+  UNAVAILABLE_TTL_MS,
   __resetCloudFunctionsCacheForTests,
+  __getUnavailableStateForTests,
 } = await import('./useCloudFunctions');
 
 describe('isEntityMissingError', () => {
@@ -57,5 +59,27 @@ describe('isEntityMissingError', () => {
 describe('__resetCloudFunctionsCacheForTests', () => {
   it('is callable without arguments and without throwing', () => {
     expect(() => __resetCloudFunctionsCacheForTests()).not.toThrow();
+  });
+});
+
+describe('UNAVAILABLE_TTL_MS', () => {
+  beforeEach(() => {
+    __resetCloudFunctionsCacheForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    __resetCloudFunctionsCacheForTests();
+  });
+
+  it('is exposed as a named constant so callers can align retry cadence', () => {
+    // Five minutes is the deliberate default documented on the source. If we
+    // ever shorten or lengthen it, both the hook and any downstream wait
+    // heuristic need updating together — this test catches silent drift.
+    expect(UNAVAILABLE_TTL_MS).toBe(5 * 60 * 1000);
+  });
+
+  it('has no unavailableAt until the reset is followed by a real broadcast', () => {
+    expect(__getUnavailableStateForTests()).toEqual({ unavailable: false, unavailableAt: 0 });
   });
 });
