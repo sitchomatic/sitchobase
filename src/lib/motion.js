@@ -3,8 +3,8 @@
  *
  * Single source of truth so every framer-motion transition in the app moves
  * at the same speed + easing curve. Also respects the OS
- * `prefers-reduced-motion` setting — when on, transitions collapse to
- * duration 0 so animations never run.
+ * `prefers-reduced-motion` setting — when on, slide offsets collapse to 0
+ * so only an opacity cross-fade remains (WCAG 2.1 permits cross-fades).
  */
 
 // Slightly longer than the old 0.18s so the ease curve is readable at 60fps
@@ -33,14 +33,14 @@ export function prefersReducedMotion() {
 
 /**
  * Canonical `transition` prop for framer-motion slide+fade page/panel
- * transitions. Pass `{ reducedMotion: true }` to force the instant variant
- * (e.g. for unit tests); otherwise auto-detects the OS setting.
+ * transitions. Under reduced motion the x-offsets in the variant helpers are
+ * already collapsed to 0, so only an opacity cross-fade remains. We keep the
+ * normal duration so that fade is still smooth — WCAG 2.1 only asks us to
+ * remove vestibular-triggering motion (translation, parallax, zoom), not
+ * cross-fades.
  */
-export function pageTransition({ reducedMotion } = {}) {
-  const reduce = reducedMotion ?? prefersReducedMotion();
-  return reduce
-    ? { duration: 0 }
-    : { duration: TRANSITION_DURATION_S, ease: TRANSITION_EASE };
+export function pageTransition() {
+  return { duration: TRANSITION_DURATION_S, ease: TRANSITION_EASE };
 }
 
 /**

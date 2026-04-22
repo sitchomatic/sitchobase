@@ -46,20 +46,21 @@ describe('prefersReducedMotion', () => {
 });
 
 describe('pageTransition', () => {
-  it('returns the canonical duration + ease by default', () => {
+  it('always returns the canonical duration + ease', () => {
     expect(pageTransition()).toEqual({
       duration: TRANSITION_DURATION_S,
       ease: TRANSITION_EASE,
     });
   });
 
-  it('collapses to duration 0 when reduced motion is requested', () => {
-    expect(pageTransition({ reducedMotion: true })).toEqual({ duration: 0 });
-  });
-
-  it('auto-detects reduced motion from the window media query', () => {
+  it('returns the same value even when the OS prefers reduced motion (slides are suppressed in variants, not here)', () => {
     installMatchMedia(true);
-    expect(pageTransition()).toEqual({ duration: 0 });
+    // pageTransition does not read prefersReducedMotion(); the x-offsets in
+    // pageVariants / slideInVariants collapse to 0 instead, preserving the fade.
+    expect(pageTransition()).toEqual({
+      duration: TRANSITION_DURATION_S,
+      ease: TRANSITION_EASE,
+    });
   });
 });
 
