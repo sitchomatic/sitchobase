@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient } from '@/lib/bbClient';
+import { bbClient, isUsingApiKeyAuth } from '@/lib/bbClient';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +51,11 @@ export default function Settings() {
       });
       toast.success('Connection successful!');
     } else {
-      setTestResult({ success: false, error: sessions.reason?.message || 'Unknown error' });
+      setTestResult({
+        success: false,
+        error: sessions.reason?.message || 'Unknown error',
+        isApiKeyLimitation: Boolean(sessions.reason?.isApiKeyBbProxyLimitation),
+      });
       toast.error('Connection failed');
     }
     setTesting(false);
@@ -72,6 +76,22 @@ export default function Settings() {
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">Configure your Browserbase credentials</p>
       </div>
+
+      {isUsingApiKeyAuth() && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30 text-amber-200">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">Local API key auth in use</div>
+            <div className="text-xs mt-0.5 opacity-80">
+              You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>.
+              The Test Connection button and the Contexts list go through the
+              bbProxy Base44 function, which only works with an interactive
+              Google login. Unset the env var and sign in via Base44 to use
+              those two features locally.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
         <div className="text-sm font-semibold text-white flex items-center gap-2">
@@ -130,6 +150,11 @@ export default function Settings() {
                   <div className="text-xs mt-0.5 opacity-75">
                     {testResult.sessions} sessions · {testResult.usage?.browserMinutes ?? '—'} browser minutes used
                   </div>
+                </>
+              ) : testResult.isApiKeyLimitation ? (
+                <>
+                  <div className="font-semibold">Not available under local API key auth</div>
+                  <div className="text-xs mt-0.5 opacity-75">{testResult.error}</div>
                 </>
               ) : (
                 <>

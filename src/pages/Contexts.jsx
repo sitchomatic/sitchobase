@@ -4,7 +4,7 @@ import { bbClient } from '@/lib/bbClient';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Plus, Trash2, Layers, Copy, CheckCircle, Upload } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Layers, Copy, CheckCircle, Upload, AlertCircle } from 'lucide-react';
 import ContextUploadDialog from '@/components/contexts/ContextUploadDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -17,13 +17,24 @@ export default function Contexts() {
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [uploadingCtx, setUploadingCtx] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const data = await bbClient.listContexts();
-    setContexts(Array.isArray(data) ? data : []);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await bbClient.listContexts();
+      setContexts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setLoadError({
+        message: err?.message || 'Failed to load contexts',
+        isApiKeyLimitation: Boolean(err?.isApiKeyBbProxyLimitation),
+      });
+      setContexts([]);
+    } finally {
+      setLoading(false);
+    }
   }, [isConfigured]);
 
   useEffect(() => { load(); }, [load]);
@@ -72,6 +83,16 @@ export default function Contexts() {
           </Button>
         </div>
       </div>
+
+      {loadError?.isApiKeyLimitation && (
+        <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30 text-amber-200">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">Contexts are not available under local API key auth</div>
+            <div className="text-xs mt-0.5 opacity-80">{loadError.message}</div>
+          </div>
+        </div>
+      )}
 
       {contexts.length === 0 && !loading ? (
         <EmptyState

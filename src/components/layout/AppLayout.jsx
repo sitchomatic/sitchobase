@@ -1,8 +1,7 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
-import AppShellRoutes from '@/components/layout/AppShellRoutes';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
@@ -29,7 +28,6 @@ const navItems = [
 
 export default function AppLayout() {
   const location = useLocation();
-  const isMobile = useIsMobile();
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
@@ -49,7 +47,7 @@ export default function AppLayout() {
 
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {navItems.map(({ label, icon: Icon, path }) => {
-            const active = location.pathname === path;
+            const active = rootPathFor(location.pathname) === path;
             return (
               <Link
                 key={path}
@@ -79,9 +77,30 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto pt-[env(safe-area-inset-top)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-        <AppShellRoutes pathname={location.pathname} />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={rootPathFor(location.pathname)}
+            initial={{ x: 24, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -24, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="min-h-full"
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
       <MobileBottomNav />
     </div>
   );
 }
+
+// Collapse detail paths onto their parent so that navigating between e.g.
+// /sessions/abc and /sessions/def does not re-trigger the page transition,
+// and so the parent sidebar link stays highlighted on detail pages. Uses
+// strict prefix checks so unrelated paths like /sessions-archive don't match.
+const rootPathFor = (pathname) => {
+  if (pathname === '/sessions' || pathname.startsWith('/sessions/')) return '/sessions';
+  if (pathname === '/audit' || pathname.startsWith('/audit/')) return '/audit';
+  return pathname;
+};
