@@ -21,6 +21,12 @@ vi.mock('./browserbaseApi', () => ({
   createContext: vi.fn(async () => ({ id: 'ctx_new' })),
   deleteContext: vi.fn(async () => ({})),
   batchCreateSessions: vi.fn(async () => ({ results: [], errors: [] })),
+  getSessionDebug: vi.fn(async () => ({
+    wsUrl: 'wss://connect.browserbase.com/debug/sess_1/devtools/browser/xyz',
+    debuggerUrl: 'https://www.browserbase.com/devtools/inspector.html?wss=xyz',
+    debuggerFullscreenUrl: 'https://www.browserbase.com/devtools-fullscreen/inspector.html?wss=xyz',
+    pages: [],
+  })),
 }));
 
 const ORIGINAL_ENV = { ...import.meta.env };
@@ -284,6 +290,44 @@ describe('bbClient dispatch', () => {
     await bbClient.getContext('ctx_1');
 
     expect(bb.getContext).toHaveBeenCalledWith('bb_live_abc', 'ctx_1');
+  });
+
+  it('getSessionDebug is dispatched to the direct path', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    const result = await bbClient.getSessionDebug('sess_1');
+
+    expect(bb.getSessionDebug).toHaveBeenCalledWith('bb_live_abc', 'sess_1');
+    expect(result).toMatchObject({ wsUrl: expect.stringContaining('wss://') });
+  });
+
+  it('getSessionDebug falls back to bbProxy when the direct path is not eligible', async () => {
+    import.meta.env.DEV = false;
+    import.meta.env.VITE_BASE44_API_KEY = '';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { base44 } = await import('@/api/base44Client');
+    base44.functions.invoke.mockResolvedValueOnce({
+      data: { data: { wsUrl: 'wss://connect.browserbase.com/debug/sess_1/x', debuggerUrl: null, debuggerFullscreenUrl: null, pages: [] } },
+    });
+    const { bbClient } = await import('./bbClient');
+
+    const result = await bbClient.getSessionDebug('sess_1');
+
+    expect(bb.getSessionDebug).not.toHaveBeenCalled();
+    expect(base44.functions.invoke).toHaveBeenCalledWith(
+      'bbProxy',
+      expect.objectContaining({ action: 'getSessionDebug', sessionId: 'sess_1', projectId: 'proj_1' }),
+    );
+    expect(result).toMatchObject({ wsUrl: expect.stringContaining('wss://') });
   });
 
   it('getSessionRecording returns the deprecation notice without a network call', async () => {

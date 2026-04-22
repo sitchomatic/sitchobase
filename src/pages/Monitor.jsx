@@ -13,6 +13,18 @@ import { buildAiOpsPrompt } from '@/components/monitor/buildAiOpsPrompt';
 import { Button } from '@/components/ui/button';
 import { Activity, RefreshCw, Wifi } from 'lucide-react';
 
+/**
+ * Display a real-time monitor UI for running sessions, their recent logs, and AI analysis.
+ *
+ * The component fetches and displays currently running sessions, hydrates each session with
+ * optional debug/live-view URLs when available, and loads up to the most recent 20 log entries
+ * per session. It auto-refreshes the data every 15 seconds, provides a manual Refresh control,
+ * exposes an AI analysis action that produces a structured report, and supports expanding a
+ * session into a details modal. When credentials are not configured the component renders a
+ * credentials guard instead; loading and empty states are shown as appropriate.
+ *
+ * @returns {JSX.Element} The Monitor component UI.
+ */
 export default function Monitor() {
   const { isConfigured } = useCredentials();
   const [sessions, setSessions] = useState([]);
@@ -27,7 +39,26 @@ export default function Monitor() {
     setLoading(true);
     try {
       const data = await bbClient.listSessions('RUNNING');
-      const nextSessions = Array.isArray(data) ? data : [];
+      const baseSessions = Array.isArray(data) ? data : [];
+
+      // Browserbase listSessions does NOT include wsUrl / debuggerFullscreenUrl.
+      // Hydrate each running session with its /debug payload in parallel so the
+      // CDP live-view and the embeddable debugger actually work. Failures are
+      // non-fatal: the session just falls through without live-view hydration.
+      const debugResults = await Promise.allSettled(
+        baseSessions.map((session) => bbClient.getSessionDebug(session.id))
+      );
+      const nextSessions = baseSessions.map((session, index) => {
+        const result = debugResults[index];
+        if (result.status !== 'fulfilled' || !result.value) return session;
+        const { wsUrl, debuggerUrl, debuggerFullscreenUrl } = result.value;
+        return {
+          ...session,
+          wsUrl: wsUrl ?? session.wsUrl,
+          debuggerUrl: debuggerUrl ?? session.debuggerUrl,
+          debuggerFullscreenUrl: debuggerFullscreenUrl ?? session.debuggerFullscreenUrl,
+        };
+      });
       setSessions(nextSessions);
 
       const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));

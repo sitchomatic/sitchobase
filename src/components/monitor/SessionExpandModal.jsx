@@ -4,8 +4,19 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
-import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity } from 'lucide-react';
+import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity, ExternalLink } from 'lucide-react';
 
+/**
+ * Manages a WebSocket connection to a Chrome DevTools Protocol (CDP) endpoint and provides a request/response command sender.
+ *
+ * Creates and maintains a WebSocket for the given CDP URL, tracks connection state, and exposes a `sendCmd` helper to send CDP commands and await their responses.
+ *
+ * @param {string} connectUrl - WebSocket URL of the CDP endpoint; if falsy, no connection is established.
+ * @returns {{connected: boolean, connecting: boolean, sendCmd: function(string, Object=): Promise<*>}}
+ * @returns.connected {boolean} - `true` when the WebSocket is open and ready to send commands.
+ * @returns.connecting {boolean} - `true` while an initial connection attempt is in progress.
+ * @returns.sendCmd {function(string, Object=): Promise<*>} - Sends a CDP command with the given `method` and optional `params`. Resolves with the command `result` on success, rejects with `Error('Not connected')` if there is no open connection, rejects with `Error('Timeout')` if no response arrives within 8 seconds, or rejects with an `Error` constructed from a remote `error.message` when the CDP endpoint returns an error.
+ */
 function useCDP(connectUrl) {
   const wsRef = useRef(null);
   const cbRef = useRef({});
@@ -54,8 +65,27 @@ function useCDP(connectUrl) {
   return { connected, connecting, sendCmd };
 }
 
+/**
+ * Full-screen modal that displays a live-updating CDP screenshot alongside a streaming session log pane.
+ *
+ * The modal connects to the session's CDP endpoint (preferring `session.wsUrl` over `session.connectUrl`), continuously captures screenshots for the main view, and polls session logs for the side panel while the session is running.
+ *
+ * @param {object} props
+ * @param {object} props.session - Session metadata and connection info.
+ * @param {string} props.session.id - Session identifier displayed in the header.
+ * @param {string} [props.session.wsUrl] - WebSocket URL for CDP; preferred when present.
+ * @param {string} [props.session.connectUrl] - Fallback CDP connection URL.
+ * @param {string} props.session.status - Session status (e.g., `"RUNNING"`), used to control log polling.
+ * @param {string|number} [props.session.startedAt] - Session start timestamp (used for duration/cost estimates).
+ * @param {string|number} [props.session.endedAt] - Session end timestamp (used for duration/cost estimates).
+ * @param {number} [props.session.proxyBytes] - Proxy data usage displayed in the header.
+ * @param {string} [props.session.region] - Session region displayed in the header.
+ * @param {string} [props.session.debuggerFullscreenUrl] - Optional external "Live View" URL shown as a header action.
+ * @param {() => void} props.onClose - Callback invoked when the modal close button is pressed.
+ * @returns {JSX.Element} The rendered session expand modal.
+ */
 export default function SessionExpandModal({ session, onClose }) {
-  const { connected, connecting, sendCmd } = useCDP(session.connectUrl);
+  const { connected, connecting, sendCmd } = useCDP(session.wsUrl || session.connectUrl);
   const [screenshot, setScreenshot] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -106,6 +136,16 @@ export default function SessionExpandModal({ session, onClose }) {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
+  // Validate debugger URL scheme
+  const isValidDebuggerUrl = (url) => {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col overflow-hidden">
@@ -119,6 +159,17 @@ export default function SessionExpandModal({ session, onClose }) {
           <span><Globe className="inline w-3 h-3 mr-1" />{formatBytes(session.proxyBytes)}</span>
           <span><Activity className="inline w-3 h-3 mr-1" />{session.region}</span>
         </div>
+        {isValidDebuggerUrl(session.debuggerFullscreenUrl) && (
+          <a
+            href={session.debuggerFullscreenUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/30 hover:border-emerald-400/60 bg-emerald-500/5 rounded-full px-2.5 py-1"
+            title="Open Browserbase live debugger in a new tab"
+          >
+            <ExternalLink className="w-3 h-3" /> Live View
+          </a>
+        )}
         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors ml-2">
           <X className="w-5 h-5" />
         </button>

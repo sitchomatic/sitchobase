@@ -80,6 +80,14 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // Live CDP endpoint — returns { wsUrl, debuggerUrl, debuggerFullscreenUrl, pages }
+      // so the Monitor can open a live-view iframe and drive CDP against a
+      // RUNNING session. listSessions does not include any of these fields.
+      case 'getSessionDebug': {
+        result = await bbFetch(`/sessions/${params.sessionId}/debug`, 'GET', apiKey);
+        break;
+      }
+
       // Recording API deprecated by BB — return graceful notice
       case 'getSessionRecording': {
         result = { deprecated: true, message: 'The Browserbase Session Recording API has been deprecated. Contact support@browserbase.com for alternatives.' };

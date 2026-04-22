@@ -1,19 +1,41 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { extractPlaceholders } from '@/lib/csvParser';
+import CloudFunctionPicker from '@/components/shared/CloudFunctionPicker';
+import SaveAsCloudFunctionDialog from '@/components/shared/SaveAsCloudFunctionDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Save, X, Code2 } from 'lucide-react';
+import { Save, X, Code2, Terminal } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Render a UI for creating or editing a saved script with fields for name, body, optional description, detected CSV-style placeholders, and controls to load from or save to cloud functions.
+ *
+ * @param {{id?: string, name?: string, script?: string, description?: string}|null} script - Optional SavedScript entity used to initialize the editor fields.
+ * @param {(saved: object) => void} onSave - Callback invoked with the saved SavedScript entity after a successful save.
+ * @param {() => void} onCancel - Callback invoked when the user cancels editing.
+ * @returns {JSX.Element} The ScriptEditor component's rendered element.
+ */
 export default function ScriptEditor({ script, onSave, onCancel }) {
   const [name, setName] = useState(script?.name ?? '');
   const [body, setBody] = useState(script?.script ?? '');
   const [description, setDescription] = useState(script?.description ?? '');
   const [saving, setSaving] = useState(false);
+  const [saveAsCloudFunctionOpen, setSaveAsCloudFunctionOpen] = useState(false);
+
+  // Pull a Cloud Function into this SavedScript editor so users can reuse
+  // Playwright / Puppeteer scripts across both bulk-test rows and ad-hoc
+  // Stagehand runs. We prefill name/description only when the editor is
+  // still empty so we don't stomp on in-progress edits.
+  const loadCloudFunction = (fn) => {
+    setBody(fn?.script ?? '');
+    if (!name.trim()) setName(fn?.name ?? '');
+    if (!description.trim() && fn?.description) setDescription(fn.description);
+    toast.success(`Loaded ${fn.name}`);
+  };
 
   const placeholders = extractPlaceholders(body);
 
@@ -38,15 +60,40 @@ export default function ScriptEditor({ script, onSave, onCancel }) {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
           <Code2 className="w-4 h-4 text-purple-400" />
           {script?.id ? 'Edit Script' : 'New Script'}
         </div>
-        <Button size="icon" variant="ghost" onClick={onCancel} className="w-7 h-7 text-gray-500 hover:text-gray-200">
-          <X className="w-3.5 h-3.5" />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <CloudFunctionPicker onSelect={loadCloudFunction} label="From Cloud" />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!body.trim()}
+            onClick={() => setSaveAsCloudFunctionOpen(true)}
+            className="gap-1.5 border-cyan-500/30 bg-cyan-500/5 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-40"
+            title="Save this script to the Cloud Function library so other pages can reuse it"
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            <span className="text-xs">Save to Cloud</span>
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onCancel} className="w-7 h-7 text-gray-500 hover:text-gray-200">
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
+
+      <SaveAsCloudFunctionDialog
+        open={saveAsCloudFunctionOpen}
+        onOpenChange={setSaveAsCloudFunctionOpen}
+        scriptBody={body}
+        defaultName={name}
+        defaultDescription={description}
+        defaultRuntime="playwright"
+        title="Save script as Cloud Function"
+      />
 
       <div>
         <Label className="text-gray-400 text-xs mb-1.5 block">Script Name</Label>
