@@ -39,7 +39,7 @@ async function callOnce(action, extras = {}) {
   }
 }
 
-function isLikelyApiKeyBbProxyFailure(err) {
+export function isLikelyApiKeyBbProxyFailure(err) {
   const status = err?.response?.status ?? err?.status;
   if (status === 404 || status === 405) return true;
   const msg = String(err?.message ?? '');

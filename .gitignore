@@ -29,3 +29,6 @@ dist-ssr
 
 .env
 .vite
+
+test-plan*.md
+test-report*.md
