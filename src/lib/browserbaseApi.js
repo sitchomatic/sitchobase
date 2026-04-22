@@ -48,8 +48,9 @@ export async function createSession(apiKey, options = {}) {
 }
 
 export async function updateSession(apiKey, sessionId, data) {
+  // BB docs: update session uses POST (not PUT). bbProxy mirrors this.
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}`, {
-    method: 'PUT',
+    method: 'POST',
     headers: getHeaders(apiKey),
     body: JSON.stringify(data),
   });
@@ -86,6 +87,14 @@ export async function listContexts(apiKey) {
     headers: getHeaders(apiKey),
   });
   if (!res.ok) throw new Error(`List contexts failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getContext(apiKey, contextId) {
+  const res = await fetch(`${BB_BASE_URL}/contexts/${contextId}`, {
+    headers: getHeaders(apiKey),
+  });
+  if (!res.ok) throw new Error(`Get context failed: ${res.status}`);
   return res.json();
 }
 

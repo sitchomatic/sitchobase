@@ -17,6 +17,7 @@ vi.mock('./browserbaseApi', () => ({
   getSessionRecording: vi.fn(async () => ({ events: [] })),
   getProjectUsage: vi.fn(async () => ({ browserMinutes: 0 })),
   listContexts: vi.fn(async () => [{ id: 'ctx_1' }]),
+  getContext: vi.fn(async () => ({ id: 'ctx_1' })),
   createContext: vi.fn(async () => ({ id: 'ctx_new' })),
   deleteContext: vi.fn(async () => ({})),
   batchCreateSessions: vi.fn(async () => ({ results: [], errors: [] })),
@@ -142,6 +143,22 @@ describe('canUseDirectBrowserbase', () => {
     expect(canUseDirectBrowserbase()).toBe(false);
   });
 
+  it('is false when projectId is missing (direct endpoints need it)', async () => {
+    localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc' }));
+    const { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+
+  it('is false when apiKey or projectId is whitespace-only', async () => {
+    localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: '   ', projectId: 'proj_1' }));
+    let { canUseDirectBrowserbase } = await import('./bbClient');
+    expect(canUseDirectBrowserbase()).toBe(false);
+    vi.resetModules();
+    localStorage.setItem('bb_credentials', JSON.stringify({ apiKey: 'bb_live_abc', projectId: '  ' }));
+    ({ canUseDirectBrowserbase } = await import('./bbClient'));
+    expect(canUseDirectBrowserbase()).toBe(false);
+  });
+
   it('is false when stored credentials are malformed JSON', async () => {
     localStorage.setItem('bb_credentials', 'not-json');
     const { canUseDirectBrowserbase } = await import('./bbClient');
@@ -217,5 +234,55 @@ describe('bbClient dispatch', () => {
       expect.objectContaining({ action: 'listSessions', projectId: 'proj_1' }),
     );
     expect(result).toEqual([{ id: 's' }]);
+  });
+
+  it('updateSession with no data defaults to REQUEST_RELEASE on the direct path', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    await bbClient.updateSession('sess_1');
+
+    expect(bb.updateSession).toHaveBeenCalledWith(
+      'bb_live_abc',
+      'sess_1',
+      { status: 'REQUEST_RELEASE', projectId: 'proj_1' },
+    );
+  });
+
+  it('updateSession with userMetadata forwards it (and projectId) on the direct path', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    await bbClient.updateSession('sess_1', { userMetadata: { mirrorCommand: 'hi' } });
+
+    expect(bb.updateSession).toHaveBeenCalledWith(
+      'bb_live_abc',
+      'sess_1',
+      { userMetadata: { mirrorCommand: 'hi' }, projectId: 'proj_1' },
+    );
+  });
+
+  it('getContext is dispatched to the direct path', async () => {
+    import.meta.env.DEV = true;
+    import.meta.env.VITE_BASE44_API_KEY = 'test-key';
+    localStorage.setItem('bb_credentials', JSON.stringify({
+      apiKey: 'bb_live_abc', projectId: 'proj_1',
+    }));
+    const bb = await import('./browserbaseApi');
+    const { bbClient } = await import('./bbClient');
+
+    await bbClient.getContext('ctx_1');
+
+    expect(bb.getContext).toHaveBeenCalledWith('bb_live_abc', 'ctx_1');
   });
 });

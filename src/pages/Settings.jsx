@@ -68,6 +68,11 @@ export default function Settings() {
     toast.success('Credentials cleared');
   };
 
+  // Compute once per render so both banners agree and we don't re-parse
+  // localStorage twice on the same paint.
+  const apiKeyAuth = isUsingApiKeyAuth();
+  const directEligible = apiKeyAuth && canUseDirectBrowserbase();
+
   return (
     <div className="p-6 max-w-2xl space-y-6">
       <div>
@@ -77,7 +82,7 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Configure your Browserbase credentials</p>
       </div>
 
-      {isUsingApiKeyAuth() && canUseDirectBrowserbase() && (
+      {apiKeyAuth && directEligible && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">
           <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>
@@ -92,7 +97,7 @@ export default function Settings() {
         </div>
       )}
 
-      {isUsingApiKeyAuth() && !canUseDirectBrowserbase() && (
+      {apiKeyAuth && !directEligible && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-amber-500/10 border border-amber-500/30 text-amber-200">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <div>

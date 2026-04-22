@@ -37,16 +37,23 @@ function readStoredCredentials() {
 // True when we can — and should — talk to Browserbase directly from the
 // browser instead of routing through bbProxy. Requires: api_key auth mode
 // (so bbProxy would fail anyway), a running Vite dev server (for the /bb
-// CORS proxy), and a stored Browserbase API key. Exposed so UIs can skip
-// the old "bbProxy doesn't support api_key" limitation banner when the
-// direct path will actually succeed.
+// CORS proxy), and stored Browserbase credentials with both a non-empty
+// API key and project ID (several direct endpoints — getProjectUsage,
+// createContext, createSession — require projectId). Exposed so UIs can
+// skip the old "bbProxy doesn't support api_key" limitation banner only
+// when the direct path will actually succeed.
 export function canUseDirectBrowserbase() {
   if (!isUsingApiKeyAuth()) return false;
   // import.meta.env.DEV is only true under `vite` / `vite build --mode development`.
   // Production builds must continue to go through bbProxy.
   if (typeof import.meta === 'undefined' || !import.meta.env?.DEV) return false;
-  const { apiKey } = readStoredCredentials();
-  return Boolean(apiKey);
+  const { apiKey, projectId } = readStoredCredentials();
+  return (
+    typeof apiKey === 'string' &&
+    apiKey.trim().length > 0 &&
+    typeof projectId === 'string' &&
+    projectId.trim().length > 0
+  );
 }
 
 // Kept for external callers — bbProxy-only limitation UX in surfaces where
@@ -78,8 +85,10 @@ async function callOnce(action, extras = {}) {
 }
 
 // Map bbProxy action names + extras onto the direct Browserbase REST client
-// in src/lib/browserbaseApi.js. Anything that isn't implemented directly
-// falls back to bbProxy by returning undefined — callOnce re-dispatches.
+// in src/lib/browserbaseApi.js. Every action that can reach this dispatcher
+// must have a case here: unknown actions throw so we notice at call time
+// instead of silently going dark. To add a new action, implement the REST
+// helper in browserbaseApi.js and add a case below.
 async function callDirect(action, extras, creds) {
   const { apiKey, projectId } = creds;
   switch (action) {
@@ -92,8 +101,18 @@ async function callDirect(action, extras, creds) {
         projectId,
         ...(extras.options ?? {}),
       });
-    case 'updateSession':
-      return bb.updateSession(apiKey, extras.sessionId, extras.data ?? {});
+    case 'updateSession': {
+      // Mirror bbProxy semantics: BB docs say update session is POST (not
+      // PUT), and bbClient.updateSession(sessionId) with no data is the
+      // documented "release this session" shortcut — default to
+      // REQUEST_RELEASE when the caller passed no userMetadata.
+      const updateData = extras.data;
+      const payload = updateData?.userMetadata
+        ? { userMetadata: updateData.userMetadata }
+        : { status: 'REQUEST_RELEASE' };
+      if (projectId) payload.projectId = projectId;
+      return bb.updateSession(apiKey, extras.sessionId, payload);
+    }
     case 'getSessionLogs':
       return bb.getSessionLogs(apiKey, extras.sessionId);
     case 'getSessionRecording':
@@ -102,6 +121,8 @@ async function callDirect(action, extras, creds) {
       return bb.getProjectUsage(apiKey, projectId);
     case 'listContexts':
       return bb.listContexts(apiKey);
+    case 'getContext':
+      return bb.getContext(apiKey, extras.contextId);
     case 'createContext':
       return bb.createContext(apiKey, projectId);
     case 'deleteContext':
@@ -112,7 +133,8 @@ async function callDirect(action, extras, creds) {
         ...(extras.options ?? {}),
       });
     default:
-      // Unknown action — fall through to bbProxy so future additions keep working.
+      // Unknown action — fail loudly so a new bbProxy case doesn't silently
+      // lose the direct-dispatch benefit the next time someone adds one.
       throw new Error(`bbClient: direct path has no mapping for action "${action}"`);
   }
 }
