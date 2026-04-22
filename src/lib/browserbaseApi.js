@@ -58,6 +58,13 @@ export async function updateSession(apiKey, sessionId, data) {
   return res.json();
 }
 
+/**
+ * Fetches the logs for a given session.
+ * @param {string} apiKey - Browserbase API key used for authentication.
+ * @param {string} sessionId - ID of the session to retrieve logs for.
+ * @returns {any} The parsed JSON response containing the session logs.
+ * @throws {Error} If the HTTP response is not OK; the error message includes the response status code.
+ */
 export async function getSessionLogs(apiKey, sessionId) {
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}/logs`, {
     headers: getHeaders(apiKey),
@@ -71,7 +78,13 @@ export async function getSessionLogs(apiKey, sessionId) {
 // Monitor has to hydrate each running session with its own debug payload:
 //   { wsUrl, debuggerUrl, debuggerFullscreenUrl, pages: [...] }
 // wsUrl is the browser-level CDP WebSocket the live-screenshot panels talk to;
-// debuggerFullscreenUrl is the embeddable live-view iframe.
+/**
+ * Fetches debug information for a session, including embeddable debugger URL and page details.
+ * @param {string} apiKey - Browserbase API key used for authentication.
+ * @param {string} sessionId - ID of the session to retrieve debug info for.
+ * @returns {Object} The session debug payload containing live CDP/debug URLs, the embeddable live-view iframe URL, and page details.
+ * @throws {Error} If the HTTP response status is not OK.
+ */
 export async function getSessionDebug(apiKey, sessionId) {
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}/debug`, {
     headers: getHeaders(apiKey),
@@ -80,6 +93,13 @@ export async function getSessionDebug(apiKey, sessionId) {
   return res.json();
 }
 
+/**
+ * Fetches recording metadata for a session.
+ * @param {string} apiKey - Browserbase API key used for authentication.
+ * @param {string} sessionId - ID of the session whose recording to retrieve.
+ * @returns {Object} The recording metadata as parsed JSON.
+ * @throws {Error} If the HTTP response is not OK; the error message includes the response status code.
+ */
 export async function getSessionRecording(apiKey, sessionId) {
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}/recording`, {
     headers: getHeaders(apiKey),

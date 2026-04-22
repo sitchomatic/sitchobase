@@ -29,6 +29,15 @@ const REGIONS = [
   { value: 'ap-southeast-1', label: 'ap-southeast-1 🇸🇬' },
 ];
 
+/**
+ * UI component for running natural-language browser automations and viewing generated execution plans.
+ *
+ * Presents a prompt editor with load/save Cloud Function integration, lets the user configure concurrent
+ * sessions and region, creates Browserbase sessions, invokes an LLM to generate a structured execution plan,
+ * displays created session IDs and the plan, and records an audit entry for each run.
+ *
+ * @returns {JSX.Element} The Stagehand AI interface.
+ */
 export default function StagehandAI() {
   const { isConfigured } = useCredentials();
   const [prompt, setPrompt] = useState('');

@@ -13,6 +13,18 @@ import { buildAiOpsPrompt } from '@/components/monitor/buildAiOpsPrompt';
 import { Button } from '@/components/ui/button';
 import { Activity, RefreshCw, Wifi } from 'lucide-react';
 
+/**
+ * Display a real-time monitor UI for running sessions, their recent logs, and AI analysis.
+ *
+ * The component fetches and displays currently running sessions, hydrates each session with
+ * optional debug/live-view URLs when available, and loads up to the most recent 20 log entries
+ * per session. It auto-refreshes the data every 15 seconds, provides a manual Refresh control,
+ * exposes an AI analysis action that produces a structured report, and supports expanding a
+ * session into a details modal. When credentials are not configured the component renders a
+ * credentials guard instead; loading and empty states are shown as appropriate.
+ *
+ * @returns {JSX.Element} The Monitor component UI.
+ */
 export default function Monitor() {
   const { isConfigured } = useCredentials();
   const [sessions, setSessions] = useState([]);

@@ -17,6 +17,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Terminal, ChevronDown, Loader2 } from 'lucide-react';
 
+/**
+ * Render a dropdown trigger button that lets the user select a saved Cloud Function.
+ *
+ * @param {Object} props
+ * @param {(fn: {id: string, name: string, description?: string, script: string, runtime?: string, tags?: string[]}) => void} props.onSelect - Callback invoked with the full Cloud Function record when an item is chosen.
+ * @param {string} [props.label='Load Cloud Function'] - Text displayed on the trigger button.
+ * @param {string} [props.className=''] - Additional CSS classes to apply to the trigger button.
+ * @returns {JSX.Element|null} The dropdown menu element, or `null` when the CloudFunction entity is unavailable.
+ */
 export default function CloudFunctionPicker({
   onSelect,
   label = 'Load Cloud Function',

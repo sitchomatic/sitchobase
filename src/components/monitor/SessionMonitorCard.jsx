@@ -72,7 +72,14 @@ function useCDP(connectUrl, enabled) {
   return { connected, connecting, sendCmd, onEvent };
 }
 
-// ── Main card ─────────────────────────────────────────────────────────────────
+/**
+ * Render a live monitoring card for a single session that shows connection status,
+ * periodic screenshots from the session's CDP, real-time log tailing, and basic metrics.
+ *
+ * @param {Object} props.session - Session object to monitor (expected fields include `id`, `status`, `wsUrl`, `connectUrl`, `startedAt`, `endedAt`, `proxyBytes`, `region`, etc.).
+ * @param {(session: Object) => void} props.onExpand - Callback invoked with the session when the expand button is clicked.
+ * @returns {JSX.Element} The session monitor card element.
+ */
 export default function SessionMonitorCard({ session, onExpand }) {
   const isRunning = session.status === 'RUNNING';
   const [paused, setPaused] = useState(false);
