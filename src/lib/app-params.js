@@ -44,9 +44,10 @@ const getAppParams = () => {
 	// access_token so AuthProvider doesn't attempt `base44.auth.me()` with a value
 	// that isn't a user session.
 	const useApiKey = Boolean(import.meta.env.VITE_BASE44_API_KEY);
+	const accessToken = getAppParamValue("access_token", { removeFromUrl: true });
 	return {
 		appId: getAppParamValue("app_id", { defaultValue: import.meta.env.VITE_BASE44_APP_ID }),
-		token: useApiKey ? null : getAppParamValue("access_token", { removeFromUrl: true }),
+		token: useApiKey ? null : accessToken,
 		fromUrl: getAppParamValue("from_url", { defaultValue: window.location.href }),
 		functionsVersion: getAppParamValue("functions_version", { defaultValue: import.meta.env.VITE_BASE44_FUNCTIONS_VERSION }),
 		appBaseUrl: getAppParamValue("app_base_url", { defaultValue: import.meta.env.VITE_BASE44_APP_BASE_URL }),

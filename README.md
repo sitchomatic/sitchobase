@@ -28,7 +28,7 @@ VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
 
 Optional: for local development only, you can run against the published Base44 backend without an interactive Google login by setting a Base44 API key. When set, the SDK authenticates every request via the `api_key` header (the documented server-side SDK pattern) and the user-session flow is skipped.
 
-```
+```env
 VITE_BASE44_API_KEY=your_base44_api_key
 ```
 

@@ -7,7 +7,8 @@ const { appId, token, functionsVersion, appBaseUrl } = appParams;
 // instead of an interactive Google login. When set, the SDK sends an `api_key`
 // header on every request — the documented pattern from the Base44 API reference.
 // If unset, the client falls back to the normal user-session flow.
-const apiKey = import.meta.env.VITE_BASE44_API_KEY;
+// IMPORTANT: Only use the API key in development mode to prevent key exposure in production builds.
+const apiKey = import.meta.env.DEV ? import.meta.env.VITE_BASE44_API_KEY : undefined;
 
 export const base44 = createClient({
   appId,
