@@ -78,6 +78,7 @@ export async function getSessionLogs(apiKey, sessionId) {
 // Monitor has to hydrate each running session with its own debug payload:
 //   { wsUrl, debuggerUrl, debuggerFullscreenUrl, pages: [...] }
 // wsUrl is the browser-level CDP WebSocket the live-screenshot panels talk to;
+// debuggerFullscreenUrl is the embeddable live-view iframe.
 /**
  * Fetches debug information for a session, including embeddable debugger URL and page details.
  * @param {string} apiKey - Browserbase API key used for authentication.

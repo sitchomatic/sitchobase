@@ -188,6 +188,7 @@ export function useCloudFunctions({ autoload = true } = {}) {
 }
 
 // Test-only: clear every module-level cache between tests so suites don't
+// leak state into each other.
 /**
  * Reset module-level caches and notify all subscribers, restoring the hook to its initial state for tests.
  *

@@ -106,6 +106,7 @@ async function callOnce(action, extras = {}) {
 // in src/lib/browserbaseApi.js. Every action that can reach this dispatcher
 // must have a case here: unknown actions throw so we notice at call time
 // instead of silently going dark. To add a new action, implement the REST
+// helper in browserbaseApi.js and add a case below.
 /**
  * Dispatches a Browserbase action over the direct REST transport using provided API credentials.
  *
