@@ -133,12 +133,19 @@ export default function BulkTest() {
         },
       };
 
-      const result = await bbClient.batchCreateSessions(1, options);
-      const sess = result?.results?.[0];
+      let sess = null;
+      let errorMessage = null;
+      try {
+        const result = await bbClient.batchCreateSessions(1, options);
+        sess = result?.results?.[0] ?? null;
+        if (!sess) errorMessage = result?.errors?.[0]?.error || 'Session failed';
+      } catch (err) {
+        errorMessage = err?.message || 'Session request failed';
+      }
 
       setJobResults(prev => prev.map(r =>
         r.rowIdx === rowIdx
-          ? { ...r, status: sess ? 'completed' : 'error', sessionId: sess?.id ?? null, error: sess ? null : (result?.errors?.[0]?.error || 'Session failed') }
+          ? { ...r, status: sess ? 'completed' : 'error', sessionId: sess?.id ?? null, error: sess ? null : errorMessage }
           : r
       ));
       setRunProgress(p => ({ ...p, done: p.done + 1 }));

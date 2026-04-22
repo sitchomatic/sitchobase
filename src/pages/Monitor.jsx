@@ -54,21 +54,30 @@ export default function Monitor() {
 
   const analyze = useCallback(async () => {
     setAiLoading(true);
-    const prompt = buildAiOpsPrompt({ sessions, failureGroups, stuckSessions, anomalies });
-    const report = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          summary: { type: 'string' },
-          groupedFailures: { type: 'array', items: { type: 'string' } },
-          fixSuggestions: { type: 'array', items: { type: 'string' } }
-        },
-        required: ['summary', 'groupedFailures', 'fixSuggestions']
-      }
-    });
-    setAiReport(report);
-    setAiLoading(false);
+    try {
+      const prompt = buildAiOpsPrompt({ sessions, failureGroups, stuckSessions, anomalies });
+      const report = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            groupedFailures: { type: 'array', items: { type: 'string' } },
+            fixSuggestions: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['summary', 'groupedFailures', 'fixSuggestions']
+        }
+      });
+      setAiReport(report);
+    } catch (err) {
+      setAiReport({
+        summary: `AI analysis failed: ${err?.message || 'unknown error'}`,
+        groupedFailures: [],
+        fixSuggestions: [],
+      });
+    } finally {
+      setAiLoading(false);
+    }
   }, [sessions, failureGroups, stuckSessions, anomalies]);
 
   if (!isConfigured) return <CredentialsGuard />;

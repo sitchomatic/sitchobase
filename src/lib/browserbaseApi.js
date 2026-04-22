@@ -121,12 +121,14 @@ export async function deleteContext(apiKey, contextId) {
 export async function batchCreateSessions(apiKey, count, options = {}, onProgress) {
   const results = [];
   const errors = [];
+  const MAX_ATTEMPTS = 5;
   let delay = 500;
 
   for (let i = 0; i < count; i++) {
     let success = false;
     let attempts = 0;
-    while (!success && attempts < 5) {
+    let lastErr = null;
+    while (!success && attempts < MAX_ATTEMPTS) {
       try {
         const session = await createSession(apiKey, options);
         results.push(session);
@@ -135,6 +137,7 @@ export async function batchCreateSessions(apiKey, count, options = {}, onProgres
         delay = 500; // reset on success
       } catch (err) {
         attempts++;
+        lastErr = err;
         if (err.message.includes('429')) {
           await new Promise(r => setTimeout(r, delay));
           delay = Math.min(delay * 2, 16000);
@@ -143,6 +146,11 @@ export async function batchCreateSessions(apiKey, count, options = {}, onProgres
           success = true; // move on
         }
       }
+    }
+    // Record the failure if 429 retries were exhausted without success so the
+    // caller doesn't silently end up with fewer sessions than requested.
+    if (!success) {
+      errors.push({ index: i, error: lastErr?.message || `Failed after ${MAX_ATTEMPTS} attempts` });
     }
     // small gap between requests
     if (i < count - 1) await new Promise(r => setTimeout(r, 200));
