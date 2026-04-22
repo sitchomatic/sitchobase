@@ -15,9 +15,13 @@ function getHeaders(apiKey) {
 }
 
 export async function listSessions(apiKey, status = null) {
-  const url = new URL(`${BB_BASE_URL}/sessions`);
-  if (status) url.searchParams.set('status', status);
-  const res = await fetch(url.toString(), { headers: getHeaders(apiKey) });
+  // Build the query string manually so `BB_BASE_URL` can be either an absolute
+  // URL (prod / Node) or a root-relative path (Vite dev proxy). `new URL(path)`
+  // with a single argument requires an absolute URL and throws otherwise.
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${BB_BASE_URL}/sessions${qs}`, {
+    headers: getHeaders(apiKey),
+  });
   if (!res.ok) throw new Error(`List sessions failed: ${res.status}`);
   return res.json();
 }
