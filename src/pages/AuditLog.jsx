@@ -7,6 +7,7 @@ import { RefreshCw, Search, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { pageTransition, slideInVariants } from '@/lib/motion';
 
 const CATEGORY_COLORS = {
   session:  'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -178,10 +179,8 @@ export default function AuditLog() {
         {selectedLog && (
           <motion.div
             key={selectedLog.id}
-            initial={{ x: 32, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 32, opacity: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
+            {...slideInVariants()}
+            transition={pageTransition()}
             className="fixed md:absolute inset-0 md:inset-y-0 md:right-0 z-30 w-full md:w-[420px] bg-gray-900 border-l border-gray-800"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 pt-[max(0.75rem,env(safe-area-inset-top))]">
