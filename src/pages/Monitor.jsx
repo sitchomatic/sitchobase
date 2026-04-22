@@ -25,19 +25,24 @@ export default function Monitor() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const data = await bbClient.listSessions('RUNNING');
-    const nextSessions = Array.isArray(data) ? data : [];
-    setSessions(nextSessions);
+    try {
+      const data = await bbClient.listSessions('RUNNING');
+      const nextSessions = Array.isArray(data) ? data : [];
+      setSessions(nextSessions);
 
-    const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
-    const nextLogs = {};
-    nextSessions.forEach((session, index) => {
-      const result = logResults[index];
-      const logs = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : [];
-      nextLogs[session.id] = logs.slice(-20).map((log, logIndex) => normalizeLogEntry(session.id, log, logIndex));
-    });
-    setLogsBySession(nextLogs);
-    setLoading(false);
+      const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
+      const nextLogs = {};
+      nextSessions.forEach((session, index) => {
+        const result = logResults[index];
+        const logs = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : [];
+        nextLogs[session.id] = logs.slice(-20).map((log, logIndex) => normalizeLogEntry(session.id, log, logIndex));
+      });
+      setLogsBySession(nextLogs);
+    } catch (err) {
+      console.error('Monitor load failed:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [isConfigured]);
 
   useEffect(() => { load(); }, [load]);
