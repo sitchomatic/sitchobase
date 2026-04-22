@@ -31,6 +31,10 @@ describe('batchCreateSessions', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatchObject({ index: 0 });
     expect(errors[0].error).toMatch(/429|Failed after/);
+    // All MAX_ATTEMPTS (5) retries must actually fire — without this assertion
+    // the test would also pass if the loop exited after the first 429 and then
+    // recorded the error, which would be a different (and also wrong) fix.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(5);
   });
 
   it('pushes a non-429 error immediately and does not duplicate it on exhaustion', async () => {
@@ -48,6 +52,8 @@ describe('batchCreateSessions', () => {
     // Non-429 exits the retry loop with success=true (intentional), so there
     // should be exactly one error entry, not two.
     expect(errors).toHaveLength(1);
+    // Non-429 errors must NOT retry — fetch fires exactly once per row.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('returns successful sessions in results on the happy path', async () => {
@@ -65,5 +71,7 @@ describe('batchCreateSessions', () => {
     expect(errors).toHaveLength(0);
     expect(results).toHaveLength(2);
     expect(results[0]).toMatchObject({ id: 'sess_abc' });
+    // One fetch per successful row — no retries, no over-calling.
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });
