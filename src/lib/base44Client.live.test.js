@@ -22,11 +22,12 @@
  * so you can grep and clean them up manually.
  *
  * Runs under the default `node` environment (which has native `fetch` and
- * no same-origin restrictions), with a hand-rolled `window` shim below so
- * the Base44 SDK's analytics module — which registers a `visibilitychange`
- * listener on `window` at client-construction time — doesn't crash. We
- * deliberately avoid `jsdom` / `happy-dom` here because their CORS-aware
- * XHR-backed fetch rejects Base44's cross-origin calls as "Network Error".
+ * no same-origin restrictions), with a hand-rolled `window` shim installed
+ * in `beforeAll` so the Base44 SDK's analytics module — which registers a
+ * `visibilitychange` listener on `window` at client-construction time —
+ * doesn't crash. We deliberately avoid `jsdom` / `happy-dom` here because
+ * their CORS-aware XHR-backed fetch rejects Base44's cross-origin calls as
+ * "Network Error".
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@base44/sdk';
@@ -202,7 +203,7 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
   it('appends an AuditLog entry and finds it on list', async () => {
     // AuditLog is append-only in the product UI, so we only exercise create+list.
     const created = await base44.entities.AuditLog.create({
-      action: 'LIVE_SMOKE_TEST',
+      action: `LIVE_SMOKE_TEST ${RUN_TAG}`,
       category: 'test',
       details: { runTag: RUN_TAG },
     });
