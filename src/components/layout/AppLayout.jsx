@@ -47,7 +47,7 @@ export default function AppLayout() {
 
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {navItems.map(({ label, icon: Icon, path }) => {
-            const active = location.pathname === path;
+            const active = rootPathFor(location.pathname) === path;
             return (
               <Link
                 key={path}
@@ -96,9 +96,11 @@ export default function AppLayout() {
 }
 
 // Collapse detail paths onto their parent so that navigating between e.g.
-// /sessions/abc and /sessions/def does not re-trigger the page transition.
+// /sessions/abc and /sessions/def does not re-trigger the page transition,
+// and so the parent sidebar link stays highlighted on detail pages. Uses
+// strict prefix checks so unrelated paths like /sessions-archive don't match.
 const rootPathFor = (pathname) => {
-  if (pathname.startsWith('/sessions')) return '/sessions';
-  if (pathname.startsWith('/audit')) return '/audit';
+  if (pathname === '/sessions' || pathname.startsWith('/sessions/')) return '/sessions';
+  if (pathname === '/audit' || pathname.startsWith('/audit/')) return '/audit';
   return pathname;
 };
