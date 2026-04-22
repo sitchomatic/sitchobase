@@ -66,6 +66,20 @@ export async function getSessionLogs(apiKey, sessionId) {
   return res.json();
 }
 
+// Browserbase exposes live CDP + debugger URLs for a RUNNING session at
+// GET /v1/sessions/{id}/debug. listSessions does NOT return these, so the
+// Monitor has to hydrate each running session with its own debug payload:
+//   { wsUrl, debuggerUrl, debuggerFullscreenUrl, pages: [...] }
+// wsUrl is the browser-level CDP WebSocket the live-screenshot panels talk to;
+// debuggerFullscreenUrl is the embeddable live-view iframe.
+export async function getSessionDebug(apiKey, sessionId) {
+  const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}/debug`, {
+    headers: getHeaders(apiKey),
+  });
+  if (!res.ok) throw new Error(`Get session debug failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getSessionRecording(apiKey, sessionId) {
   const res = await fetch(`${BB_BASE_URL}/sessions/${sessionId}/recording`, {
     headers: getHeaders(apiKey),

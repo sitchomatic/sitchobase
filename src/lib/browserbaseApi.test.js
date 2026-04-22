@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { batchCreateSessions } from './browserbaseApi';
+import { batchCreateSessions, getSessionDebug } from './browserbaseApi';
 
 describe('batchCreateSessions', () => {
   const origFetch = globalThis.fetch;
@@ -54,6 +54,33 @@ describe('batchCreateSessions', () => {
     expect(errors).toHaveLength(1);
     // Non-429 errors must NOT retry — fetch fires exactly once per row.
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('getSessionDebug hits /sessions/{id}/debug and returns the live CDP payload', async () => {
+    vi.useRealTimers();
+    const payload = {
+      wsUrl: 'wss://connect.browserbase.com/debug/sess_1/devtools/browser/abc',
+      debuggerUrl: 'https://www.browserbase.com/devtools/inspector.html?wss=abc',
+      debuggerFullscreenUrl: 'https://www.browserbase.com/devtools-fullscreen/inspector.html?wss=abc',
+      pages: [],
+    };
+    globalThis.fetch = vi.fn(async (url, opts) => {
+      expect(String(url)).toMatch(/\/sessions\/sess_1\/debug$/);
+      expect(opts.headers['X-BB-API-Key']).toBe('test-key');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload,
+      };
+    });
+    await expect(getSessionDebug('test-key', 'sess_1')).resolves.toEqual(payload);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('getSessionDebug throws a recognizable error when the endpoint is not ok', async () => {
+    vi.useRealTimers();
+    globalThis.fetch = vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) }));
+    await expect(getSessionDebug('test-key', 'sess_gone')).rejects.toThrow(/Get session debug failed: 404/);
   });
 
   it('returns successful sessions in results on the happy path', async () => {

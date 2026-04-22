@@ -27,7 +27,26 @@ export default function Monitor() {
     setLoading(true);
     try {
       const data = await bbClient.listSessions('RUNNING');
-      const nextSessions = Array.isArray(data) ? data : [];
+      const baseSessions = Array.isArray(data) ? data : [];
+
+      // Browserbase listSessions does NOT include wsUrl / debuggerFullscreenUrl.
+      // Hydrate each running session with its /debug payload in parallel so the
+      // CDP live-view and the embeddable debugger actually work. Failures are
+      // non-fatal: the session just falls through without live-view hydration.
+      const debugResults = await Promise.allSettled(
+        baseSessions.map((session) => bbClient.getSessionDebug(session.id))
+      );
+      const nextSessions = baseSessions.map((session, index) => {
+        const result = debugResults[index];
+        if (result.status !== 'fulfilled' || !result.value) return session;
+        const { wsUrl, debuggerUrl, debuggerFullscreenUrl } = result.value;
+        return {
+          ...session,
+          wsUrl: wsUrl ?? session.wsUrl,
+          debuggerUrl: debuggerUrl ?? session.debuggerUrl,
+          debuggerFullscreenUrl: debuggerFullscreenUrl ?? session.debuggerFullscreenUrl,
+        };
+      });
       setSessions(nextSessions);
 
       const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));

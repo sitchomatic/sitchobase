@@ -139,6 +139,8 @@ async function callDirect(action, extras, creds) {
     }
     case 'getSessionLogs':
       return bb.getSessionLogs(apiKey, extras.sessionId);
+    case 'getSessionDebug':
+      return bb.getSessionDebug(apiKey, extras.sessionId);
     case 'getSessionRecording':
       // Mirror bbProxy: the Browserbase Session Recording REST endpoint is
       // deprecated, so return the same synthetic notice instead of making
@@ -218,6 +220,7 @@ export const bbClient = {
   updateSession: (sessionId, data) => call('updateSession', { sessionId, data: data ?? {} }),
   getSessionLogs: (sessionId) => call('getSessionLogs', { sessionId }),
   getSessionRecording: (sessionId) => call('getSessionRecording', { sessionId }),
+  getSessionDebug: (sessionId) => call('getSessionDebug', { sessionId }),
 
   // Usage
   getProjectUsage: () => call('getProjectUsage'),

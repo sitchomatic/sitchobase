@@ -108,7 +108,7 @@ export function detectAnomalies(sessions, logsBySession) {
       });
     }
 
-    if (!session.connectUrl) {
+    if (!session.connectUrl && !session.wsUrl) {
       anomalies.push({
         id: `cdp-${session.id}`,
         sessionId: session.id,

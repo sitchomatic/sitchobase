@@ -6,10 +6,12 @@ import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import CloudFunctionLibrary from '@/components/stagehand/CloudFunctionLibrary';
+import CloudFunctionPicker from '@/components/shared/CloudFunctionPicker';
+import SaveAsCloudFunctionDialog from '@/components/shared/SaveAsCloudFunctionDialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { Play, Loader2, CheckCircle, AlertCircle, Sparkles, ChevronRight, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
@@ -35,10 +37,19 @@ export default function StagehandAI() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState([]);
   const [createdSessions, setCreatedSessions] = useState([]);
+  const [saveAsCloudFunctionOpen, setSaveAsCloudFunctionOpen] = useState(false);
+
+  // Used by the Cloud Function Picker above the prompt. Loads the saved
+  // function's `script` (or its description as a fallback) into the prompt
+  // textarea so the user can re-run a stored natural-language automation.
+  const loadCloudFunction = (fn) => {
+    const next = fn?.script?.trim() || fn?.description?.trim() || fn?.name || '';
+    setPrompt(next);
+    toast.success(`Loaded ${fn.name}`);
+  };
 
   const launchCloudFunction = async (item) => {
-    setPrompt(item.description || item.name);
-    toast.success(`Loaded ${item.name}`);
+    loadCloudFunction(item);
   };
 
   if (!isConfigured) return <CredentialsGuard />;
@@ -121,7 +132,23 @@ Be specific and technical. Format as a structured execution plan.`,
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
             <div>
-              <Label className="text-gray-400 text-xs mb-2 block">Automation Prompt</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-gray-400 text-xs">Automation Prompt</Label>
+                <div className="flex items-center gap-1.5">
+                  <CloudFunctionPicker onSelect={loadCloudFunction} label="Load" />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!prompt.trim()}
+                    onClick={() => setSaveAsCloudFunctionOpen(true)}
+                    className="gap-1.5 border-purple-500/30 bg-purple-500/5 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200 disabled:opacity-40"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="text-xs">Save</span>
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 placeholder='e.g. "Navigate to google.com and take a screenshot of the search results for AI news"'
                 value={prompt}
@@ -129,6 +156,15 @@ Be specific and technical. Format as a structured execution plan.`,
                 className="bg-gray-800 border-gray-700 text-gray-200 min-h-[120px] resize-none"
               />
             </div>
+
+            <SaveAsCloudFunctionDialog
+              open={saveAsCloudFunctionOpen}
+              onOpenChange={setSaveAsCloudFunctionOpen}
+              scriptBody={prompt}
+              defaultRuntime="playwright"
+              defaultName={prompt.trim().slice(0, 40)}
+              title="Save prompt as Cloud Function"
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div>

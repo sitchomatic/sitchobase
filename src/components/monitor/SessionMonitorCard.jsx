@@ -76,7 +76,10 @@ function useCDP(connectUrl, enabled) {
 export default function SessionMonitorCard({ session, onExpand }) {
   const isRunning = session.status === 'RUNNING';
   const [paused, setPaused] = useState(false);
-  const { connected, connecting, sendCmd } = useCDP(session.connectUrl, isRunning);
+  // Prefer wsUrl (from /debug hydration) over the create-time connectUrl,
+  // since listSessions does not return connectUrl for already-running sessions.
+  const cdpUrl = session.wsUrl || session.connectUrl;
+  const { connected, connecting, sendCmd } = useCDP(cdpUrl, isRunning);
 
   // Screenshot
   const [screenshot, setScreenshot] = useState(null);

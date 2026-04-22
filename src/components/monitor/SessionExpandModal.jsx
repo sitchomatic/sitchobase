@@ -4,7 +4,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
-import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity } from 'lucide-react';
+import { X, Camera, Loader2, Clock, DollarSign, Globe, Activity, ExternalLink } from 'lucide-react';
 
 function useCDP(connectUrl) {
   const wsRef = useRef(null);
@@ -55,7 +55,7 @@ function useCDP(connectUrl) {
 }
 
 export default function SessionExpandModal({ session, onClose }) {
-  const { connected, connecting, sendCmd } = useCDP(session.connectUrl);
+  const { connected, connecting, sendCmd } = useCDP(session.wsUrl || session.connectUrl);
   const [screenshot, setScreenshot] = useState(null);
   const [capturing, setCapturing] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -119,6 +119,17 @@ export default function SessionExpandModal({ session, onClose }) {
           <span><Globe className="inline w-3 h-3 mr-1" />{formatBytes(session.proxyBytes)}</span>
           <span><Activity className="inline w-3 h-3 mr-1" />{session.region}</span>
         </div>
+        {session.debuggerFullscreenUrl && (
+          <a
+            href={session.debuggerFullscreenUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 flex items-center gap-1.5 text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/30 hover:border-emerald-400/60 bg-emerald-500/5 rounded-full px-2.5 py-1"
+            title="Open Browserbase live debugger in a new tab"
+          >
+            <ExternalLink className="w-3 h-3" /> Live View
+          </a>
+        )}
         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors ml-2">
           <X className="w-5 h-5" />
         </button>
