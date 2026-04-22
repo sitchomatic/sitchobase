@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { rootPathFor } from '@/lib/routing';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
@@ -94,13 +95,3 @@ export default function AppLayout() {
     </div>
   );
 }
-
-// Collapse detail paths onto their parent so that navigating between e.g.
-// /sessions/abc and /sessions/def does not re-trigger the page transition,
-// and so the parent sidebar link stays highlighted on detail pages. Uses
-// strict prefix checks so unrelated paths like /sessions-archive don't match.
-const rootPathFor = (pathname) => {
-  if (pathname === '/sessions' || pathname.startsWith('/sessions/')) return '/sessions';
-  if (pathname === '/audit' || pathname.startsWith('/audit/')) return '/audit';
-  return pathname;
-};
