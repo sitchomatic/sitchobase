@@ -121,10 +121,11 @@ async function callDirect(action, extras, creds) {
       // Mirror bbProxy semantics: BB docs say update session is POST (not
       // PUT), and bbClient.updateSession(sessionId) with no data is the
       // documented "release this session" shortcut — default to
-      // REQUEST_RELEASE when the caller passed no userMetadata.
+      // REQUEST_RELEASE when the caller passed no data or an empty object.
       const updateData = extras.data;
-      const payload = updateData?.userMetadata
-        ? { userMetadata: updateData.userMetadata }
+      const hasData = updateData && typeof updateData === 'object' && Object.keys(updateData).length > 0;
+      const payload = hasData
+        ? { ...updateData }
         : { status: 'REQUEST_RELEASE' };
       if (projectId) payload.projectId = projectId;
       return bb.updateSession(apiKey, extras.sessionId, payload);
