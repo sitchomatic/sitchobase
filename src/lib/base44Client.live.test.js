@@ -157,7 +157,10 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
     expect(refreshedPersona?.notes).toBe('Live smoke test — updated');
 
     await base44.entities.Persona.delete(created.id);
-    createdPersonaIds.splice(createdPersonaIds.indexOf(created.id), 1);
+    const personaIndex = createdPersonaIds.indexOf(created.id);
+    if (personaIndex !== -1) {
+      createdPersonaIds.splice(personaIndex, 1);
+    }
 
     // Verify the persona is actually gone after deletion
     const afterDelete = await base44.entities.Persona.list();
@@ -186,7 +189,10 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
     expect(refreshedProxy?.enabled).toBe(false);
 
     await base44.entities.ProxyPool.delete(created.id);
-    createdProxyIds.splice(createdProxyIds.indexOf(created.id), 1);
+    const proxyIndex = createdProxyIds.indexOf(created.id);
+    if (proxyIndex !== -1) {
+      createdProxyIds.splice(proxyIndex, 1);
+    }
 
     // Verify the proxy is actually gone after deletion
     const afterDelete = await base44.entities.ProxyPool.list('-created_date', 500);
