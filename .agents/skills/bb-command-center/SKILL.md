@@ -58,8 +58,8 @@ If you add route X, grep for existing routes in both files and mirror the patter
 - Route wiring is still dual-layer: `/joe-ignite` must exist in both `src/App.jsx` and `src/components/layout/AppShellRoutes.jsx`.
 - Run modes differ:
   - **Browser mode** (`src/lib/joeIgniteRunner.js`) runs from the client and works with the local `VITE_BASE44_API_KEY` flow.
-  - **Serverless mode** calls `base44.functions.invoke('joeIgniteBatch', …)` (`src/pages/JoeIgnite.jsx`). Backend handler (`base44/functions/joeIgniteBatch/entry.ts`) enforces `base44.auth.me()` and also needs the `Api_key` Base44 secret configured for Browserbase. If either is missing, startup fails (401/400).
-- Serverless worker behavior is constrained by backend limits: concurrency is capped to 8 in the function and the deployment has ~5-minute execution ceiling (see header comment in `base44/functions/joeIgniteBatch/entry.ts`). Keep batches modest in serverless mode; use browser mode for larger runs.
+  - **Serverless mode** calls `base44.functions.invoke('joeIgniteBatch', …)` (`src/pages/JoeIgnite.jsx`). Backend handler (`base44/functions/joeIgniteBatch/entry.ts`) enforces `base44.auth.me()` and also needs the Base44 secret named exactly `Api_key` (case-sensitive) configured for Browserbase. If either is missing, startup fails (401/400).
+- Serverless worker behavior is constrained by backend limits: concurrency is capped at 8 concurrent workers per invocation, and the deployment has an approximately 5-minute timeout per invocation (see header comment in `base44/functions/joeIgniteBatch/entry.ts`). Keep batches modest in serverless mode; use browser mode for larger runs.
 
 ## Browserbase credentials (UI-only)
 
