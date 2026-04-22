@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
       // ── Sessions ──────────────────────────────────────────
       case 'listSessions': {
-        const qs = params.status ? `?status=${params.status}` : '';
+        const qs = params.status ? `?status=${encodeURIComponent(params.status)}` : '';
         result = await bbFetch(`/sessions${qs}`, 'GET', apiKey);
         break;
       }
@@ -126,10 +126,11 @@ Deno.serve(async (req) => {
         const { count, options } = params;
         const results = [];
         const errors = [];
+        const MAX_ATTEMPTS = 5;
         let delay = 400;
         for (let i = 0; i < count; i++) {
-          let done = false, attempts = 0;
-          while (!done && attempts < 5) {
+          let done = false, attempts = 0, lastErr = null;
+          while (!done && attempts < MAX_ATTEMPTS) {
             try {
               const s = await bbFetch('/sessions', 'POST', apiKey, { projectId, ...options });
               results.push(s);
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
               delay = 400;
             } catch (err) {
               attempts++;
+              lastErr = err;
               if (err.message.includes('429')) {
                 await new Promise(r => setTimeout(r, delay));
                 delay = Math.min(delay * 2, 16000);
@@ -145,6 +147,11 @@ Deno.serve(async (req) => {
                 done = true;
               }
             }
+          }
+          // Record the failure if 429 retries were exhausted without success so
+          // the caller doesn't silently end up with fewer sessions than requested.
+          if (!done) {
+            errors.push({ index: i, error: lastErr?.message || `Failed after ${MAX_ATTEMPTS} attempts` });
           }
           if (i < count - 1) await new Promise(r => setTimeout(r, 150));
         }

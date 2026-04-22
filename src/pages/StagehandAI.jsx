@@ -49,24 +49,24 @@ export default function StagehandAI() {
     setResults([]);
     setCreatedSessions([]);
 
-    // Create sessions via backend proxy (no CORS)
-    const batchResult = await bbClient.batchCreateSessions(sessionCount, {
-      region,
-      userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
-    });
+    try {
+      // Create sessions via backend proxy (no CORS)
+      const batchResult = await bbClient.batchCreateSessions(sessionCount, {
+        region,
+        userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
+      });
 
-    const sessions = batchResult?.results || [];
-    setCreatedSessions(sessions);
+      const sessions = batchResult?.results || [];
+      setCreatedSessions(sessions);
 
-    if (sessions.length === 0) {
-      toast.error('Failed to create sessions');
-      setRunning(false);
-      return;
-    }
+      if (sessions.length === 0) {
+        toast.error('Failed to create sessions');
+        return;
+      }
 
-    // Use LLM to generate the execution plan
-    const taskPlan = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are Stagehand, a browser automation AI. A user wants to execute this task across ${sessions.length} concurrent Browserbase browser sessions:
+      // Use LLM to generate the execution plan
+      const taskPlan = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are Stagehand, a browser automation AI. A user wants to execute this task across ${sessions.length} concurrent Browserbase browser sessions:
 
 "${prompt}"
 
@@ -80,27 +80,31 @@ Please provide:
 4. Any potential issues or rate limits to be aware of
 
 Be specific and technical. Format as a structured execution plan.`,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          steps: { type: 'array', items: { type: 'string' } },
-          sessionInstructions: { type: 'array', items: { type: 'object', properties: { sessionIndex: { type: 'number' }, task: { type: 'string' } } } },
-          expectedOutput: { type: 'string' },
-          warnings: { type: 'array', items: { type: 'string' } },
-          estimatedDuration: { type: 'string' },
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            steps: { type: 'array', items: { type: 'string' } },
+            sessionInstructions: { type: 'array', items: { type: 'object', properties: { sessionIndex: { type: 'number' }, task: { type: 'string' } } } },
+            expectedOutput: { type: 'string' },
+            warnings: { type: 'array', items: { type: 'string' } },
+            estimatedDuration: { type: 'string' },
+          },
         },
-      },
-    });
+      });
 
-    setResults([{
-      sessionIds: sessions.map(s => s.id),
-      plan: taskPlan,
-      prompt,
-      timestamp: new Date().toLocaleTimeString(),
-    }]);
-    toast.success(`${sessions.length} sessions created with execution plan`);
-    auditLog({ action: 'STAGEHAND_RUN', category: 'session', details: { sessionCount: sessions.length, region, promptPreview: prompt.slice(0, 80) } });
-    setRunning(false);
+      setResults([{
+        sessionIds: sessions.map(s => s.id),
+        plan: taskPlan,
+        prompt,
+        timestamp: new Date().toLocaleTimeString(),
+      }]);
+      toast.success(`${sessions.length} sessions created with execution plan`);
+      auditLog({ action: 'STAGEHAND_RUN', category: 'session', details: { sessionCount: sessions.length, region, promptPreview: prompt.slice(0, 80) } });
+    } catch (err) {
+      toast.error(`Stagehand run failed: ${err?.message || 'unknown error'}`);
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (

@@ -25,19 +25,24 @@ export default function Monitor() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
-    const data = await bbClient.listSessions('RUNNING');
-    const nextSessions = Array.isArray(data) ? data : [];
-    setSessions(nextSessions);
+    try {
+      const data = await bbClient.listSessions('RUNNING');
+      const nextSessions = Array.isArray(data) ? data : [];
+      setSessions(nextSessions);
 
-    const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
-    const nextLogs = {};
-    nextSessions.forEach((session, index) => {
-      const result = logResults[index];
-      const logs = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : [];
-      nextLogs[session.id] = logs.slice(-20).map((log, logIndex) => normalizeLogEntry(session.id, log, logIndex));
-    });
-    setLogsBySession(nextLogs);
-    setLoading(false);
+      const logResults = await Promise.allSettled(nextSessions.map((session) => bbClient.getSessionLogs(session.id)));
+      const nextLogs = {};
+      nextSessions.forEach((session, index) => {
+        const result = logResults[index];
+        const logs = result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : [];
+        nextLogs[session.id] = logs.slice(-20).map((log, logIndex) => normalizeLogEntry(session.id, log, logIndex));
+      });
+      setLogsBySession(nextLogs);
+    } catch (err) {
+      console.error('Monitor load failed:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [isConfigured]);
 
   useEffect(() => { load(); }, [load]);
@@ -54,21 +59,30 @@ export default function Monitor() {
 
   const analyze = useCallback(async () => {
     setAiLoading(true);
-    const prompt = buildAiOpsPrompt({ sessions, failureGroups, stuckSessions, anomalies });
-    const report = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          summary: { type: 'string' },
-          groupedFailures: { type: 'array', items: { type: 'string' } },
-          fixSuggestions: { type: 'array', items: { type: 'string' } }
-        },
-        required: ['summary', 'groupedFailures', 'fixSuggestions']
-      }
-    });
-    setAiReport(report);
-    setAiLoading(false);
+    try {
+      const prompt = buildAiOpsPrompt({ sessions, failureGroups, stuckSessions, anomalies });
+      const report = await base44.integrations.Core.InvokeLLM({
+        prompt,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            groupedFailures: { type: 'array', items: { type: 'string' } },
+            fixSuggestions: { type: 'array', items: { type: 'string' } }
+          },
+          required: ['summary', 'groupedFailures', 'fixSuggestions']
+        }
+      });
+      setAiReport(report);
+    } catch (err) {
+      setAiReport({
+        summary: `AI analysis failed: ${err?.message || 'unknown error'}`,
+        groupedFailures: [],
+        fixSuggestions: [],
+      });
+    } finally {
+      setAiLoading(false);
+    }
   }, [sessions, failureGroups, stuckSessions, anomalies]);
 
   if (!isConfigured) return <CredentialsGuard />;
