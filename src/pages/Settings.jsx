@@ -161,7 +161,11 @@ export default function Settings() {
             <div>
               {testResult.success ? (
                 <>
-                  <div className="font-semibold">Connected successfully via backend proxy</div>
+                  <div className="font-semibold">
+                    {isUsingApiKeyAuth() && canUseDirectBrowserbase()
+                      ? 'Connected successfully via direct Browserbase API'
+                      : 'Connected successfully via backend proxy'}
+                  </div>
                   <div className="text-xs mt-0.5 opacity-75">
                     {testResult.sessions} sessions · {testResult.usage?.browserMinutes ?? '—'} browser minutes used
                   </div>
@@ -209,9 +213,12 @@ export default function Settings() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
         <div className="text-sm font-semibold text-white">How It Works</div>
         <p className="text-xs text-gray-500">
-          Credentials are stored in your browser's local storage and sent to our secure backend proxy.
-          All Browserbase API calls are made server-side, completely bypassing browser CORS restrictions.
-          Your API key is never exposed to third parties.
+          Credentials are stored in your browser's local storage. In production or normal operation,
+          all Browserbase API calls are made server-side via our secure backend proxy, completely
+          bypassing browser CORS restrictions and keeping your API key private. In local development
+          with <code className="bg-gray-800/50 px-1 rounded">VITE_BASE44_API_KEY</code> set and
+          Browserbase credentials saved, Test Connection and Contexts list calls bypass the proxy
+          and go directly to Browserbase via the Vite dev proxy for faster iteration.
         </p>
       </div>
     </div>
