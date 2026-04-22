@@ -28,7 +28,21 @@ function readStoredCredentials() {
     const stored = typeof localStorage !== 'undefined'
       ? localStorage.getItem('bb_credentials')
       : null;
-    return stored ? JSON.parse(stored) : {};
+    if (!stored) return {};
+    const parsed = JSON.parse(stored);
+    // Coerce non-plain-object results (null, arrays, scalars) to {}
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    // Trim whitespace from relevant string fields
+    const result = { ...parsed };
+    if (typeof result.apiKey === 'string') {
+      result.apiKey = result.apiKey.trim();
+    }
+    if (typeof result.projectId === 'string') {
+      result.projectId = result.projectId.trim();
+    }
+    return result;
   } catch {
     return {};
   }
