@@ -33,29 +33,6 @@ import { createClient } from '@base44/sdk';
 
 const LIVE = String(import.meta.env?.VITE_TEST_LIVE_BASE44 ?? '').toLowerCase() === 'true';
 
-// Minimal browser-ish window shim for Node env. See header comment for why
-// we don't use jsdom here. Must include add/removeEventListener because the
-// Base44 SDK's analytics module registers a `visibilitychange` listener at
-// client construction time.
-if (typeof globalThis.window === 'undefined') {
-  const storage = new Map();
-  globalThis.window = {
-    location: { search: '', pathname: '/', href: 'http://localhost/', hash: '' },
-    history: { replaceState: () => {} },
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    localStorage: {
-      getItem: (k) => (storage.has(k) ? storage.get(k) : null),
-      setItem: (k, v) => storage.set(k, String(v)),
-      removeItem: (k) => storage.delete(k),
-    },
-    document: { title: 'test' },
-  };
-  globalThis.document = globalThis.window.document;
-  globalThis.localStorage = globalThis.window.localStorage;
-  globalThis.history = globalThis.window.history;
-}
-
 const RUN_TAG = `devin-live-smoke-${Date.now()}`;
 
 describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
@@ -63,7 +40,41 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
   const createdPersonaIds = [];
   const createdProxyIds = [];
 
+  // Capture original globals so we can restore them in afterAll
+  let origWindow;
+  let origDocument;
+  let origLocalStorage;
+  let origHistory;
+
   beforeAll(async () => {
+    // Minimal browser-ish window shim for Node env. See header comment for why
+    // we don't use jsdom here. Must include add/removeEventListener because the
+    // Base44 SDK's analytics module registers a `visibilitychange` listener at
+    // client construction time. Only install the shim when LIVE tests are enabled.
+    if (LIVE && typeof globalThis.window === 'undefined') {
+      origWindow = globalThis.window;
+      origDocument = globalThis.document;
+      origLocalStorage = globalThis.localStorage;
+      origHistory = globalThis.history;
+
+      const storage = new Map();
+      globalThis.window = {
+        location: { search: '', pathname: '/', href: 'http://localhost/', hash: '' },
+        history: { replaceState: () => {} },
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        localStorage: {
+          getItem: (k) => (storage.has(k) ? storage.get(k) : null),
+          setItem: (k, v) => storage.set(k, String(v)),
+          removeItem: (k) => storage.delete(k),
+        },
+        document: { title: 'test' },
+      };
+      globalThis.document = globalThis.window.document;
+      globalThis.localStorage = globalThis.window.localStorage;
+      globalThis.history = globalThis.window.history;
+    }
+
     // Fail loudly if the opt-in flag is on but the required env is missing
     // — otherwise the tests would silently exercise nothing.
     const missing = ['VITE_BASE44_APP_ID', 'VITE_BASE44_APP_BASE_URL', 'VITE_BASE44_API_KEY']
@@ -96,6 +107,30 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
     for (const id of createdProxyIds) {
       try { await base44.entities.ProxyPool.delete(id); } catch { /* ignore */ }
     }
+
+    // Restore original globals to avoid leaking the shim to other tests
+    if (LIVE) {
+      if (origWindow === undefined) {
+        delete globalThis.window;
+      } else {
+        globalThis.window = origWindow;
+      }
+      if (origDocument === undefined) {
+        delete globalThis.document;
+      } else {
+        globalThis.document = origDocument;
+      }
+      if (origLocalStorage === undefined) {
+        delete globalThis.localStorage;
+      } else {
+        globalThis.localStorage = origLocalStorage;
+      }
+      if (origHistory === undefined) {
+        delete globalThis.history;
+      } else {
+        globalThis.history = origHistory;
+      }
+    }
   });
 
   it('round-trips a Persona through create → list → update → delete', async () => {
@@ -123,6 +158,10 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
 
     await base44.entities.Persona.delete(created.id);
     createdPersonaIds.splice(createdPersonaIds.indexOf(created.id), 1);
+
+    // Verify the persona is actually gone after deletion
+    const afterDelete = await base44.entities.Persona.list();
+    expect(afterDelete.some((p) => p.id === created.id)).toBe(false);
   }, 30_000);
 
   it('round-trips a ProxyPool entry through create → list → update → delete', async () => {
@@ -148,6 +187,10 @@ describe.skipIf(!LIVE)('base44 live entity CRUD', () => {
 
     await base44.entities.ProxyPool.delete(created.id);
     createdProxyIds.splice(createdProxyIds.indexOf(created.id), 1);
+
+    // Verify the proxy is actually gone after deletion
+    const afterDelete = await base44.entities.ProxyPool.list('-created_date', 500);
+    expect(afterDelete.some((p) => p.id === created.id)).toBe(false);
   }, 30_000);
 
   it('appends an AuditLog entry and finds it on list', async () => {
