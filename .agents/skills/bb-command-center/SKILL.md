@@ -53,6 +53,14 @@ If you add route X, grep for existing routes in both files and mirror the patter
 - **Contexts list is always empty even with a real session** — Browserbase doesn't expose a list-all-contexts endpoint; documented in `base44/functions/bbProxy/entry.ts`.
 - **Session Recording is stubbed** — the Browserbase recording endpoint is deprecated; the UI is intentionally non-functional.
 
+## Joe Ignite (frontend + backend) gotchas
+
+- Route wiring is still dual-layer: `/joe-ignite` must exist in both `src/App.jsx` and `src/components/layout/AppShellRoutes.jsx`.
+- Run modes differ:
+  - **Browser mode** (`src/lib/joeIgniteRunner.js`) runs from the client and works with the local `VITE_BASE44_API_KEY` flow.
+  - **Serverless mode** calls `base44.functions.invoke('joeIgniteBatch', …)` (`src/pages/JoeIgnite.jsx`). Backend handler (`base44/functions/joeIgniteBatch/entry.ts`) enforces `base44.auth.me()` and also needs the `Api_key` Base44 secret configured for Browserbase. If either is missing, startup fails (401/400).
+- Serverless worker behavior is constrained by backend limits: concurrency is capped to 8 in the function and the deployment has ~5-minute execution ceiling (see header comment in `base44/functions/joeIgniteBatch/entry.ts`). Keep batches modest in serverless mode; use browser mode for larger runs.
+
 ## Browserbase credentials (UI-only)
 
 Entered in Settings → API Credentials and stored in browser `localStorage` under `bb_api_key` / `bb_project_id` (see `src/lib/useCredentials.js`). Not committed to the repo. `CredentialsGuard` shows a yellow banner on pages that need them until they're saved.
