@@ -10,9 +10,10 @@
  *   5) Consistent envelope: { ok, data, error, status, details, durationMs }
  *   6) Per-user rate limiting (60 req/min/user, in-memory)
  *   7) Structured logging: { action, userEmail, status, durationMs }
- *   8) Idempotency keys for createSession / createContext (10-min window)
+ *   8) Idempotency keys for createSession / createContext (1h window)
  *   9) Debug details gated by BBPROXY_DEBUG env flag
  *  10) Per-resource handler modules (sessions / contexts / usage / batch)
+ *  11) gzip response compression for payloads > 1KB when client supports it
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
@@ -126,8 +127,9 @@ function checkRateLimit(userId) {
 }
 
 // ── Idempotency cache (#8) ──────────────────────────────────────
-// Keyed by `${userId}:${action}:${idempotencyKey}`. TTL 10 min.
-const IDEMPOTENCY_TTL_MS = 10 * 60_000;
+// Keyed by `${userId}:${action}:${idempotencyKey}`. TTL 1h — long enough
+// for overnight batch retries without growing the cache unboundedly.
+const IDEMPOTENCY_TTL_MS = 60 * 60_000;
 const idempotencyCache = new Map(); // key -> { result, expiresAt }
 
 function idempotencyGet(key) {
@@ -274,14 +276,40 @@ const HANDLERS = {
 // Actions that support idempotency keys (#8)
 const IDEMPOTENT_CREATE_ACTIONS = new Set(['createSession', 'createContext']);
 
-// ── Response envelope (#5, #9) ──────────────────────────────────
-function ok(data, durationMs) {
-  return Response.json({ ok: true, data, error: null, status: 200, durationMs });
+// ── Response envelope (#5, #9, #11) ─────────────────────────────
+// Compress JSON payloads > 1KB with gzip when the client advertises
+// support. Smaller payloads skip compression — the CPU cost isn't worth it.
+const GZIP_THRESHOLD = 1024;
+
+async function jsonResponse(payload, status, acceptEncoding) {
+  const json = JSON.stringify(payload);
+  const clientAcceptsGzip = /\bgzip\b/i.test(acceptEncoding || '');
+
+  if (clientAcceptsGzip && json.length > GZIP_THRESHOLD && typeof CompressionStream !== 'undefined') {
+    const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Response(stream, {
+      status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding',
+      },
+    });
+  }
+
+  return new Response(json, {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
 }
-function fail(message, status, err, durationMs) {
+
+function ok(data, durationMs, acceptEncoding) {
+  return jsonResponse({ ok: true, data, error: null, status: 200, durationMs }, 200, acceptEncoding);
+}
+function fail(message, status, err, durationMs, acceptEncoding) {
   const body = { ok: false, data: null, error: message, status, durationMs };
   if (BBPROXY_DEBUG && err?.bbResponse !== undefined) body.details = err.bbResponse;
-  return Response.json(body, { status });
+  return jsonResponse(body, status, acceptEncoding);
 }
 
 // ── Structured logging (#7) ─────────────────────────────────────
@@ -294,35 +322,36 @@ function logCall({ action, userEmail, status, durationMs, error }) {
 // ── Entry point ─────────────────────────────────────────────────
 Deno.serve(async (req) => {
   const started = Date.now();
+  const acceptEncoding = req.headers.get('accept-encoding');
   let action = 'unknown';
   let userEmail = null;
 
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) return fail('Unauthorized', 401, null, Date.now() - started);
+    if (!user) return fail('Unauthorized', 401, null, Date.now() - started, acceptEncoding);
     userEmail = user.email;
 
     let body;
     try { body = await req.json(); }
-    catch { return fail('Invalid JSON body', 400, null, Date.now() - started); }
+    catch { return fail('Invalid JSON body', 400, null, Date.now() - started, acceptEncoding); }
 
     const { action: rawAction, projectId, idempotencyKey, ...params } = body || {};
     action = rawAction || 'unknown';
 
     // #3 Allow-list check
     const handler = HANDLERS[action];
-    if (!handler) return fail(`Unknown action: ${action}`, 400, null, Date.now() - started);
+    if (!handler) return fail(`Unknown action: ${action}`, 400, null, Date.now() - started, acceptEncoding);
 
     // #6 Rate limit (per user)
     try { checkRateLimit(user.id || user.email); }
     catch (rlErr) {
       logCall({ action, userEmail, status: rlErr.status, durationMs: Date.now() - started, error: rlErr.message });
-      return fail(rlErr.message, rlErr.status, null, Date.now() - started);
+      return fail(rlErr.message, rlErr.status, null, Date.now() - started, acceptEncoding);
     }
 
     const apiKey = Deno.env.get('Api_key');
-    if (!apiKey) return fail('Server misconfiguration: Api_key secret is not set', 500, null, Date.now() - started);
+    if (!apiKey) return fail('Server misconfiguration: Api_key secret is not set', 500, null, Date.now() - started, acceptEncoding);
 
     // #8 Idempotency short-circuit (createSession / createContext only)
     const idemKey = (idempotencyKey && IDEMPOTENT_CREATE_ACTIONS.has(action))
@@ -333,7 +362,7 @@ Deno.serve(async (req) => {
       if (cached) {
         const dur = Date.now() - started;
         logCall({ action, userEmail, status: 200, durationMs: dur, error: 'idempotent-hit' });
-        return ok(cached, dur);
+        return ok(cached, dur, acceptEncoding);
       }
     }
 
@@ -343,12 +372,12 @@ Deno.serve(async (req) => {
 
     const durationMs = Date.now() - started;
     logCall({ action, userEmail, status: 200, durationMs });
-    return ok(result, durationMs);
+    return ok(result, durationMs, acceptEncoding);
 
   } catch (err) {
     const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
     const durationMs = Date.now() - started;
     logCall({ action, userEmail, status, durationMs, error: err.message });
-    return fail(err.message, status, err, durationMs);
+    return fail(err.message, status, err, durationMs, acceptEncoding);
   }
 });
