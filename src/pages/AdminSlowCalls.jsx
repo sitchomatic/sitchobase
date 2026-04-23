@@ -3,17 +3,27 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Clock } from 'lucide-react';
+import { Clock, Download } from 'lucide-react';
+import { parseSlowCall, safeParseMany } from '@/lib/safeParse';
+import { queryKeys } from '@/lib/queryKeys';
+import { toCsv, downloadText } from '@/lib/adminExports';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function AdminSlowCalls() {
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['slowCalls'],
-    queryFn: () => base44.entities.SlowCall.list('-created_date', 100),
+    queryKey: queryKeys.slowCalls,
+    queryFn: async () => {
+      const data = await base44.entities.SlowCall.list('-created_date', 100);
+      return safeParseMany(data, parseSlowCall, 'slowCall');
+    },
     initialData: [],
   });
+
+  const exportSlowCalls = () => {
+    downloadText('slow-calls.csv', toCsv(rows));
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 p-6">
@@ -28,7 +38,12 @@ export default function AdminSlowCalls() {
               <p className="text-xs text-gray-500">bbProxy calls exceeding 10s — investigate for systemic issues</p>
             </div>
           </div>
-          <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportSlowCalls} className="border-gray-700 text-gray-300 gap-2">
+              <Download className="w-3.5 h-3.5" /> Export
+            </Button>
+            <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          </div>
         </div>
 
         {isLoading && <div className="text-center text-gray-500 py-10">Loading…</div>}

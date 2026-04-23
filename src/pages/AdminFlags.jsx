@@ -3,7 +3,10 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Flag, Plus, Trash2 } from 'lucide-react';
+import { Flag, Plus, Trash2, Download } from 'lucide-react';
+import { parseFeatureFlag, safeParseMany } from '@/lib/safeParse';
+import { queryKeys, invalidateMany } from '@/lib/queryKeys';
+import { toCsv, downloadText } from '@/lib/adminExports';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -18,27 +21,36 @@ export default function AdminFlags() {
   const [newDesc, setNewDesc] = useState('');
 
   const { data: flags = [], isLoading } = useQuery({
-    queryKey: ['featureFlags'],
-    queryFn: () => base44.entities.FeatureFlag.list('-created_date', 200),
+    queryKey: queryKeys.featureFlags,
+    queryFn: async () => {
+      const rows = await base44.entities.FeatureFlag.list('-created_date', 200);
+      return safeParseMany(rows, parseFeatureFlag, 'featureFlag');
+    },
     initialData: [],
   });
 
   const update = useMutation({
     mutationFn: ({ id, data }) => base44.entities.FeatureFlag.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['featureFlags'] }),
+    onSuccess: () => invalidateMany(qc, [queryKeys.featureFlags]),
   });
   const create = useMutation({
     mutationFn: (data) => base44.entities.FeatureFlag.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['featureFlags'] }); setNewKey(''); setNewDesc(''); },
+    onSuccess: () => { invalidateMany(qc, [queryKeys.featureFlags]); setNewKey(''); setNewDesc(''); },
   });
   const remove = useMutation({
     mutationFn: (id) => base44.entities.FeatureFlag.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['featureFlags'] }),
+    onSuccess: () => invalidateMany(qc, [queryKeys.featureFlags]),
   });
 
   const onCreate = () => {
-    if (!newKey.trim()) return toast.error('Key required');
-    create.mutate({ key: newKey.trim(), description: newDesc.trim(), enabled: false, rollout_percentage: 100 });
+    const key = newKey.trim();
+    if (!key) return toast.error('Key required');
+    if (flags.some((f) => f.key.toLowerCase() === key.toLowerCase())) return toast.error('Flag key already exists');
+    create.mutate({ key, description: newDesc.trim(), enabled: false, rollout_percentage: 100 });
+  };
+
+  const exportFlags = () => {
+    downloadText('feature-flags.csv', toCsv(flags));
   };
 
   return (
@@ -54,7 +66,12 @@ export default function AdminFlags() {
               <p className="text-xs text-gray-500">Ship behind a flag. Rollout is stable per user email.</p>
             </div>
           </div>
-          <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportFlags} className="border-gray-700 text-gray-300 gap-2">
+              <Download className="w-3.5 h-3.5" /> Export
+            </Button>
+            <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          </div>
         </div>
 
         <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">

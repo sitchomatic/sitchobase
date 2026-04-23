@@ -11,6 +11,7 @@
 const isString = (v) => typeof v === 'string';
 const isNumber = (v) => typeof v === 'number' && Number.isFinite(v);
 const isBool = (v) => typeof v === 'boolean';
+const isInt = (v) => Number.isInteger(v);
 
 function warnOnce(key, msg) {
   if (!warnOnce.seen) warnOnce.seen = new Set();
@@ -78,6 +79,7 @@ export function parseBbSession(s) {
   if (!s || typeof s !== 'object') return null;
   if (!isString(s.id)) return null;
   return {
+    ...s,
     id: s.id,
     status: isString(s.status) ? s.status : 'UNKNOWN',
     region: isString(s.region) ? s.region : '—',
@@ -87,7 +89,46 @@ export function parseBbSession(s) {
     proxyBytes: isNumber(s.proxyBytes) ? s.proxyBytes : 0,
     keepAlive: isBool(s.keepAlive) ? s.keepAlive : false,
     contextId: isString(s.contextId) ? s.contextId : null,
-    // Pass through anything else the UI may want
-    ...s,
+  };
+}
+
+export function parseFeatureFlag(r) {
+  if (!r || typeof r !== 'object' || !isString(r.key) || !r.key.trim()) return null;
+  return {
+    id: r.id,
+    key: r.key.trim(),
+    enabled: isBool(r.enabled) ? r.enabled : false,
+    rollout_percentage: isInt(r.rollout_percentage) ? r.rollout_percentage : 100,
+    description: isString(r.description) ? r.description : '',
+    updated_date: r.updated_date,
+    created_date: r.created_date,
+  };
+}
+
+export function parseDailyMetric(r) {
+  if (!r || typeof r !== 'object' || !isString(r.date) || !isString(r.action)) return null;
+  return {
+    id: r.id,
+    date: r.date,
+    action: r.action,
+    count: isInt(r.count) ? r.count : 0,
+    errors: isInt(r.errors) ? r.errors : 0,
+    sum_duration_ms: isNumber(r.sum_duration_ms) ? r.sum_duration_ms : 0,
+    max_duration_ms: isNumber(r.max_duration_ms) ? r.max_duration_ms : 0,
+    created_date: r.created_date,
+  };
+}
+
+export function parseSlowCall(r) {
+  if (!r || typeof r !== 'object' || !isString(r.action)) return null;
+  return {
+    id: r.id,
+    action: r.action,
+    duration_ms: isNumber(r.duration_ms) ? r.duration_ms : 0,
+    status: isInt(r.status) ? r.status : 0,
+    actor: isString(r.actor) ? r.actor : 'unknown',
+    request_id: isString(r.request_id) ? r.request_id : '',
+    params_summary: isString(r.params_summary) ? r.params_summary : '',
+    created_date: r.created_date,
   };
 }

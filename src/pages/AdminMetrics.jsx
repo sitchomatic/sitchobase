@@ -4,17 +4,27 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { BarChart3, TrendingUp, AlertCircle, Clock } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Clock, Download } from 'lucide-react';
+import { parseDailyMetric, safeParseMany } from '@/lib/safeParse';
+import { queryKeys } from '@/lib/queryKeys';
+import { toCsv, downloadText } from '@/lib/adminExports';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 export default function AdminMetrics() {
   const { data: metrics = [], isLoading } = useQuery({
-    queryKey: ['adminMetrics'],
-    queryFn: () => base44.entities.DailyMetric.list('-date', 500),
+    queryKey: queryKeys.adminMetrics,
+    queryFn: async () => {
+      const rows = await base44.entities.DailyMetric.list('-date', 500);
+      return safeParseMany(rows, parseDailyMetric, 'dailyMetric');
+    },
     initialData: [],
     staleTime: 60_000,
   });
+
+  const exportMetrics = () => {
+    downloadText('daily-metrics.csv', toCsv(metrics));
+  };
 
   // Group by date
   const byDate = {};
@@ -37,7 +47,12 @@ export default function AdminMetrics() {
               <p className="text-xs text-gray-500">Daily bbProxy request aggregates (last 14 days)</p>
             </div>
           </div>
-          <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={exportMetrics} className="border-gray-700 text-gray-300 gap-2">
+              <Download className="w-3.5 h-3.5" /> Export
+            </Button>
+            <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
+          </div>
         </div>
 
         {isLoading && <div className="text-center text-gray-500 py-10">Loading…</div>}
