@@ -90,7 +90,17 @@ async function callOnce(action, extras = {}) {
   if (creds.projectId) payload.projectId = creds.projectId;
   try {
     const res = await base44.functions.invoke('bbProxy', payload);
-    return res.data.data;
+    // New envelope: { ok, data, error, status, durationMs, details? }
+    // Legacy envelope: { data }
+    const env = res.data ?? {};
+    if (env.ok === false) {
+      const e = new Error(env.error || 'bbProxy call failed');
+      e.status = env.status;
+      e.details = env.details;
+      throw e;
+    }
+    // env.data is the Browserbase payload in both envelopes
+    return env.data;
   } catch (err) {
     if (isUsingApiKeyAuth() && isLikelyApiKeyBbProxyFailure(err)) {
       const wrapped = new Error(API_KEY_BBPROXY_MESSAGE);
