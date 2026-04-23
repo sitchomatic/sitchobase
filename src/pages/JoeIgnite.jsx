@@ -29,6 +29,7 @@ export default function JoeIgnite() {
   const [loaded, setLoaded] = useState(null);
   const [mode, setMode] = useState(() => localStorage.getItem('joe_ignite_mode') || 'browser');
   const [proxySource, setProxySource] = useState(() => localStorage.getItem('joe_ignite_proxy_source') || 'bb-au');
+  const [auMobile, setAuMobile] = useState(() => localStorage.getItem('joe_ignite_au_mobile') === '1');
   const [concurrency, setConcurrency] = useState(JOE_IGNITE_CONFIG.DEFAULT_CONCURRENCY);
   const [rows, setRows] = useState([]);
   const [events, setEvents] = useState([]);
@@ -42,6 +43,7 @@ export default function JoeIgnite() {
 
   useEffect(() => { localStorage.setItem('joe_ignite_mode', mode); }, [mode]);
   useEffect(() => { localStorage.setItem('joe_ignite_proxy_source', proxySource); }, [proxySource]);
+  useEffect(() => { localStorage.setItem('joe_ignite_au_mobile', auMobile ? '1' : '0'); }, [auMobile]);
 
   const { data: proxyPool = [] } = useQuery({
     queryKey: ['proxyPool'],
@@ -88,6 +90,7 @@ export default function JoeIgnite() {
       concurrency,
       batchId,
       proxySource,
+      auMobile,
       shouldAbort: () => abortRef.current,
       onRowUpdate: (patch) => {
         setRows((prev) => prev.map((r) => (r.email === patch.email ? { ...r, ...patch } : r)));
@@ -246,6 +249,32 @@ export default function JoeIgnite() {
               disabled={running}
               poolCount={enabledProxies.length}
             />
+          </div>
+
+          <div>
+            <Label className="text-gray-400 text-xs mb-2 block">AU mobile emulation</Label>
+            <button
+              type="button"
+              onClick={() => setAuMobile(!auMobile)}
+              disabled={running}
+              className={`w-full text-left rounded-lg border px-3 py-2.5 text-xs transition-colors ${
+                auMobile
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                  : 'border-gray-800 bg-gray-950 text-gray-400 hover:border-gray-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">
+                  {auMobile ? '📱 iPhone · en-AU · ap-southeast-1' : 'Desktop (default)'}
+                </span>
+                <span className={`text-[10px] font-mono ${auMobile ? 'text-emerald-400' : 'text-gray-600'}`}>
+                  {auMobile ? 'ON' : 'OFF'}
+                </span>
+              </div>
+              <div className="text-[10px] text-gray-500 mt-1">
+                iPhone UA + mobile viewport + AU locale + Sydney region. Useful for geo-restricted sites.
+              </div>
+            </button>
           </div>
 
           <div>

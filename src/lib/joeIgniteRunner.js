@@ -8,6 +8,7 @@ import { JOE_IGNITE_CONFIG, finalOutcomeFromResults } from '@/lib/joeIgniteConfi
 import { runCredentialInSession } from '@/lib/joeIgniteCDP';
 import { fetchEnabledProxies, toBrowserbaseProxy, createRoundRobinPicker } from '@/lib/proxyPool';
 import { inferProxyProvider } from '@/lib/proxyProvider';
+import { applyAuMobilePreset } from '@/lib/auMobilePreset';
 
 export async function runJoeIgniteBatch({
   credentials,
@@ -17,6 +18,7 @@ export async function runJoeIgniteBatch({
   onComplete,
   shouldAbort,
   proxySource = 'none', // 'none' | 'bb-au' | 'pool'
+  auMobile = false,     // iPhone UA + mobile viewport + en-AU locale + ap-southeast-1 region
 }) {
   const queue = credentials.map((c, i) => ({ ...c, index: i }));
   const inflight = new Set();
@@ -47,15 +49,16 @@ export async function runJoeIgniteBatch({
     };
 
     try {
-      const sessionOpts = {
+      let sessionOpts = {
         browserSettings: { viewport: { width: 1366, height: 768 } },
-        userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: assignedProxy?.id },
+        userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: assignedProxy?.id, auMobile },
       };
       if (proxySource === 'bb-au') {
         sessionOpts.proxies = [{ type: 'browserbase', geolocation: { country: 'AU' } }];
       } else if (assignedProxy) {
         sessionOpts.proxies = [toBrowserbaseProxy(assignedProxy)];
       }
+      if (auMobile) sessionOpts = applyAuMobilePreset(sessionOpts);
       const session = await bbClient.createSession(sessionOpts);
       sessionId = session.id;
       update({ sessionId });
@@ -64,6 +67,7 @@ export async function runJoeIgniteBatch({
         connectUrl: session.connectUrl,
         email: cred.email,
         password: cred.password,
+        auMobile,
         onProgress: (p) => {
           attempts = p.attempt ?? attempts;
           if (p.phase === 'attempt-done') {

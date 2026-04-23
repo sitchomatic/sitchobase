@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { parseProxyList } from '@/lib/proxyPool';
+import { buildAuHttpsFleetText } from '@/lib/auMobilePreset';
 import { toast } from 'sonner';
+import { Zap } from 'lucide-react';
 
 export default function ProxyUploadDialog({ open, onOpenChange, onImport }) {
   const [text, setText] = useState('');
@@ -52,9 +54,20 @@ export default function ProxyUploadDialog({ open, onOpenChange, onImport }) {
             </div>
           </div>
           <div>
-            <Label className="text-xs text-gray-400">
-              Paste proxies (one per line — <span className="font-mono text-emerald-400">host:port:user:pass</span>)
-            </Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label className="text-xs text-gray-400">
+                Paste proxies (one per line — <span className="font-mono text-emerald-400">host:port:user:pass</span>)
+              </Label>
+              <Button type="button" variant="ghost" size="sm"
+                onClick={() => {
+                  setText(buildAuHttpsFleetText());
+                  if (!provider) setProvider('au-fleet');
+                  if (!country) setCountry('AU');
+                }}
+                className="h-7 px-2 text-[10px] text-emerald-400 hover:bg-emerald-500/10 gap-1">
+                <Zap className="w-3 h-3" /> Load AU HTTPS fleet (30)
+              </Button>
+            </div>
             <Textarea rows={10} value={text} onChange={(e) => setText(e.target.value)}
               placeholder={`pr.oxylabs.io:7777:user1:pass1\npr.oxylabs.io:7777:user2:pass2\nuser:pass@gate.smartproxy.com:10000`}
               className="bg-gray-950 border-gray-800 font-mono text-xs" />
