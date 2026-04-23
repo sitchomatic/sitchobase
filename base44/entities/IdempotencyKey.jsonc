@@ -1,0 +1,38 @@
+{
+  "name": "IdempotencyKey",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "User ID that issued the key"
+    },
+    "action": {
+      "type": "string",
+      "description": "bbProxy action name (createSession, createContext)"
+    },
+    "key": {
+      "type": "string",
+      "description": "Caller-supplied idempotency key"
+    },
+    "result_json": {
+      "type": "string",
+      "description": "Serialized JSON of the first successful result"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this key expires and can be reused"
+    }
+  },
+  "required": [
+    "user_id",
+    "action",
+    "key"
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {}
+  }
+}

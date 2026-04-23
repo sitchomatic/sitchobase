@@ -1,0 +1,53 @@
+{
+  "name": "DailyMetric",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date (YYYY-MM-DD, UTC)"
+    },
+    "action": {
+      "type": "string",
+      "description": "bbProxy action name or '__total__'"
+    },
+    "count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Request count for this action on this date"
+    },
+    "errors": {
+      "type": "integer",
+      "default": 0,
+      "description": "Error count (status >= 400)"
+    },
+    "sum_duration_ms": {
+      "type": "number",
+      "default": 0,
+      "description": "Sum of durations for averaging"
+    },
+    "max_duration_ms": {
+      "type": "number",
+      "default": 0,
+      "description": "Slowest call on this date"
+    }
+  },
+  "required": [
+    "date",
+    "action"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

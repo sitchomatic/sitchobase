@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { listAllPaginated } from '@/lib/paginated';
 import { Button } from '@/components/ui/button';
 import { Shield, Upload, Plus, RotateCw } from 'lucide-react';
 import ProxyRow from '@/components/proxies/ProxyRow';
@@ -12,9 +13,10 @@ export default function Proxies() {
   const qc = useQueryClient();
   const [uploadOpen, setUploadOpen] = useState(false);
 
+  // #34 Paginate so >500 proxies aren't silently truncated
   const { data: proxies = [], isLoading, refetch } = useQuery({
     queryKey: ['proxyPool'],
-    queryFn: () => base44.entities.ProxyPool.list('-created_date', 500),
+    queryFn: () => listAllPaginated(base44.entities.ProxyPool, '-created_date'),
     initialData: [],
   });
 

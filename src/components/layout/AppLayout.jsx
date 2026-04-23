@@ -3,11 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { rootPathFor } from '@/lib/routing';
 import { pageTransition, pageVariants } from '@/lib/motion';
+import { useAuth } from '@/lib/AuthContext';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, Flame, HeartPulse
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, Flame, HeartPulse, BookOpen, Flag, Clock
 } from 'lucide-react';
 
 const navItems = [
@@ -27,11 +28,22 @@ const navItems = [
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
   { label: 'Audit Log', icon: Shield, path: '/audit' },
   { label: 'Status', icon: HeartPulse, path: '/status' },
+  { label: 'Runbook', icon: BookOpen, path: '/help/runbook' },
   { label: 'Settings', icon: Settings, path: '/settings' },
+];
+
+// Admin-only entries are appended when the user has role === 'admin'.
+const adminNavItems = [
+  { label: 'Metrics', icon: BarChart3, path: '/admin/metrics' },
+  { label: 'Slow Calls', icon: Clock, path: '/admin/slow' },
+  { label: 'Feature Flags', icon: Flag, path: '/admin/flags' },
 ];
 
 export default function AppLayout() {
   const location = useLocation();
+  const { user } = useAuth() || {};
+  const isAdmin = user?.role === 'admin';
+  const items = isAdmin ? [...navItems, ...adminNavItems] : navItems;
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
@@ -50,7 +62,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ label, icon: Icon, path }) => {
+          {items.map(({ label, icon: Icon, path }) => {
             const active = rootPathFor(location.pathname) === path;
             return (
               <Link

@@ -1,0 +1,57 @@
+{
+  "name": "FrontendError",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "Error message"
+    },
+    "stack": {
+      "type": "string",
+      "description": "Stack trace"
+    },
+    "url": {
+      "type": "string",
+      "description": "Page URL when error occurred"
+    },
+    "user_agent": {
+      "type": "string",
+      "description": "Browser user agent"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "render",
+        "window_error",
+        "unhandled_rejection"
+      ],
+      "description": "Where the error was captured"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "Correlated bbProxy request ID, if any"
+    }
+  },
+  "required": [
+    "message",
+    "source"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

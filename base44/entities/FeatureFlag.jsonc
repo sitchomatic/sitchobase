@@ -1,0 +1,45 @@
+{
+  "name": "FeatureFlag",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Unique flag key (e.g. AU_MOBILE_PRESET)"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Master on/off switch"
+    },
+    "rollout_percentage": {
+      "type": "integer",
+      "default": 100,
+      "description": "0-100, stable per-user bucketing"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable purpose"
+    }
+  },
+  "required": [
+    "key"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

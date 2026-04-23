@@ -114,6 +114,7 @@ async function callOnce(action, extras = {}, { signal } = {}) {
     if (env.ok === false) {
       const e = new Error(env.error || 'bbProxy call failed');
       e.status = env.status;
+      e.code = env.code || null;
       e.details = env.details;
       e.requestId = env.requestId ?? rid ?? null;
       throw e;
@@ -265,7 +266,10 @@ async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
         err.message?.includes('503') ||
         err.message?.includes('504');
       if (!shouldRetry || !isRetryable || attempt === maxRetries) throw err;
-      await new Promise(r => setTimeout(r, delay));
+      // #17 jittered backoff (±25%) to avoid thundering-herd
+      const j = delay * 0.25;
+      const wait = Math.max(0, delay + (Math.random() * 2 - 1) * j);
+      await new Promise(r => setTimeout(r, wait));
       delay = Math.min(delay * 2, 8000);
     }
   }

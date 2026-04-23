@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes } from '@/lib/bbClient';
+import { createPollingBackoff } from '@/lib/pollingBackoff';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import ConcurrencyGauge from '@/components/dashboard/ConcurrencyGauge';
@@ -21,6 +23,8 @@ export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
   const [apiLatency, setApiLatency] = useState(null);
   const [tick, setTick] = useState(0);
+  const online = useOnlineStatus();
+  const backoffRef = useRef(createPollingBackoff({ baseMs: 15_000, maxMs: 5 * 60_000 }));
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
@@ -32,11 +36,12 @@ export default function Dashboard() {
     ]);
     if (sess.status === 'fulfilled') {
       setSessions(Array.isArray(sess.value) ? sess.value : []);
-      // Piggyback API health off the real load — no extra round trip.
       setApiStatus('ok');
       setApiLatency(Date.now() - start);
+      backoffRef.current.onSuccess();
     } else {
       setApiStatus('error');
+      backoffRef.current.onFailure();
     }
     if (usg.status === 'fulfilled') setUsage(usg.value);
     setLastRefresh(new Date());
@@ -45,12 +50,21 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh every 15s
+  // #26 Adaptive polling with exponential backoff, paused when offline.
   useEffect(() => {
-    if (!isConfigured) return;
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
-  }, [load, isConfigured]);
+    if (!isConfigured || !online) return;
+    let cancelled = false;
+    let timer;
+    const schedule = () => {
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        await load();
+        schedule();
+      }, backoffRef.current.getIntervalMs());
+    };
+    schedule();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [load, isConfigured, online]);
 
   // Waveform tick
   useEffect(() => {

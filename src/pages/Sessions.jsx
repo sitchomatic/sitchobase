@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X, LayoutGrid, List } from 'lucide-react';
+import CopyButton from '@/components/shared/CopyButton';
+import { undoToast } from '@/lib/undoToast';
 import SessionCardGrid from '@/components/sessions/SessionCardGrid';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -81,10 +83,11 @@ export default function Sessions() {
     return () => clearInterval(t);
   }, [load, isConfigured]);
 
-  const filtered = sessions.filter(s =>
+  // #38 Memoize the filter so a 500-session list doesn't re-filter on every keystroke
+  const filtered = useMemo(() => sessions.filter(s =>
     (!search || s.id.toLowerCase().includes(search.toLowerCase()) || (s.region && s.region.includes(search))) &&
     !archived.has(s.id)
-  );
+  ), [sessions, search, archived]);
 
   const selectedSession = useMemo(
     () => filtered.find(s => s.id === sessionId) || sessions.find(s => s.id === sessionId) || null,
@@ -127,12 +130,18 @@ export default function Sessions() {
 
   const bulkArchive = () => {
     const ids = [...checkedIds];
+    const prev = new Set(archived);
     const next = new Set(archived);
     ids.forEach(id => next.add(id));
     saveArchived(next);
     setArchived(next);
     if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
-    toast.success(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`);
+    // #43 Undo toast
+    undoToast(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`, () => {
+      saveArchived(prev);
+      setArchived(prev);
+      toast.info('Archive undone');
+    });
     clearSelection();
   };
 
@@ -287,7 +296,10 @@ export default function Sessions() {
               </button>
               <StatusBadge status={s.status} />
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-mono text-gray-200 truncate">{s.id}</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="text-xs font-mono text-gray-200 truncate">{s.id}</div>
+                  <CopyButton text={s.id} label="Session ID" />
+                </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                   <span>{s.region}</span>
                   <span>·</span>

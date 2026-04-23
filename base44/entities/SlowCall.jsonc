@@ -1,0 +1,52 @@
+{
+  "name": "SlowCall",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "bbProxy action name"
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Wall-clock duration in milliseconds"
+    },
+    "status": {
+      "type": "integer",
+      "description": "HTTP status code returned"
+    },
+    "actor": {
+      "type": "string",
+      "description": "User email that triggered the call"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "Correlation ID"
+    },
+    "params_summary": {
+      "type": "string",
+      "description": "Short serialized summary of params (no secrets)"
+    }
+  },
+  "required": [
+    "action",
+    "duration_ms"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

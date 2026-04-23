@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -7,29 +7,46 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
+import OfflineBanner from '@/components/shared/OfflineBanner';
+import KeyboardShortcuts from '@/components/shared/KeyboardShortcuts';
+import { installFrontendErrorReporter } from '@/lib/frontendErrorReporter';
+import { loadFeatureFlags } from '@/lib/featureFlags';
 
 // Layout
 import AppLayout from '@/components/layout/AppLayout';
 
-// Pages
+// Eagerly loaded (small + used on first paint)
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
-import FleetLauncher from './pages/FleetLauncher';
-import MirrorMode from './pages/MirrorMode';
-import Contexts from './pages/Contexts';
-import Personas from './pages/Personas';
-import Analytics from './pages/Analytics';
-import StagehandAI from './pages/StagehandAI';
-import Settings from './pages/Settings';
-import BulkTest from './pages/BulkTest';
-import Monitor from './pages/Monitor';
-import AuditLog from './pages/AuditLog.jsx';
-import TestReports from './pages/TestReports';
-import JoeIgnite from './pages/JoeIgnite';
-import Proxies from './pages/Proxies';
-import ProxyEfficiency from './pages/ProxyEfficiency';
 import Status from './pages/Status';
-import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
+import Settings from './pages/Settings';
+
+// #37 Lazy-load heavy pages — cuts initial bundle (~40% from recharts/quill).
+const FleetLauncher = lazy(() => import('./pages/FleetLauncher'));
+const MirrorMode = lazy(() => import('./pages/MirrorMode'));
+const Contexts = lazy(() => import('./pages/Contexts'));
+const Personas = lazy(() => import('./pages/Personas'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const StagehandAI = lazy(() => import('./pages/StagehandAI'));
+const BulkTest = lazy(() => import('./pages/BulkTest'));
+const Monitor = lazy(() => import('./pages/Monitor'));
+const AuditLog = lazy(() => import('./pages/AuditLog.jsx'));
+const TestReports = lazy(() => import('./pages/TestReports'));
+const JoeIgnite = lazy(() => import('./pages/JoeIgnite'));
+const Proxies = lazy(() => import('./pages/Proxies'));
+const ProxyEfficiency = lazy(() => import('./pages/ProxyEfficiency'));
+const AdminMetrics = lazy(() => import('./pages/AdminMetrics'));
+const AdminSlowCalls = lazy(() => import('./pages/AdminSlowCalls'));
+const AdminFlags = lazy(() => import('./pages/AdminFlags'));
+const Runbook = lazy(() => import('./pages/Runbook'));
+
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center h-full min-h-[40vh]">
+      <div className="w-8 h-8 border-4 border-gray-800 border-t-emerald-500 rounded-full animate-spin" />
+    </div>
+  );
+}
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -55,30 +72,36 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/sessions" element={<Sessions />} />
-        <Route path="/sessions/:id" element={<Sessions />} />
-        <Route path="/fleet" element={<FleetLauncher />} />
-        <Route path="/mirror" element={<MirrorMode />} />
-        <Route path="/contexts" element={<Contexts />} />
-        <Route path="/personas" element={<Personas />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/stagehand" element={<StagehandAI />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/bulk" element={<BulkTest />} />
-        <Route path="/joe-ignite" element={<JoeIgnite />} />
-        <Route path="/proxies" element={<Proxies />} />
-        <Route path="/proxies/efficiency" element={<ProxyEfficiency />} />
-        <Route path="/reports" element={<TestReports />} />
-        <Route path="/monitor" element={<Monitor />} />
-        <Route path="/audit" element={<AuditLog />} />
-        <Route path="/audit/:id" element={<AuditLog />} />
-        <Route path="/status" element={<Status />} />
-      </Route>
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    <Suspense fallback={<LazyFallback />}>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/sessions" element={<Sessions />} />
+          <Route path="/sessions/:id" element={<Sessions />} />
+          <Route path="/fleet" element={<FleetLauncher />} />
+          <Route path="/mirror" element={<MirrorMode />} />
+          <Route path="/contexts" element={<Contexts />} />
+          <Route path="/personas" element={<Personas />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/stagehand" element={<StagehandAI />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/bulk" element={<BulkTest />} />
+          <Route path="/joe-ignite" element={<JoeIgnite />} />
+          <Route path="/proxies" element={<Proxies />} />
+          <Route path="/proxies/efficiency" element={<ProxyEfficiency />} />
+          <Route path="/reports" element={<TestReports />} />
+          <Route path="/monitor" element={<Monitor />} />
+          <Route path="/audit" element={<AuditLog />} />
+          <Route path="/audit/:id" element={<AuditLog />} />
+          <Route path="/status" element={<Status />} />
+          <Route path="/admin/metrics" element={<AdminMetrics />} />
+          <Route path="/admin/slow" element={<AdminSlowCalls />} />
+          <Route path="/admin/flags" element={<AdminFlags />} />
+          <Route path="/help/runbook" element={<Runbook />} />
+        </Route>
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </Suspense>
   );
 };
 
@@ -88,6 +111,11 @@ function App() {
     const applyTheme = () => document.documentElement.classList.toggle('dark', media.matches);
     applyTheme();
     media.addEventListener('change', applyTheme);
+
+    // Install global error reporter (#19) and prewarm feature flags (#48)
+    installFrontendErrorReporter();
+    loadFeatureFlags();
+
     return () => media.removeEventListener('change', applyTheme);
   }, []);
 
@@ -96,6 +124,8 @@ function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClientInstance}>
           <Router>
+            <OfflineBanner />
+            <KeyboardShortcuts />
             <AuthenticatedApp />
           </Router>
           <Toaster />
