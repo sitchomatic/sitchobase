@@ -30,10 +30,10 @@ All 50 items from the hardening list. ✅ shipped · 🔸 placeholder/docs-only 
 
 ## 🧪 Testing
 - 21. ✅ bbProxy contract tests — `lib/bbProxy.contract.test.js`
-- 22. ✅ E2E smoke contracts — `lib/e2e.smoke.test.js` (Playwright infra 🔸)
+- 22. ✅ E2E smoke contracts — `lib/e2e.smoke.test.js` (contract-level coverage shipped; full Playwright remains infra-dependent 🔸)
 - 23. ✅ BB API shape snapshots — `lib/bbContract.snapshot.test.js`
 - 24. ✅ Sanitizer fuzz tests — `lib/credentialSanitize.fuzz.test.js`
-- 25. 🔸 Visual regression (Percy/Chromatic) — requires CI; not implemented
+- 25. 🔸 Visual regression (Percy/Chromatic) — still requires external CI; not implemented
 
 ## 💪 Frontend Robustness
 - 26. ✅ Adaptive polling backoff — Dashboard uses `createPollingBackoff` + pauses offline
@@ -48,7 +48,7 @@ All 50 items from the hardening list. ✅ shipped · 🔸 placeholder/docs-only 
 - 33. ✅ Runtime validators at query boundaries — `lib/safeParse.js`
 - 34. ✅ Paginated `ProxyPool.list` — `lib/paginated.js` (Proxies page upgraded)
 - 35. ✅ Cross-browser archive state — `lib/useSessionArchive.js` writes userMetadata
-- 36. 🔸 Compound entity indexes — Base44 managed; docs-only reminder
+- 36. 🔸 Compound entity indexes — platform-managed; no app-side implementation needed
 
 ## 🏎️ Performance
 - 37. ✅ Route-level `React.lazy` for heavy pages — `App.jsx`
@@ -72,6 +72,10 @@ All 50 items from the hardening list. ✅ shipped · 🔸 placeholder/docs-only 
 
 ## New entities
 - `IdempotencyKey` · `SlowCall` · `FrontendError` · `FeatureFlag` · `DailyMetric`
+
+## Notes
+- Full browser E2E and visual regression remain the only intentionally infra-dependent items.
+- Context creation/deletion is supported, but Browserbase context listing is provider-limited in this app path.
 
 ## New routes
 - `/admin/metrics` · `/admin/slow` · `/admin/flags` · `/help/runbook

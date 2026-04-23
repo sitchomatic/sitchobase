@@ -94,14 +94,20 @@ export default function Contexts() {
         </div>
       )}
 
+      {!loadError && !loading && contexts.length === 0 && (
+        <div className="rounded-lg border border-gray-800 bg-gray-900/60 px-4 py-3 text-xs text-gray-500">
+          Listing contexts is limited here, but creating and deleting a known context still works.
+        </div>
+      )}
+
       {contexts.length === 0 && !loading ? (
         <EmptyState
           icon={Layers}
-          title="No contexts yet"
-          description="Create a context to store persistent browser state (cookies, auth tokens) for reuse across sessions."
+          title="No contexts listed"
+          description="Browserbase does not provide a list-all-contexts endpoint here, so create a new context or open one directly when you already have its ID."
           action={
             <Button onClick={create} className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2">
-              <Plus className="w-4 h-4" /> Create First Context
+              <Plus className="w-4 h-4" /> Create New Context
             </Button>
           }
         />

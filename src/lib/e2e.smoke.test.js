@@ -1,12 +1,9 @@
 /**
- * E2E smoke test placeholder (#22).
+ * E2E smoke coverage surrogate (#22).
  *
- * A full Playwright suite requires CI infra — not something we can run
- * from this harness. This file verifies the *data-flow contracts* that
- * the Joe Ignite start → stop → export flow depends on, which is the
- * majority of what a real E2E would catch.
- *
- * Runnable under Vitest; flips red when a contract break would break E2E.
+ * A full browser-run Playwright suite still requires CI/browser infra,
+ * so this file covers the highest-risk end-to-end data contracts under Vitest.
+ * It is intentionally not a full visual/browser automation suite.
  */
 import { describe, it, expect } from 'vitest';
 import { parseJoeIgniteRun } from './safeParse.js';
