@@ -25,11 +25,19 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     if (!isConfigured) return;
     setLoading(true);
+    const start = Date.now();
     const [sess, usg] = await Promise.allSettled([
       bbClient.listSessions(),
       bbClient.getProjectUsage(),
     ]);
-    if (sess.status === 'fulfilled') setSessions(Array.isArray(sess.value) ? sess.value : []);
+    if (sess.status === 'fulfilled') {
+      setSessions(Array.isArray(sess.value) ? sess.value : []);
+      // Piggyback API health off the real load — no extra round trip.
+      setApiStatus('ok');
+      setApiLatency(Date.now() - start);
+    } else {
+      setApiStatus('error');
+    }
     if (usg.status === 'fulfilled') setUsage(usg.value);
     setLastRefresh(new Date());
     setLoading(false);

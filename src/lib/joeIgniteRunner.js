@@ -26,15 +26,24 @@ export async function runJoeIgniteBatch({
 
   const runOne = async (cred) => {
     const update = (patch) => onRowUpdate?.({ email: cred.email, index: cred.index, ...patch });
-    update({ status: 'running', startedAt: new Date().toISOString() });
+    const startedAt = new Date().toISOString();
+    update({ status: 'running', startedAt });
 
-    let session = null;
     let sessionId = null;
+    let released = false;
     let outcomeStatus = 'error';
     let attempts = 0;
     let results = { joe: null, ignition: null };
-    let detailsTrail = [];
+    const detailsTrail = [];
     const assignedProxy = proxySource === 'pool' ? pickProxy() : null;
+
+    const releaseSession = async () => {
+      if (!sessionId || released) return;
+      released = true;
+      try { await bbClient.updateSession(sessionId); } catch (e) {
+        detailsTrail.push(`release-failed: ${e.message}`);
+      }
+    };
 
     try {
       const sessionOpts = {
@@ -46,7 +55,7 @@ export async function runJoeIgniteBatch({
       } else if (assignedProxy) {
         sessionOpts.proxies = [toBrowserbaseProxy(assignedProxy)];
       }
-      session = await bbClient.createSession(sessionOpts);
+      const session = await bbClient.createSession(sessionOpts);
       sessionId = session.id;
       update({ sessionId });
 
@@ -55,6 +64,7 @@ export async function runJoeIgniteBatch({
         email: cred.email,
         password: cred.password,
         onProgress: (p) => {
+          attempts = p.attempt ?? attempts;
           if (p.phase === 'attempt-done') {
             detailsTrail.push(`Attempt ${p.attempt}: joe=${p.joe} ign=${p.ignition}`);
             update({ attempts: p.attempt, joeOutcome: p.joe, ignitionOutcome: p.ignition });
@@ -66,15 +76,12 @@ export async function runJoeIgniteBatch({
 
       results = run.results;
       attempts = run.attempts;
-      const finalOutcome = finalOutcomeFromResults(results);
-      outcomeStatus = finalOutcome.toLowerCase();
+      outcomeStatus = finalOutcomeFromResults(results).toLowerCase();
     } catch (err) {
       detailsTrail.push(`FATAL: ${err.message}`);
       outcomeStatus = 'error';
     } finally {
-      if (sessionId) {
-        try { await bbClient.updateSession(sessionId); } catch {}
-      }
+      await releaseSession();
     }
 
     const isBurned = outcomeStatus === 'success' || outcomeStatus === 'perm_ban';
@@ -88,11 +95,12 @@ export async function runJoeIgniteBatch({
       ignitionOutcome: results.ignition,
       isBurned,
       details: detailsTrail.join(' | '),
-      startedAt: new Date().toISOString(),
+      startedAt,
       endedAt: new Date().toISOString(),
     };
 
-    try { await base44.entities.JoeIgniteRun.create(payload); } catch {}
+    try { await base44.entities.JoeIgniteRun.create(payload); }
+    catch (e) { console.warn('JoeIgniteRun persist failed:', e.message); }
 
     // Update proxy stats (fire-and-forget)
     if (assignedProxy?.id) {

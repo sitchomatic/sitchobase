@@ -15,11 +15,24 @@ function bbHeaders(apiKey) {
 async function bbFetch(path, method = 'GET', apiKey, body = null) {
   const opts = { method, headers: bbHeaders(apiKey) };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`${BB_BASE}${path}`, opts);
+  let res;
+  try {
+    res = await fetch(`${BB_BASE}${path}`, opts);
+  } catch (err) {
+    const e = new Error(`Network error calling Browserbase: ${err.message}`);
+    e.status = 502;
+    throw e;
+  }
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = text; }
-  if (!res.ok) throw new Error(`BB API ${res.status}: ${typeof data === 'object' ? JSON.stringify(data) : data}`);
+  if (!res.ok) {
+    const detail = typeof data === 'object' ? (data.message || JSON.stringify(data)) : data;
+    const e = new Error(`Browserbase ${res.status} on ${method} ${path}: ${detail}`);
+    e.status = res.status;
+    e.bbResponse = data;
+    throw e;
+  }
   return data;
 }
 
@@ -173,6 +186,11 @@ Deno.serve(async (req) => {
 
     return Response.json({ data: result });
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
+    return Response.json({
+      error: err.message,
+      status,
+      details: err.bbResponse ?? null,
+    }, { status });
   }
 });

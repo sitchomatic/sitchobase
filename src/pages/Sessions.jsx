@@ -209,25 +209,26 @@ export default function Sessions() {
 
         {/* Bulk action bar */}
         {someChecked && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
-            <span className="text-xs text-gray-300 font-medium flex-1">
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 border-b border-emerald-500/20">
+            <span className="text-xs text-emerald-300 font-medium flex-1">
               {checkedIds.size} selected
             </span>
             <Button size="sm" onClick={bulkCancel} disabled={bulkLoading}
-              className="min-h-[44px] px-2.5 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
+              className="min-h-[36px] px-3 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
               {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
               Cancel
             </Button>
             <Button size="sm" onClick={bulkArchive} disabled={bulkLoading}
-              className="min-h-[44px] px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+              className="min-h-[36px] px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
               <Archive className="w-3 h-3" /> Archive
             </Button>
             <Button size="sm" onClick={bulkDelete} disabled={bulkLoading}
-              className="min-h-[44px] px-2.5 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
+              className="min-h-[36px] px-3 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
               {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
               Delete
             </Button>
-            <button onClick={clearSelection} className="min-h-[44px] min-w-[44px] text-gray-500 hover:text-gray-300 ml-1 inline-flex items-center justify-center">
+            <button onClick={clearSelection} aria-label="Clear selection"
+              className="min-h-[36px] min-w-[36px] text-gray-400 hover:text-white hover:bg-gray-800 rounded ml-1 inline-flex items-center justify-center transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -247,10 +248,16 @@ export default function Sessions() {
 
         <div className={`flex-1 overflow-y-auto ${viewMode === 'list' ? 'divide-y divide-gray-800/60' : ''}`}>
           {loading && filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-500 text-sm">Loading sessions…</div>
+            <div className="flex flex-col items-center justify-center py-16 text-gray-500 text-sm gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Loading sessions…
+            </div>
           )}
           {!loading && filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-600 text-sm">No sessions found</div>
+            <div className="flex flex-col items-center justify-center py-16 text-gray-600 text-sm gap-2">
+              <Search className="w-6 h-6 opacity-40" />
+              {search || filter !== 'ALL' ? 'No sessions match your filters' : 'No sessions yet'}
+            </div>
           )}
           {viewMode === 'grid' && filtered.length > 0 && (
             <SessionCardGrid
