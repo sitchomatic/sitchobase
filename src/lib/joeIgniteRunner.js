@@ -7,6 +7,7 @@ import { base44 } from '@/api/base44Client';
 import { JOE_IGNITE_CONFIG, finalOutcomeFromResults } from '@/lib/joeIgniteConfig';
 import { runCredentialInSession } from '@/lib/joeIgniteCDP';
 import { fetchEnabledProxies, toBrowserbaseProxy, createRoundRobinPicker } from '@/lib/proxyPool';
+import { inferProxyProvider } from '@/lib/proxyProvider';
 
 export async function runJoeIgniteBatch({
   credentials,
@@ -85,6 +86,9 @@ export async function runJoeIgniteBatch({
     }
 
     const isBurned = outcomeStatus === 'success' || outcomeStatus === 'perm_ban';
+    const proxyProvider = proxySource === 'bb-au'
+      ? 'bb-au'
+      : (assignedProxy ? inferProxyProvider(assignedProxy) : 'none');
     const payload = {
       batchId,
       email: cred.email,
@@ -95,6 +99,8 @@ export async function runJoeIgniteBatch({
       ignitionOutcome: results.ignition,
       isBurned,
       details: detailsTrail.join(' | '),
+      proxyId: assignedProxy?.id || null,
+      proxyProvider,
       startedAt,
       endedAt: new Date().toISOString(),
     };

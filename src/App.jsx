@@ -26,6 +26,7 @@ import AuditLog from './pages/AuditLog.jsx';
 import TestReports from './pages/TestReports';
 import JoeIgnite from './pages/JoeIgnite';
 import Proxies from './pages/Proxies';
+import ProxyEfficiency from './pages/ProxyEfficiency';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
 
 const AuthenticatedApp = () => {
@@ -67,6 +68,7 @@ const AuthenticatedApp = () => {
         <Route path="/bulk" element={<BulkTest />} />
         <Route path="/joe-ignite" element={<JoeIgnite />} />
         <Route path="/proxies" element={<Proxies />} />
+        <Route path="/proxies/efficiency" element={<ProxyEfficiency />} />
         <Route path="/reports" element={<TestReports />} />
         <Route path="/monitor" element={<Monitor />} />
         <Route path="/audit" element={<AuditLog />} />

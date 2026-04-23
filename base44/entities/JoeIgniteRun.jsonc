@@ -50,6 +50,14 @@
       "type": "string",
       "description": "Detailed log of attempt results"
     },
+    "proxyId": {
+      "type": "string",
+      "description": "ProxyPool record ID used for this run (if any)"
+    },
+    "proxyProvider": {
+      "type": "string",
+      "description": "Inferred proxy provider (e.g. 'smartproxy', 'brightdata', 'bb-au', 'none')"
+    },
     "startedAt": {
       "type": "string",
       "format": "date-time",
@@ -64,5 +72,44 @@
   "required": [
     "batchId",
     "email"
-  ]
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
 }
