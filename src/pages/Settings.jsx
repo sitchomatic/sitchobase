@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
+import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,12 +19,23 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
+  const setField = (field, raw) => {
+    setForm((f) => ({ ...f, [field]: sanitizeCredential(raw) }));
+    setTestResult(null);
+  };
+
+  const apiKeyWarning = useMemo(() => warnApiKey(form.apiKey), [form.apiKey]);
+  const projectIdWarning = useMemo(() => warnProjectId(form.projectId), [form.projectId]);
+  const isDirty =
+    form.apiKey !== credentials.apiKey || form.projectId !== credentials.projectId;
+
   const save = () => {
     if (!form.apiKey || !form.projectId) {
       toast.error('Both API Key and Project ID are required');
       return;
     }
-    saveCredentials(form);
+    const clean = saveCredentials(form);
+    setForm(clean); // keep form visibly in sync with what was stored
     toast.success('Credentials saved');
     setTestResult(null);
   };
@@ -34,7 +46,8 @@ export default function Settings() {
       return;
     }
     // Save first so bbClient picks them up
-    saveCredentials(form);
+    const clean = saveCredentials(form);
+    setForm(clean);
     setTesting(true);
     setTestResult(null);
 
@@ -66,6 +79,13 @@ export default function Settings() {
     setForm({ apiKey: '', projectId: '' });
     setTestResult(null);
     toast.success('Credentials cleared');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !testing) {
+      e.preventDefault();
+      save();
+    }
   };
 
   // Compute once per render so both banners agree and we don't re-parse
@@ -115,8 +135,15 @@ export default function Settings() {
       )}
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
-        <div className="text-sm font-semibold text-white flex items-center gap-2">
-          <Key className="w-4 h-4 text-emerald-400" /> API Credentials
+        <div className="text-sm font-semibold text-white flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <Key className="w-4 h-4 text-emerald-400" /> API Credentials
+          </div>
+          {isDirty && (
+            <span className="text-[10px] font-normal uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
+              Unsaved changes
+            </span>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -127,21 +154,34 @@ export default function Settings() {
                 type={showKey ? 'text' : 'password'}
                 placeholder="bb_live_…"
                 value={form.apiKey}
-                onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
-                className="bg-gray-800 border-gray-700 text-gray-200 pr-10"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => setField('apiKey', e.target.value)}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  setField('apiKey', e.clipboardData.getData('text'));
+                }}
+                onKeyDown={handleKeyDown}
+                className="bg-gray-800 border-gray-700 text-gray-200 pr-10 font-mono text-xs"
               />
-              <button onClick={() => setShowKey(!showKey)}
+              <button type="button" onClick={() => setShowKey(!showKey)}
                 className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300">
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-gray-600 mt-1">
-              Find your API key at{' '}
-              <a href="https://www.browserbase.com/settings" target="_blank" rel="noopener noreferrer"
-                className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-0.5">
-                browserbase.com/settings <ExternalLink className="w-3 h-3" />
-              </a>
-            </p>
+            {apiKeyWarning ? (
+              <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {apiKeyWarning}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600 mt-1">
+                Find your API key at{' '}
+                <a href="https://www.browserbase.com/settings" target="_blank" rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-0.5">
+                  browserbase.com/settings <ExternalLink className="w-3 h-3" />
+                </a>
+              </p>
+            )}
           </div>
 
           <div>
@@ -149,9 +189,21 @@ export default function Settings() {
             <Input
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               value={form.projectId}
-              onChange={e => setForm(f => ({ ...f, projectId: e.target.value }))}
-              className="bg-gray-800 border-gray-700 text-gray-200"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => setField('projectId', e.target.value)}
+              onPaste={(e) => {
+                e.preventDefault();
+                setField('projectId', e.clipboardData.getData('text'));
+              }}
+              onKeyDown={handleKeyDown}
+              className="bg-gray-800 border-gray-700 text-gray-200 font-mono text-xs"
             />
+            {projectIdWarning && (
+              <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {projectIdWarning}
+              </p>
+            )}
           </div>
         </div>
 
@@ -192,13 +244,14 @@ export default function Settings() {
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={test} disabled={testing} variant="outline"
+          <Button onClick={test} disabled={testing || !form.apiKey || !form.projectId} variant="outline"
             className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             {testing ? 'Testing…' : 'Test Connection'}
           </Button>
-          <Button onClick={save} className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2 flex-1">
-            <Key className="w-4 h-4" /> Save Credentials
+          <Button onClick={save} disabled={!isDirty || !form.apiKey || !form.projectId}
+            className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2 flex-1 disabled:opacity-50">
+            <Key className="w-4 h-4" /> {isDirty ? 'Save Credentials' : 'Saved'}
           </Button>
         </div>
       </div>
