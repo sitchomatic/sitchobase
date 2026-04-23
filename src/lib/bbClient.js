@@ -14,9 +14,23 @@
  */
 import { base44 } from '@/api/base44Client';
 import * as bb from './browserbaseApi';
+import { createCircuitBreaker, CircuitOpenError } from './circuitBreaker';
 
 // Cost constants (Browserbase pricing — update if pricing changes)
 export const BB_COST_PER_MINUTE = 0.009; // USD per browser minute
+
+// ── Circuit breaker (shared across all bbClient calls) ──────────
+const circuit = createCircuitBreaker({
+  failureThreshold: 10,
+  failureWindowMs: 60_000,
+  cooldownMs: 30_000,
+});
+export const getCircuitState = () => circuit.getState();
+export const resetCircuit = () => circuit.reset();
+
+// ── Request ID tracking (for debugging correlated failures) ─────
+let lastRequestId = null;
+export const getLastRequestId = () => lastRequestId;
 
 // True when the Base44 SDK is authenticated via an `api_key` header (local dev
 // shortcut) instead of an interactive user session. Exposed for UIs that want
@@ -81,22 +95,27 @@ export const API_KEY_BBPROXY_MESSAGE =
   'interactive Google login — not the local VITE_BASE44_API_KEY. Unset ' +
   'VITE_BASE44_API_KEY and sign in via Base44 to use it.';
 
-async function callOnce(action, extras = {}) {
+async function callOnce(action, extras = {}, { signal } = {}) {
   const creds = readStoredCredentials();
   if (canUseDirectBrowserbase(creds)) {
-    return callDirect(action, extras, creds);
+    return callDirect(action, extras, creds, { signal });
   }
   const payload = { action, ...extras };
   if (creds.projectId) payload.projectId = creds.projectId;
   try {
-    const res = await base44.functions.invoke('bbProxy', payload);
-    // New envelope: { ok, data, error, status, durationMs, details? }
+    // Pass AbortSignal through when invoke() supports it (best-effort)
+    const res = await base44.functions.invoke('bbProxy', payload, signal ? { signal } : undefined);
+    // Capture request ID for debugging correlation
+    const rid = res?.data?.requestId ?? res?.headers?.['x-request-id'] ?? null;
+    if (rid) lastRequestId = rid;
+    // New envelope: { ok, data, error, status, durationMs, details?, requestId? }
     // Legacy envelope: { data }
     const env = res.data ?? {};
     if (env.ok === false) {
       const e = new Error(env.error || 'bbProxy call failed');
       e.status = env.status;
       e.details = env.details;
+      e.requestId = env.requestId ?? rid ?? null;
       throw e;
     }
     // env.data is the Browserbase payload in both envelopes
@@ -129,7 +148,8 @@ async function callOnce(action, extras = {}) {
  * @returns {any} The response returned by the Browserbase REST helper for the given action, or a synthetic object for deprecated endpoints.
  * @throws {Error} If `action` is not recognized by the direct dispatch mapping.
  */
-async function callDirect(action, extras, creds) {
+async function callDirect(action, extras, creds, _opts = {}) {
+  // _opts.signal is reserved for future AbortController threading through bb.* helpers
   const { apiKey, projectId } = creds;
 
   switch (action) {
@@ -206,21 +226,38 @@ export function isLikelyApiKeyBbProxyFailure(err) {
 }
 
 /**
- * call() wraps callOnce with auto-retry + exponential backoff.
+ * call() wraps callOnce with auto-retry + exponential backoff + circuit breaker.
  * On network/5xx errors, retries up to maxRetries times before throwing.
  * Non-idempotent actions (createSession, createContext, batchCreateSessions,
  * updateSession) are not retried to avoid duplicate resource creation.
+ *
+ * Accepts an optional opts.signal (AbortSignal) for cancellation on unmount.
  */
-async function call(action, extras = {}, maxRetries = 3) {
+async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
+  // Circuit breaker — fast-fail if Browserbase has been failing repeatedly
+  if (!circuit.canRequest()) {
+    throw new CircuitOpenError();
+  }
+
   // Non-idempotent actions should not be retried automatically
   const nonIdempotentActions = ['createSession', 'createContext', 'batchCreateSessions', 'updateSession'];
   const shouldRetry = !nonIdempotentActions.includes(action);
 
   let delay = 800;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     try {
-      return await callOnce(action, extras);
+      const result = await callOnce(action, extras, { signal });
+      circuit.recordSuccess();
+      return result;
     } catch (err) {
+      // Don't trip the breaker on client-side aborts or auth/validation errors
+      const status = err?.status;
+      const isClientErr = status >= 400 && status < 500 && status !== 429;
+      const isAbort = err?.name === 'AbortError';
+      if (!isAbort && !isClientErr) circuit.recordFailure();
+      if (isAbort) throw err;
+
       const isRetryable = err.message?.includes('fetch') ||
         err.message?.includes('network') ||
         err.message?.includes('500') ||
@@ -234,28 +271,28 @@ async function call(action, extras = {}, maxRetries = 3) {
   }
 }
 
+// All public methods accept an optional opts = { signal } for cancellation.
 export const bbClient = {
   // Sessions
-  listSessions: (status = null) => call('listSessions', status ? { status } : {}),
-  getSession: (sessionId) => call('getSession', { sessionId }),
-  createSession: (options = {}) => call('createSession', { options }),
-  updateSession: (sessionId, data) => call('updateSession', { sessionId, data: data ?? {} }),
-  getSessionLogs: (sessionId) => call('getSessionLogs', { sessionId }),
-  getSessionRecording: (sessionId) => call('getSessionRecording', { sessionId }),
-  getSessionDebug: (sessionId) => call('getSessionDebug', { sessionId }),
+  listSessions: (status = null, opts) => call('listSessions', status ? { status } : {}, opts),
+  getSession: (sessionId, opts) => call('getSession', { sessionId }, opts),
+  createSession: (options = {}, opts) => call('createSession', { options }, opts),
+  updateSession: (sessionId, data, opts) => call('updateSession', { sessionId, data: data ?? {} }, opts),
+  getSessionLogs: (sessionId, opts) => call('getSessionLogs', { sessionId }, opts),
+  getSessionRecording: (sessionId, opts) => call('getSessionRecording', { sessionId }, opts),
+  getSessionDebug: (sessionId, opts) => call('getSessionDebug', { sessionId }, opts),
 
   // Usage
-  getProjectUsage: () => call('getProjectUsage'),
+  getProjectUsage: (opts) => call('getProjectUsage', {}, opts),
 
   // Contexts
-  listContexts: () => call('listContexts'),
-  getContext: (contextId) => call('getContext', { contextId }),
-  createContext: () => call('createContext'),
-  deleteContext: (contextId) => call('deleteContext', { contextId }),
+  listContexts: (opts) => call('listContexts', {}, opts),
+  getContext: (contextId, opts) => call('getContext', { contextId }, opts),
+  createContext: (opts) => call('createContext', {}, opts),
+  deleteContext: (contextId, opts) => call('deleteContext', { contextId }, opts),
 
   // Batch
-  batchCreateSessions: (count, options = {}) => call('batchCreateSessions', { count, options }),
-
+  batchCreateSessions: (count, options = {}, opts) => call('batchCreateSessions', { count, options }, opts),
 };
 
 export function formatBytes(bytes) {

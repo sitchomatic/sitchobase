@@ -7,7 +7,7 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, Flame
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, Flame, HeartPulse
 } from 'lucide-react';
 
 const navItems = [
@@ -26,6 +26,7 @@ const navItems = [
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
   { label: 'Audit Log', icon: Shield, path: '/audit' },
+  { label: 'Status', icon: HeartPulse, path: '/status' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 

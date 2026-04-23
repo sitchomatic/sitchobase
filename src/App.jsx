@@ -6,6 +6,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import ErrorBoundary from '@/components/shared/ErrorBoundary';
 
 // Layout
 import AppLayout from '@/components/layout/AppLayout';
@@ -27,6 +28,7 @@ import TestReports from './pages/TestReports';
 import JoeIgnite from './pages/JoeIgnite';
 import Proxies from './pages/Proxies';
 import ProxyEfficiency from './pages/ProxyEfficiency';
+import Status from './pages/Status';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
 
 const AuthenticatedApp = () => {
@@ -73,6 +75,7 @@ const AuthenticatedApp = () => {
         <Route path="/monitor" element={<Monitor />} />
         <Route path="/audit" element={<AuditLog />} />
         <Route path="/audit/:id" element={<AuditLog />} />
+        <Route path="/status" element={<Status />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
@@ -89,14 +92,16 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

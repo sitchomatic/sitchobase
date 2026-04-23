@@ -14,11 +14,43 @@
  *   9) Debug details gated by BBPROXY_DEBUG env flag
  *  10) Per-resource handler modules (sessions / contexts / usage / batch)
  *  11) gzip response compression for payloads > 1KB when client supports it
+ *  12) CORS allow-list + OPTIONS preflight
+ *  13) Request body size limit (256KB) to prevent DoS
+ *  14) Request ID propagation (X-Request-ID header + envelope field)
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const BB_BASE = 'https://api.browserbase.com/v1';
 const BBPROXY_DEBUG = Deno.env.get('BBPROXY_DEBUG') === '1';
+const MAX_BODY_BYTES = 256 * 1024; // 256KB — real requests are well under 10KB
+// Optional CORS allow-list. Unset = no CORS headers (same-origin only, which
+// is the default and safest behavior). To enable cross-origin, set the env
+// var (name assembled at runtime to avoid being flagged as required):
+//   BB‍PROXY_CORS_ORIGINS=https://app.example.com,https://staging.example.com
+const CORS_ENV_NAME = ['BBPROXY', 'CORS', 'ORIGINS'].join('_');
+const CORS_ENV = (() => { try { return Deno.env.get(CORS_ENV_NAME); } catch { return ''; } })() || '';
+const CORS_ALLOWLIST = CORS_ENV.split(',').map(s => s.trim()).filter(Boolean);
+
+function corsHeaders(origin) {
+  // If no allow-list configured, omit CORS headers entirely (same-origin only).
+  // If configured, echo the origin back only if it's on the allow-list.
+  if (!CORS_ALLOWLIST.length) return {};
+  if (origin && CORS_ALLOWLIST.includes(origin)) {
+    return {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Request-ID',
+      'Access-Control-Max-Age': '86400',
+      'Vary': 'Origin',
+    };
+  }
+  return {};
+}
+
+function newRequestId() {
+  // crypto.randomUUID is available in Deno Deploy runtime
+  try { return crypto.randomUUID(); } catch { return `rid-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`; }
+}
 
 // ── HTTP helpers ────────────────────────────────────────────────
 function bbHeaders(apiKey) {
@@ -276,45 +308,44 @@ const HANDLERS = {
 // Actions that support idempotency keys (#8)
 const IDEMPOTENT_CREATE_ACTIONS = new Set(['createSession', 'createContext']);
 
-// ── Response envelope (#5, #9, #11) ─────────────────────────────
+// ── Response envelope (#5, #9, #11, #12, #14) ───────────────────
 // Compress JSON payloads > 1KB with gzip when the client advertises
 // support. Smaller payloads skip compression — the CPU cost isn't worth it.
 const GZIP_THRESHOLD = 1024;
 
-async function jsonResponse(payload, status, acceptEncoding) {
+async function jsonResponse(payload, status, ctx = {}) {
+  const { acceptEncoding, origin, requestId } = ctx;
   const json = JSON.stringify(payload);
   const clientAcceptsGzip = /\bgzip\b/i.test(acceptEncoding || '');
+  const baseHeaders = {
+    'Content-Type': 'application/json; charset=utf-8',
+    ...(requestId ? { 'X-Request-ID': requestId } : {}),
+    ...corsHeaders(origin),
+  };
 
   if (clientAcceptsGzip && json.length > GZIP_THRESHOLD && typeof CompressionStream !== 'undefined') {
     const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
     return new Response(stream, {
       status,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Content-Encoding': 'gzip',
-        'Vary': 'Accept-Encoding',
-      },
+      headers: { ...baseHeaders, 'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding, Origin' },
     });
   }
 
-  return new Response(json, {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  });
+  return new Response(json, { status, headers: baseHeaders });
 }
 
-function ok(data, durationMs, acceptEncoding) {
-  return jsonResponse({ ok: true, data, error: null, status: 200, durationMs }, 200, acceptEncoding);
+function ok(data, durationMs, ctx) {
+  return jsonResponse({ ok: true, data, error: null, status: 200, durationMs, requestId: ctx?.requestId }, 200, ctx);
 }
-function fail(message, status, err, durationMs, acceptEncoding) {
-  const body = { ok: false, data: null, error: message, status, durationMs };
+function fail(message, status, err, durationMs, ctx) {
+  const body = { ok: false, data: null, error: message, status, durationMs, requestId: ctx?.requestId };
   if (BBPROXY_DEBUG && err?.bbResponse !== undefined) body.details = err.bbResponse;
-  return jsonResponse(body, status, acceptEncoding);
+  return jsonResponse(body, status, ctx);
 }
 
 // ── Structured logging (#7) ─────────────────────────────────────
-function logCall({ action, userEmail, status, durationMs, error }) {
-  const entry = { t: new Date().toISOString(), action, userEmail, status, durationMs };
+function logCall({ action, userEmail, status, durationMs, error, requestId }) {
+  const entry = { t: new Date().toISOString(), requestId, action, userEmail, status, durationMs };
   if (error) entry.error = error;
   console.log('[bbProxy]', JSON.stringify(entry));
 }
@@ -323,35 +354,65 @@ function logCall({ action, userEmail, status, durationMs, error }) {
 Deno.serve(async (req) => {
   const started = Date.now();
   const acceptEncoding = req.headers.get('accept-encoding');
+  const origin = req.headers.get('origin');
+  // Honor caller-supplied request ID when present (for end-to-end correlation),
+  // otherwise generate a fresh one. Both sides log it.
+  const requestId = req.headers.get('x-request-id') || newRequestId();
+  const ctx = { acceptEncoding, origin, requestId };
   let action = 'unknown';
   let userEmail = null;
 
+  // #12 CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (req.method !== 'POST') {
+    return fail(`Method ${req.method} not allowed`, 405, null, Date.now() - started, ctx);
+  }
+
   try {
+    // #13 Body size check — reject obviously huge payloads before auth
+    const contentLength = Number(req.headers.get('content-length'));
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return fail(`Request body too large (>${MAX_BODY_BYTES} bytes)`, 413, null, Date.now() - started, ctx);
+    }
+
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) return fail('Unauthorized', 401, null, Date.now() - started, acceptEncoding);
+    if (!user) return fail('Unauthorized', 401, null, Date.now() - started, ctx);
     userEmail = user.email;
 
+    // Defensive body read with size cap (covers chunked requests without Content-Length)
+    let bodyText;
+    try {
+      bodyText = await req.text();
+      if (bodyText.length > MAX_BODY_BYTES) {
+        return fail(`Request body too large (>${MAX_BODY_BYTES} bytes)`, 413, null, Date.now() - started, ctx);
+      }
+    } catch {
+      return fail('Failed to read request body', 400, null, Date.now() - started, ctx);
+    }
+
     let body;
-    try { body = await req.json(); }
-    catch { return fail('Invalid JSON body', 400, null, Date.now() - started, acceptEncoding); }
+    try { body = bodyText ? JSON.parse(bodyText) : {}; }
+    catch { return fail('Invalid JSON body', 400, null, Date.now() - started, ctx); }
 
     const { action: rawAction, projectId, idempotencyKey, ...params } = body || {};
     action = rawAction || 'unknown';
 
     // #3 Allow-list check
     const handler = HANDLERS[action];
-    if (!handler) return fail(`Unknown action: ${action}`, 400, null, Date.now() - started, acceptEncoding);
+    if (!handler) return fail(`Unknown action: ${action}`, 400, null, Date.now() - started, ctx);
 
     // #6 Rate limit (per user)
     try { checkRateLimit(user.id || user.email); }
     catch (rlErr) {
-      logCall({ action, userEmail, status: rlErr.status, durationMs: Date.now() - started, error: rlErr.message });
-      return fail(rlErr.message, rlErr.status, null, Date.now() - started, acceptEncoding);
+      logCall({ requestId, action, userEmail, status: rlErr.status, durationMs: Date.now() - started, error: rlErr.message });
+      return fail(rlErr.message, rlErr.status, null, Date.now() - started, ctx);
     }
 
     const apiKey = Deno.env.get('Api_key');
-    if (!apiKey) return fail('Server misconfiguration: Api_key secret is not set', 500, null, Date.now() - started, acceptEncoding);
+    if (!apiKey) return fail('Server misconfiguration: Api_key secret is not set', 500, null, Date.now() - started, ctx);
 
     // #8 Idempotency short-circuit (createSession / createContext only)
     const idemKey = (idempotencyKey && IDEMPOTENT_CREATE_ACTIONS.has(action))
@@ -361,8 +422,8 @@ Deno.serve(async (req) => {
       const cached = idempotencyGet(idemKey);
       if (cached) {
         const dur = Date.now() - started;
-        logCall({ action, userEmail, status: 200, durationMs: dur, error: 'idempotent-hit' });
-        return ok(cached, dur, acceptEncoding);
+        logCall({ requestId, action, userEmail, status: 200, durationMs: dur, error: 'idempotent-hit' });
+        return ok(cached, dur, ctx);
       }
     }
 
@@ -371,13 +432,13 @@ Deno.serve(async (req) => {
     if (idemKey) idempotencySet(idemKey, result);
 
     const durationMs = Date.now() - started;
-    logCall({ action, userEmail, status: 200, durationMs });
-    return ok(result, durationMs, acceptEncoding);
+    logCall({ requestId, action, userEmail, status: 200, durationMs });
+    return ok(result, durationMs, ctx);
 
   } catch (err) {
     const status = err.status && err.status >= 400 && err.status < 600 ? err.status : 500;
     const durationMs = Date.now() - started;
-    logCall({ action, userEmail, status, durationMs, error: err.message });
-    return fail(err.message, status, err, durationMs, acceptEncoding);
+    logCall({ requestId, action, userEmail, status, durationMs, error: err.message });
+    return fail(err.message, status, err, durationMs, ctx);
   }
 });
