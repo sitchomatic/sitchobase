@@ -67,7 +67,7 @@ All 50 items from the hardening list. ✅ shipped · 🔸 placeholder/docs-only 
 ## 🚢 Ops & Deployment
 - 47. ✅ `/status` page with live checks
 - 48. ✅ Feature flags — `FeatureFlag` entity + `/admin/flags` editor + `lib/featureFlags.js`
-- 49. ✅ Scheduled cleanup — `cleanupOldJoeIgniteRuns` + daily 03:00 Sydney automation
+- 49. ✅ Scheduled cleanup — `cleanupOldJoeIgniteRuns` + daily 03:00 Sydney automation (now correctly scheduled)
 - 50. ✅ In-app runbook — `/help/runbook`
 
 ## New entities

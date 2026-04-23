@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X, LayoutGrid, List } from 'lucide-react';
 import CopyButton from '@/components/shared/CopyButton';
 import { undoToast } from '@/lib/undoToast';
-import { getJson, setBoundedJson } from '@/lib/boundedStorage';
+import { useSessionArchive } from '@/lib/useSessionArchive';
 import SessionCardGrid from '@/components/sessions/SessionCardGrid';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -21,14 +21,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { pageTransition, slideInVariants } from '@/lib/motion';
 
-const ARCHIVED_KEY = 'bb_archived_sessions';
-
-function getArchived() {
-  return new Set(getJson(ARCHIVED_KEY, []));
-}
-function saveArchived(set) {
-  setBoundedJson(ARCHIVED_KEY, [...set], 500);
-}
 
 export default function Sessions() {
   const { isConfigured } = useCredentials();
@@ -39,7 +31,7 @@ export default function Sessions() {
   const [search, setSearch] = useState('');
   const [checkedIds, setCheckedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [archived, setArchived] = useState(getArchived);
+  const { archived, archive, unarchive } = useSessionArchive(sessions);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('bb_sessions_view') || 'list');
 
   useEffect(() => { localStorage.setItem('bb_sessions_view', viewMode); }, [viewMode]);
@@ -131,16 +123,11 @@ export default function Sessions() {
 
   const bulkArchive = () => {
     const ids = [...checkedIds];
-    const prev = new Set(archived);
-    const next = new Set(archived);
-    ids.forEach(id => next.add(id));
-    saveArchived(next);
-    setArchived(next);
+    archive(ids);
     if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
     // #43 Undo toast
     undoToast(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`, () => {
-      saveArchived(prev);
-      setArchived(prev);
+      unarchive(ids);
       toast.info('Archive undone');
     });
     clearSelection();
@@ -158,10 +145,7 @@ export default function Sessions() {
       await cancelMutation.mutateAsync(runningIds);
     }
     // Remove from local view by archiving
-    const next = new Set(archived);
-    ids.forEach(id => next.add(id));
-    saveArchived(next);
-    setArchived(next);
+    await archive(ids);
     if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
     toast.success(`Deleted ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
     auditLog({ action: 'SESSIONS_BULK_DELETED', category: 'session', details: { count: ids.length } });
