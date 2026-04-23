@@ -32,9 +32,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, projectId, ...params } = body;
 
-    // Prefer server-side secret; fall back to client-supplied key (Settings page)
-    const apiKey = Deno.env.get('Api_key') || body.apiKey;
-    if (!apiKey) return Response.json({ error: 'apiKey required — set the Api_key secret or save credentials in Settings' }, { status: 400 });
+    // Strictly use the server-side secret — no client fallback
+    const apiKey = Deno.env.get('Api_key');
+    if (!apiKey) return Response.json({ error: 'Server misconfiguration: Api_key secret is not set' }, { status: 500 });
 
     let result;
 
