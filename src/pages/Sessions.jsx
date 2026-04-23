@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X, LayoutGrid, List } from 'lucide-react';
 import CopyButton from '@/components/shared/CopyButton';
 import { undoToast } from '@/lib/undoToast';
+import { getJson, setBoundedJson } from '@/lib/boundedStorage';
 import SessionCardGrid from '@/components/sessions/SessionCardGrid';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -23,10 +24,10 @@ import { pageTransition, slideInVariants } from '@/lib/motion';
 const ARCHIVED_KEY = 'bb_archived_sessions';
 
 function getArchived() {
-  try { return new Set(JSON.parse(localStorage.getItem(ARCHIVED_KEY) || '[]')); } catch { return new Set(); }
+  return new Set(getJson(ARCHIVED_KEY, []));
 }
 function saveArchived(set) {
-  localStorage.setItem(ARCHIVED_KEY, JSON.stringify([...set]));
+  setBoundedJson(ARCHIVED_KEY, [...set], 500);
 }
 
 export default function Sessions() {

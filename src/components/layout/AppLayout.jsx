@@ -37,6 +37,7 @@ const adminNavItems = [
   { label: 'Metrics', icon: BarChart3, path: '/admin/metrics' },
   { label: 'Slow Calls', icon: Clock, path: '/admin/slow' },
   { label: 'Feature Flags', icon: Flag, path: '/admin/flags' },
+  { label: 'Self-Test', icon: Shield, path: '/admin/self-test' },
 ];
 
 export default function AppLayout() {

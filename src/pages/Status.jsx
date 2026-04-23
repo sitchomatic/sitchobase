@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, getCircuitState } from '@/lib/bbClient';
+import { bbClient, getCircuitState, getLastRequestId } from '@/lib/bbClient';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { CheckCircle, AlertCircle, Loader2, RefreshCw, Home, Shield, Activity } from 'lucide-react';
+import ApiErrorState from '@/components/shared/ApiErrorState';
 import { formatDistanceToNow } from 'date-fns';
 
 /**
@@ -16,6 +17,7 @@ export default function Status() {
   const [latency, setLatency] = useState(null);
   const [sessionsCount, setSessionsCount] = useState(null);
   const [error, setError] = useState(null);
+  const [requestId, setRequestId] = useState(null);
   const [checkedAt, setCheckedAt] = useState(null);
   const [circuit, setCircuit] = useState(() => getCircuitState());
 
@@ -23,6 +25,7 @@ export default function Status() {
     if (!isConfigured) { setState('fail'); setError('Credentials not configured'); return; }
     setState('checking');
     setError(null);
+    setRequestId(null);
     const start = Date.now();
     try {
       const sessions = await bbClient.listSessions();
@@ -31,6 +34,7 @@ export default function Status() {
       setState('ok');
     } catch (e) {
       setError(e.message || String(e));
+      setRequestId(e.requestId || getLastRequestId());
       setState('fail');
     } finally {
       setCheckedAt(new Date());
@@ -109,10 +113,9 @@ export default function Status() {
 
         {/* Error detail */}
         {state === 'fail' && error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4">
-            <div className="text-xs font-bold text-red-400 uppercase mb-1">Error detail</div>
-            <div className="text-xs font-mono text-red-300 break-words">{error}</div>
-            <div className="text-[11px] text-gray-500 mt-2">
+          <div className="space-y-3">
+            <ApiErrorState title="Status check failed" error={error} requestId={requestId} onRetry={check} />
+            <div className="text-[11px] text-gray-500">
               Common causes: invalid API key, Project ID mismatch, Browserbase outage, or bbProxy auth failure.{' '}
               <Link to="/settings" className="text-emerald-400 hover:text-emerald-300">Check settings →</Link>
             </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, formatBytes } from '@/lib/bbClient';
+import { bbClient, formatBytes, getCircuitState } from '@/lib/bbClient';
 import { createPollingBackoff } from '@/lib/pollingBackoff';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
   const [apiLatency, setApiLatency] = useState(null);
   const [tick, setTick] = useState(0);
+  const [circuit, setCircuit] = useState(() => getCircuitState());
   const online = useOnlineStatus();
   const backoffRef = useRef(createPollingBackoff({ baseMs: 15_000, maxMs: 5 * 60_000 }));
 
@@ -69,6 +70,11 @@ export default function Dashboard() {
   // Waveform tick
   useEffect(() => {
     const t = setInterval(() => setTick(p => p + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setCircuit(getCircuitState()), 2000);
     return () => clearInterval(t);
   }, []);
 
@@ -132,6 +138,10 @@ export default function Dashboard() {
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700">
                 <div className={`w-2 h-2 rounded-full ${running > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
                 <span className="text-xs font-mono text-gray-300">{running} LIVE</span>
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${circuit.state === 'closed' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+                <div className={`w-2 h-2 rounded-full ${circuit.state === 'closed' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                <span className="text-xs font-mono">CB {circuit.state.toUpperCase()}</span>
               </div>
               <Button variant="outline" size="sm" onClick={load} disabled={loading}
                 className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 gap-2 font-mono text-xs">

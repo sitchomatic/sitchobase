@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Activity, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
+import { useAuth } from '@/lib/AuthContext';
 
 const mobileNavItems = [
   { label: 'Dashboard', icon: LayoutGrid, path: '/' },
@@ -13,6 +14,9 @@ const mobileNavItems = [
 export default function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth() || {};
+
+  const boundedNavItems = mobileNavItems.filter((item) => item.path !== '/settings' || user);
 
   const handleTabPress = (path, active) => {
     if (active) {
@@ -28,8 +32,8 @@ export default function MobileBottomNav() {
       <div className="px-2 pt-2 flex justify-center">
         <FleetAlertBadge />
       </div>
-      <div className="grid grid-cols-4 px-2 pt-2">
-        {mobileNavItems.map(({ label, icon: Icon, path }) => {
+      <div className={`grid px-2 pt-2 ${boundedNavItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        {boundedNavItems.map(({ label, icon: Icon, path }) => {
           const active = location.pathname === path || location.pathname.startsWith(`${path}/`);
           return (
             <button

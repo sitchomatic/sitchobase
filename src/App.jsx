@@ -9,6 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import OfflineBanner from '@/components/shared/OfflineBanner';
 import KeyboardShortcuts from '@/components/shared/KeyboardShortcuts';
+import AdminRoute from '@/components/shared/AdminRoute';
 import { installFrontendErrorReporter } from '@/lib/frontendErrorReporter';
 import { loadFeatureFlags } from '@/lib/featureFlags';
 
@@ -38,6 +39,7 @@ const ProxyEfficiency = lazy(() => import('./pages/ProxyEfficiency'));
 const AdminMetrics = lazy(() => import('./pages/AdminMetrics'));
 const AdminSlowCalls = lazy(() => import('./pages/AdminSlowCalls'));
 const AdminFlags = lazy(() => import('./pages/AdminFlags'));
+const AdminSelfTest = lazy(() => import('./pages/AdminSelfTest'));
 const Runbook = lazy(() => import('./pages/Runbook'));
 
 function LazyFallback() {
@@ -94,9 +96,10 @@ const AuthenticatedApp = () => {
           <Route path="/audit" element={<AuditLog />} />
           <Route path="/audit/:id" element={<AuditLog />} />
           <Route path="/status" element={<Status />} />
-          <Route path="/admin/metrics" element={<AdminMetrics />} />
-          <Route path="/admin/slow" element={<AdminSlowCalls />} />
-          <Route path="/admin/flags" element={<AdminFlags />} />
+          <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
+          <Route path="/admin/slow" element={<AdminRoute><AdminSlowCalls /></AdminRoute>} />
+          <Route path="/admin/flags" element={<AdminRoute><AdminFlags /></AdminRoute>} />
+          <Route path="/admin/self-test" element={<AdminRoute><AdminSelfTest /></AdminRoute>} />
           <Route path="/help/runbook" element={<Runbook />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />

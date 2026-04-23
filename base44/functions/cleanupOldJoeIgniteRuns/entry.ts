@@ -7,6 +7,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CUTOFF_DAYS = 90;
+const MAX_DELETE_PER_RUN = 500;
+const CLEANUP_TARGETS = ['JoeIgniteRun', 'SlowCall', 'FrontendError'];
 
 Deno.serve(async (req) => {
   try {
@@ -18,20 +20,31 @@ Deno.serve(async (req) => {
     }
 
     const cutoff = new Date(Date.now() - CUTOFF_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const old = await base44.asServiceRole.entities.JoeIgniteRun.filter({
-      created_date: { $lt: cutoff },
-    }, '-created_date', 500);
+    let deleted = 0;
+    let failed = 0;
+    const byEntity = {};
 
-    let deleted = 0, failed = 0;
-    for (const row of old || []) {
-      try {
-        await base44.asServiceRole.entities.JoeIgniteRun.delete(row.id);
-        deleted++;
-      } catch {
-        failed++;
+    for (const entityName of CLEANUP_TARGETS) {
+      const entity = base44.asServiceRole.entities[entityName];
+      const rows = await entity.filter({ created_date: { $lt: cutoff } }, '-created_date', MAX_DELETE_PER_RUN);
+      let entityDeleted = 0;
+      let entityFailed = 0;
+
+      for (const row of rows || []) {
+        try {
+          await entity.delete(row.id);
+          deleted++;
+          entityDeleted++;
+        } catch {
+          failed++;
+          entityFailed++;
+        }
       }
+
+      byEntity[entityName] = { deleted: entityDeleted, failed: entityFailed };
     }
-    return Response.json({ ok: true, deleted, failed, cutoff });
+
+    return Response.json({ ok: true, deleted, failed, cutoff, byEntity });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
