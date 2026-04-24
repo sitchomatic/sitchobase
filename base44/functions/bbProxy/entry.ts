@@ -85,8 +85,19 @@ function codeFromStatus(status) {
 }
 
 // ── HTTP helpers ────────────────────────────────────────────────
-function bbHeaders(apiKey) {
-  return { 'X-BB-API-Key': apiKey, 'Content-Type': 'application/json' };
+// Auth header variants — Browserbase's docs use X-BB-API-Key, but we
+// fall through several known-good variants if the first 401s. This
+// makes the proxy resilient to header-name drift / regional gateways
+// that sniff different header names.
+const AUTH_HEADER_VARIANTS = [
+  (k) => ({ 'X-BB-API-Key': k }),
+  (k) => ({ 'x-bb-api-key': k }),                       // lowercase variant
+  (k) => ({ 'Authorization': `Bearer ${k}` }),          // bearer fallback
+  (k) => ({ 'X-API-Key': k }),                          // generic fallback
+];
+function bbHeaders(apiKey, variantIdx = 0) {
+  const variant = AUTH_HEADER_VARIANTS[variantIdx] || AUTH_HEADER_VARIANTS[0];
+  return { ...variant(apiKey), 'Content-Type': 'application/json' };
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -99,11 +110,12 @@ function withJitter(ms) {
 async function bbFetch(path, method = 'GET', apiKey, body = null, { maxRetries = 3, timeoutMs = 30_000 } = {}) {
   const isIdempotent = method === 'GET';
   let delay = 500;
+  let authVariant = 0; // try header variants on 401
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    const opts = { method, headers: bbHeaders(apiKey), signal: ctrl.signal };
+    const opts = { method, headers: bbHeaders(apiKey, authVariant), signal: ctrl.signal };
     if (body) opts.body = JSON.stringify(body);
 
     let res;
@@ -132,6 +144,12 @@ async function bbFetch(path, method = 'GET', apiKey, body = null, { maxRetries =
     try { data = JSON.parse(text); } catch { data = text; }
 
     if (res.ok) return data;
+
+    // On 401, try the next auth header variant before giving up
+    if (res.status === 401 && authVariant < AUTH_HEADER_VARIANTS.length - 1) {
+      authVariant++;
+      continue;
+    }
 
     const shouldRetry = attempt < maxRetries && (
       res.status === 429 ||
@@ -394,6 +412,70 @@ const metaHandlers = {
       return { ok: false, error: err.message, code: err.code, bbLatencyMs: Date.now() - start };
     }
   },
+
+  // Bulletproof diagnose — tries every API key source × every auth header
+  // variant and reports which combos work. Helps users self-recover when
+  // the server-side Api_key secret is stale.
+  diagnose: async ({ projectId, apiKey, params }) => {
+    const overrideKey = (params?.apiKeyOverride || '').trim();
+    const sources = [];
+    if (apiKey) sources.push({ source: 'server-secret', key: apiKey });
+    if (overrideKey && overrideKey !== apiKey) sources.push({ source: 'client-override', key: overrideKey });
+    if (!sources.length) return { ok: false, error: 'No API key available to test', results: [] };
+
+    const results = [];
+    let firstWorking = null;
+
+    for (const { source, key } of sources) {
+      for (let v = 0; v < AUTH_HEADER_VARIANTS.length; v++) {
+        const headerName = Object.keys(AUTH_HEADER_VARIANTS[v](key))[0];
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const t0 = Date.now();
+        try {
+          const res = await fetch(`${BB_BASE}/sessions`, {
+            method: 'GET',
+            headers: bbHeaders(key, v),
+            signal: ctrl.signal,
+          });
+          const ms = Date.now() - t0;
+          const entry = { source, header: headerName, status: res.status, ok: res.ok, ms, keyPreview: key.slice(0, 8) + '…' };
+          results.push(entry);
+          if (res.ok && !firstWorking) firstWorking = entry;
+        } catch (err) {
+          results.push({ source, header: headerName, status: 0, ok: false, error: err.message, keyPreview: key.slice(0, 8) + '…' });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    }
+
+    let projectMatch = null;
+    if (projectId && firstWorking) {
+      const key = sources.find(s => s.source === firstWorking.source)?.key;
+      const variantIdx = AUTH_HEADER_VARIANTS.findIndex(v => Object.keys(v(''))[0] === firstWorking.header);
+      try {
+        const res = await fetch(`${BB_BASE}/projects/${projectId}/usage`, { headers: bbHeaders(key, variantIdx) });
+        projectMatch = { ok: res.ok, status: res.status };
+      } catch (err) {
+        projectMatch = { ok: false, error: err.message };
+      }
+    }
+
+    return {
+      ok: !!firstWorking,
+      working: firstWorking,
+      projectMatch,
+      results,
+      recommendation: !firstWorking
+        ? 'All API keys failed. Generate a new key at browserbase.com/settings.'
+        : projectMatch && !projectMatch.ok
+          ? 'API key works but Project ID does not match. Check both belong to the same Browserbase account.'
+          : firstWorking.source === 'client-override'
+            ? 'Client-saved key works. The server secret is stale — saved key will be used as fallback.'
+            : 'All good. Server secret is valid.',
+    };
+  },
 };
 
 const HANDLERS = {
@@ -577,8 +659,15 @@ Deno.serve(async (req) => {
       return fail(rlErr.message, rlErr.status, rlErr, Date.now() - started, ctx);
     }
 
-    const apiKey = Deno.env.get('Api_key');
-    if (!apiKey) return fail('Server misconfiguration: Api_key secret is not set', 500, { code: ERR.SERVER_MISCONFIG }, Date.now() - started, ctx);
+    // Bulletproof key resolution: prefer client override (user's saved key in
+    // Settings) over the server secret. Stale server secrets were the cause
+    // of persistent 401s — letting the user's freshly-saved key win avoids that.
+    const serverKey = Deno.env.get('Api_key') || '';
+    const clientKey = (params?.apiKeyOverride || '').trim();
+    const apiKey = clientKey || serverKey;
+    // Strip the override from params so it doesn't leak into BB API call bodies
+    if (params?.apiKeyOverride !== undefined) delete params.apiKeyOverride;
+    if (!apiKey) return fail('No API key available. Save your Browserbase API Key in Settings.', 500, { code: ERR.SERVER_MISCONFIG }, Date.now() - started, ctx);
 
     // Idempotency short-circuit (mem → entity)
     const userId = user.id || user.email;

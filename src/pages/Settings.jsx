@@ -3,6 +3,7 @@ import { useCredentials, hasStoredApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
+import DiagnosePanel from '@/components/settings/DiagnosePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -274,6 +275,8 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+
+      <DiagnosePanel projectId={form.projectId} apiKey={form.apiKey} />
 
       {isConfigured && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">

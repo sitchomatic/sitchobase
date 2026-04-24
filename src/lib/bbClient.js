@@ -102,6 +102,9 @@ async function callOnce(action, extras = {}, { signal } = {}) {
   }
   const payload = { action, ...extras };
   if (creds.projectId) payload.projectId = creds.projectId;
+  // Bulletproof fallback: forward the user's saved API key as an override so
+  // the proxy can use it when the server-side secret is stale or missing.
+  if (creds.apiKey) payload.apiKeyOverride = creds.apiKey;
   try {
     // Pass AbortSignal through when invoke() supports it (best-effort)
     const res = await base44.functions.invoke('bbProxy', payload, signal ? { signal } : undefined);
@@ -297,6 +300,10 @@ export const bbClient = {
 
   // Batch
   batchCreateSessions: (count, options = {}, opts) => call('batchCreateSessions', { count, options }, opts),
+
+  // Diagnostics — tries every key source × header variant and reports
+  // which combo works. Used by Settings → "Diagnose & Auto-Fix".
+  diagnose: (opts) => call('diagnose', {}, opts),
 };
 
 export function formatBytes(bytes) {
