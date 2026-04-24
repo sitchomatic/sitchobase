@@ -35,8 +35,7 @@ function classifyOutcome({ url = '', text = '', successBanner = false }) {
   const u = (url || '').toLowerCase();
   const t = (text || '').toLowerCase();
   if (successBanner) return 'SUCCESS';
-  if (u.includes('/account') || u.includes('/lobby') || u.includes('/dashboard') ||
-      t.includes('logout') || t.includes('sign out') || t.includes('my account')) return 'SUCCESS';
+  if (u && !u.endsWith('/login') && !u.includes('/login?')) return 'SUCCESS';
   if (t.includes('temporarily disabled')) return 'TEMP_LOCK';
   if (t.includes('has been disabled'))    return 'PERM_BAN';
   if (t.includes('incorrect')) return 'CONTINUE';
@@ -168,7 +167,7 @@ async function readState(cdp, sessionId) {
   const expr = `({
     url: location.href,
     text: (document.body && document.body.innerText || '').slice(0, 8000),
-    successBanner: !!document.querySelector('.ol-alert__content--status_success'),
+    successBanner: !!document.querySelector('.ol-alert__content.ol-alert__content--status_success'),
   })`;
   return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '', successBanner: false };
 }

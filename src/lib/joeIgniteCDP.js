@@ -167,13 +167,13 @@ async function fillAndSubmit(cdp, sessionId, selectors, email, password, overwri
 }
 
 async function readPageState(cdp, sessionId) {
-  // Success banner: the site renders a green OL alert with class
-  // "ol-alert__content--status_success" when login succeeds. That's the
-  // definitive signal — no need for colour/text heuristics.
+  // Success is ONLY detected by either:
+  // 1) exact selector .ol-alert__content.ol-alert__content--status_success
+  // 2) URL changing away from the login page
   const expr = `(() => {
     const body = document.body;
     const text = (body && body.innerText || '').slice(0, 8000);
-    const successBanner = !!document.querySelector('.ol-alert__content--status_success');
+    const successBanner = !!document.querySelector('.ol-alert__content.ol-alert__content--status_success');
     return { url: location.href, text, successBanner };
   })()`;
   return (await evaluate(cdp, sessionId, expr)) || { url: '', text: '', successBanner: false };

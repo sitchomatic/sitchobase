@@ -44,7 +44,8 @@ export function jitter(minMs, maxMs) {
  *   - "temporarily disabled" (exact phrase) → TEMP_LOCK
  *   - "has been disabled"    (exact phrase) → PERM_BAN
  *   - "incorrect"            (any variant)  → CONTINUE (bad attempt, try again)
- *   - success banner detected              → SUCCESS
+ *   - exact success selector detected      → SUCCESS
+ *   - post-login URL change detected       → SUCCESS
  *   - nothing yet                          → CONTINUE
  *
  * NO_ACCOUNT is NOT decided per-attempt — it's only assigned AFTER all
@@ -55,10 +56,9 @@ export function classifyOutcome({ url = '', text = '', successBanner = false }) 
   const u = (url || '').toLowerCase();
   const t = (text || '').toLowerCase();
 
-  // Explicit success signals
+  // Success is ONLY detected by the exact success selector or URL change.
   if (successBanner) return 'SUCCESS';
-  if (u.includes('/account') || u.includes('/lobby') || u.includes('/dashboard') ||
-      t.includes('logout') || t.includes('sign out') || t.includes('my account')) {
+  if (u && !u.endsWith('/login') && !u.includes('/login?')) {
     return 'SUCCESS';
   }
 
