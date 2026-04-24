@@ -44,10 +44,17 @@ export default function DiagnosePanel({ projectId, apiKey }) {
         <div className="text-sm font-semibold text-white flex items-center gap-2">
           <Stethoscope className="w-4 h-4 text-cyan-400" /> Diagnose & Auto-Fix
         </div>
-        <Button onClick={run} disabled={running} size="sm" variant="outline"
-          className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
+        <Button
+          onClick={run}
+          disabled={running}
+          size="sm"
+          variant="outline"
+          title="Check all Browserbase credential sources and report which one works"
+          aria-label="Diagnose Browserbase credential configuration"
+          className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2"
+        >
           {running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Stethoscope className="w-3.5 h-3.5" />}
-          {running ? 'Testing…' : 'Run Diagnostics'}
+          {running ? 'Diagnosing…' : 'Diagnose Credentials'}
         </Button>
       </div>
 

@@ -179,8 +179,13 @@ export default function Settings() {
                   onKeyDown={handleKeyDown}
                   className="bg-gray-800 border-gray-700 text-gray-200 pr-10 font-mono text-xs"
                 />
-                <button type="button" onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300">
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  title={showKey ? 'Hide API key' : 'Show API key'}
+                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300"
+                >
                   {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -260,18 +265,34 @@ export default function Settings() {
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={fillLatestCredentials} variant="outline"
-            className="border-gray-700 text-gray-300 hover:bg-gray-800">
-            Use Latest
+          <Button
+            onClick={fillLatestCredentials}
+            variant="outline"
+            title="Fill the known working Browserbase API key and Project ID into the form without saving them yet"
+            aria-label="Fill known working Browserbase credentials"
+            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          >
+            Fill Known Working
           </Button>
-          <Button onClick={test} disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)} variant="outline"
-            className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
+          <Button
+            onClick={test}
+            disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)}
+            variant="outline"
+            title="Save the current form values, then verify Browserbase can be reached"
+            aria-label="Save and test Browserbase connection"
+            className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2"
+          >
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            {testing ? 'Testing…' : 'Test Connection'}
+            {testing ? 'Testing…' : 'Save & Test'}
           </Button>
-          <Button onClick={save} disabled={!isDirty || !form.projectId || (apiKeyRequired && !form.apiKey)}
-            className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2 flex-1 disabled:opacity-50">
-            <Key className="w-4 h-4" /> {isDirty ? 'Save Credentials' : 'Saved'}
+          <Button
+            onClick={save}
+            disabled={!isDirty || !form.projectId || (apiKeyRequired && !form.apiKey)}
+            title="Store these Browserbase credentials in this browser"
+            aria-label="Save Browserbase credentials"
+            className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2 flex-1 disabled:opacity-50"
+          >
+            <Key className="w-4 h-4" /> {isDirty ? 'Save Only' : 'Saved'}
           </Button>
         </div>
       </div>
@@ -282,9 +303,14 @@ export default function Settings() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
           <div className="text-sm font-semibold text-white">Danger Zone</div>
           <p className="text-xs text-gray-500">Remove stored credentials from this browser</p>
-          <Button variant="outline" onClick={clear}
-            className="border-red-800 text-red-400 hover:bg-red-500/10 gap-2">
-            <Trash2 className="w-4 h-4" /> Clear Credentials
+          <Button
+            variant="outline"
+            onClick={clear}
+            title="Remove the saved Browserbase credentials from this browser only"
+            aria-label="Clear saved Browserbase credentials"
+            className="border-red-800 text-red-400 hover:bg-red-500/10 gap-2"
+          >
+            <Trash2 className="w-4 h-4" /> Clear Saved Credentials
           </Button>
         </div>
       )}
