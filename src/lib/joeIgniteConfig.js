@@ -13,7 +13,7 @@ export const JOE_IGNITE_CONFIG = {
   SITES: {
     joe: {
       name: 'Joe Fortune',
-      url: 'https://www.joefortunepokies.win/login',
+      url: 'https://www.joefortunepokies.eu/login',
       selectors: { username: '#username', password: '#password', submit: '#loginSubmit' },
     },
     ignition: {
@@ -52,13 +52,14 @@ export function jitter(minMs, maxMs) {
  * MAX_ATTEMPTS have returned CONTINUE (i.e. only "incorrect" responses).
  * That's because a real account would have been temp-locked by attempt 4.
  */
-export function classifyOutcome({ url = '', text = '', successBanner = false }) {
+export function classifyOutcome({ url = '', text = '', successBanner = false, loginUrl = '' }) {
   const u = (url || '').toLowerCase();
   const t = (text || '').toLowerCase();
+  const login = (loginUrl || '').toLowerCase();
 
   // Success is ONLY detected by the exact success selector or URL change.
   if (successBanner) return 'SUCCESS';
-  if (u && !u.endsWith('/login') && !u.includes('/login?')) {
+  if (u && login && u !== login && !u.startsWith(`${login}?`)) {
     return 'SUCCESS';
   }
 

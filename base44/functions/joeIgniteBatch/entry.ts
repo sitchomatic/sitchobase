@@ -31,11 +31,12 @@ const COOKIE_SELECTORS = ['.coi-banner__accept', '.coi-banner__close', 'button[o
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (a, b) => sleep(a + Math.random() * (b - a));
 
-function classifyOutcome({ url = '', text = '', successBanner = false }) {
+function classifyOutcome({ url = '', text = '', successBanner = false, loginUrl = '' }) {
   const u = (url || '').toLowerCase();
   const t = (text || '').toLowerCase();
+  const login = (loginUrl || '').toLowerCase();
   if (successBanner) return 'SUCCESS';
-  if (u && !u.endsWith('/login') && !u.includes('/login?')) return 'SUCCESS';
+  if (u && login && u !== login && !u.startsWith(`${login}?`)) return 'SUCCESS';
   if (t.includes('temporarily disabled')) return 'TEMP_LOCK';
   if (t.includes('has been disabled'))    return 'PERM_BAN';
   if (t.includes('incorrect')) return 'CONTINUE';
