@@ -40,7 +40,7 @@ All 50 items from the hardening list. ✅ shipped · 🔸 placeholder/docs-only 
 - 27. ✅ `AbortSignal` threaded through `bbClient.*`
 - 28. ✅ Offline detection — `hooks/useOnlineStatus` + `OfflineBanner`
 - 29. ✅ Optimistic rollback UX — `undoToast` helper for archive/cancel
-- 30. ✅ Query staleTime tuning — `lib/query-client.js`
+- 30. ✅ Query staleTime tuning + shared query keys — `lib/query-client.js`, `lib/queryKeys.js`
 - 31. ✅ Loading skeletons — `components/shared/LoadingSkeleton`
 - 32. ✅ Keyboard shortcuts — `g d/s/j/f/p/r/m/t`, `/`, `?` (`KeyboardShortcuts`)
 

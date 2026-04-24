@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { listAllPaginated } from '@/lib/paginated';
+import { queryKeys, invalidateMany } from '@/lib/queryKeys';
 import { Button } from '@/components/ui/button';
 import { Shield, Upload, Plus, RotateCw } from 'lucide-react';
 import ProxyRow from '@/components/proxies/ProxyRow';
@@ -15,7 +16,7 @@ export default function Proxies() {
 
   // #34 Paginate so >500 proxies aren't silently truncated
   const { data: proxies = [], isLoading, refetch } = useQuery({
-    queryKey: ['proxyPool'],
+    queryKey: queryKeys.proxyPool,
     queryFn: () => listAllPaginated(base44.entities.ProxyPool, '-created_date'),
     initialData: [],
   });
@@ -25,7 +26,7 @@ export default function Proxies() {
       for (const p of list) await base44.entities.ProxyPool.create(p);
     },
     onSuccess: (_d, list) => {
-      qc.invalidateQueries({ queryKey: ['proxyPool'] });
+      invalidateMany(qc, [queryKeys.proxyPool]);
       toast.success(`Imported ${list.length} proxies`);
       auditLog({ action: 'PROXY_POOL_IMPORTED', category: 'settings', details: { count: list.length } });
     },
@@ -39,7 +40,7 @@ export default function Proxies() {
   const deleteMutation = useMutation({
     mutationFn: (proxy) => base44.entities.ProxyPool.delete(proxy.id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['proxyPool'] });
+      invalidateMany(qc, [queryKeys.proxyPool]);
       toast.success('Proxy removed');
     },
   });
