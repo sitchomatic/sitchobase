@@ -4,6 +4,11 @@ import { sanitizeCredential } from '@/lib/credentialSanitize';
 const STORAGE_KEY = 'bb_credentials';
 const EMPTY = { apiKey: '', projectId: '' };
 
+export function hasStoredApiKey() {
+  const creds = readStored();
+  return Boolean(creds?.apiKey);
+}
+
 function readStored() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);

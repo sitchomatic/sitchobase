@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useCredentials } from '@/lib/useCredentials';
+import { useCredentials, hasStoredApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
@@ -15,6 +15,8 @@ import {
 export default function Settings() {
   const { credentials, saveCredentials, clearCredentials, isConfigured } = useCredentials();
   const [form, setForm] = useState({ apiKey: credentials.apiKey, projectId: credentials.projectId });
+  const apiKeyRequired = isUsingApiKeyAuth();
+  const hasApiKey = apiKeyRequired ? !!form.apiKey : hasStoredApiKey();
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -26,12 +28,15 @@ export default function Settings() {
 
   const apiKeyWarning = useMemo(() => warnApiKey(form.apiKey), [form.apiKey]);
   const projectIdWarning = useMemo(() => warnProjectId(form.projectId), [form.projectId]);
+  const projectIdAuthHint = testResult?.success === false && /401|unauthorized/i.test(testResult.error || '')
+    ? 'The Project ID does not match the Browserbase credentials currently being used.'
+    : null;
   const isDirty =
     form.apiKey !== credentials.apiKey || form.projectId !== credentials.projectId;
 
   const save = () => {
-    if (!form.apiKey || !form.projectId) {
-      toast.error('Both API Key and Project ID are required');
+    if ((apiKeyRequired && !form.apiKey) || !form.projectId) {
+      toast.error(apiKeyRequired ? 'API Key and Project ID are required' : 'Project ID is required');
       return;
     }
     const clean = saveCredentials(form);
@@ -41,8 +46,8 @@ export default function Settings() {
   };
 
   const test = async () => {
-    if (!form.apiKey || !form.projectId) {
-      toast.error('Enter credentials first');
+    if ((apiKeyRequired && !form.apiKey) || !form.projectId) {
+      toast.error(apiKeyRequired ? 'Enter credentials first' : 'Enter project ID first');
       return;
     }
     // Save first so bbClient picks them up
@@ -147,42 +152,44 @@ export default function Settings() {
         </div>
 
         <div className="space-y-4">
-          <div>
-            <Label className="text-gray-400 text-xs mb-1.5 block">API Key</Label>
-            <div className="relative">
-              <Input
-                type={showKey ? 'text' : 'password'}
-                placeholder="bb_live_…"
-                value={form.apiKey}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(e) => setField('apiKey', e.target.value)}
-                onPaste={(e) => {
-                  e.preventDefault();
-                  setField('apiKey', e.clipboardData.getData('text'));
-                }}
-                onKeyDown={handleKeyDown}
-                className="bg-gray-800 border-gray-700 text-gray-200 pr-10 font-mono text-xs"
-              />
-              <button type="button" onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300">
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+          {apiKeyRequired && (
+            <div>
+              <Label className="text-gray-400 text-xs mb-1.5 block">API Key</Label>
+              <div className="relative">
+                <Input
+                  type={showKey ? 'text' : 'password'}
+                  placeholder="bb_live_…"
+                  value={form.apiKey}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(e) => setField('apiKey', e.target.value)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    setField('apiKey', e.clipboardData.getData('text'));
+                  }}
+                  onKeyDown={handleKeyDown}
+                  className="bg-gray-800 border-gray-700 text-gray-200 pr-10 font-mono text-xs"
+                />
+                <button type="button" onClick={() => setShowKey(!showKey)}
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-gray-300">
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {apiKeyWarning ? (
+                <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" /> {apiKeyWarning}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600 mt-1">
+                  Find your API key at{' '}
+                  <a href="https://www.browserbase.com/settings" target="_blank" rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-0.5">
+                    browserbase.com/settings <ExternalLink className="w-3 h-3" />
+                  </a>
+                </p>
+              )}
             </div>
-            {apiKeyWarning ? (
-              <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {apiKeyWarning}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-600 mt-1">
-                Find your API key at{' '}
-                <a href="https://www.browserbase.com/settings" target="_blank" rel="noopener noreferrer"
-                  className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-0.5">
-                  browserbase.com/settings <ExternalLink className="w-3 h-3" />
-                </a>
-              </p>
-            )}
-          </div>
+          )}
 
           <div>
             <Label className="text-gray-400 text-xs mb-1.5 block">Project ID</Label>
@@ -199,9 +206,9 @@ export default function Settings() {
               onKeyDown={handleKeyDown}
               className="bg-gray-800 border-gray-700 text-gray-200 font-mono text-xs"
             />
-            {projectIdWarning && (
+            {(projectIdWarning || projectIdAuthHint) && (
               <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {projectIdWarning}
+                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {projectIdWarning || projectIdAuthHint}
               </p>
             )}
           </div>
@@ -244,12 +251,12 @@ export default function Settings() {
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={test} disabled={testing || !form.apiKey || !form.projectId} variant="outline"
+          <Button onClick={test} disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)} variant="outline"
             className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             {testing ? 'Testing…' : 'Test Connection'}
           </Button>
-          <Button onClick={save} disabled={!isDirty || !form.apiKey || !form.projectId}
+          <Button onClick={save} disabled={!isDirty || !form.projectId || (apiKeyRequired && !form.apiKey)}
             className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2 flex-1 disabled:opacity-50">
             <Key className="w-4 h-4" /> {isDirty ? 'Save Credentials' : 'Saved'}
           </Button>
