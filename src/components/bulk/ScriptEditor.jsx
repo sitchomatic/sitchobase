@@ -21,7 +21,7 @@ import { toast } from 'sonner';
  */
 export default function ScriptEditor({ script, onSave, onCancel }) {
   const [name, setName] = useState(script?.name ?? '');
-  const [body, setBody] = useState(script?.script ?? '');
+  const [body, setBody] = useState(script?.body ?? '');
   const [description, setDescription] = useState(script?.description ?? '');
   const [saving, setSaving] = useState(false);
   const [saveAsCloudFunctionOpen, setSaveAsCloudFunctionOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function ScriptEditor({ script, onSave, onCancel }) {
     if (!name.trim() || !body.trim()) return;
     setSaving(true);
     try {
-      const data = { name: name.trim(), script: body.trim(), description: description.trim(), placeholders };
+      const data = { name: name.trim(), body: body.trim(), description: description.trim(), placeholders };
       let saved;
       if (script?.id) {
         saved = await base44.entities.SavedScript.update(script.id, data);

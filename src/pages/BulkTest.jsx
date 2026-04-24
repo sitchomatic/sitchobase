@@ -95,11 +95,11 @@ export default function BulkTest() {
 
   const suiteScripts = useMemo(() => {
     if (!selectedSuite) return [];
-    return selectedSuite.scenarioIds.map(id => scripts.find(script => script.id === id)).filter(Boolean);
+    return (selectedSuite.scriptIds || []).map(id => scripts.find(script => script.id === id)).filter(Boolean);
   }, [selectedSuite, scripts]);
 
-  const scriptPlaceholders = selectedScript ? extractPlaceholders(selectedScript.script) : [];
-  const suitePlaceholders = [...new Set(suiteScripts.flatMap(script => extractPlaceholders(script.script)))];
+  const scriptPlaceholders = selectedScript ? extractPlaceholders(selectedScript.body) : [];
+  const suitePlaceholders = [...new Set(suiteScripts.flatMap(script => extractPlaceholders(script.body)))];
   const activePlaceholders = selectedSuite ? suitePlaceholders : scriptPlaceholders;
   const missingCols = activePlaceholders.filter(p => !csvHeaders.includes(p));
   const canRun = !running && (selectedSuite || selectedScript) && csvRows.length > 0 && missingCols.length === 0 && isConfigured;
@@ -117,8 +117,8 @@ export default function BulkTest() {
       const [rowIdx, row] = queue.shift();
 
       const scenarioSequence = selectedSuite
-        ? suiteScripts.map(script => ({ name: script.name, script: interpolate(script.script, row) }))
-        : [{ name: selectedScript.name, script: interpolate(selectedScript.script, row) }];
+        ? suiteScripts.map(script => ({ name: script.name, script: interpolate(script.body, row) }))
+        : [{ name: selectedScript.name, script: interpolate(selectedScript.body, row) }];
       setJobResults(prev => [...prev, { rowIdx, row, status: 'running', sessionId: null, error: null, script: scenarioSequence[0]?.script, scenarios: scenarioSequence }]);
 
       const options = {
@@ -268,7 +268,7 @@ export default function BulkTest() {
                   <ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-gray-200 truncate">{suite.name}</div>
-                    <div className="text-xs text-gray-600 truncate">{suite.scenarioIds?.length || 0} scenarios</div>
+                    <div className="text-xs text-gray-600 truncate">{suite.scriptIds?.length || 0} scenarios</div>
                   </div>
                 </div>
               ))}
@@ -305,14 +305,14 @@ export default function BulkTest() {
                 </button>
               </div>
               <div className="flex flex-wrap gap-1">
-                {extractPlaceholders(selectedScript.script).map(p => (
+                {extractPlaceholders(selectedScript.body).map(p => (
                   <Badge key={p} className="text-xs font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
                     {`{{${p}}}`}
                   </Badge>
                 ))}
               </div>
               <pre className="text-xs text-gray-400 bg-gray-800 rounded-lg p-2 max-h-24 overflow-y-auto whitespace-pre-wrap font-mono">
-                {selectedScript.script}
+                {selectedScript.body}
               </pre>
             </div>
           )}

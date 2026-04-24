@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 export default function TestSuiteEditor({ suite, scripts, onSave, onCancel }) {
   const [name, setName] = useState(suite?.name || '');
   const [description, setDescription] = useState(suite?.description || '');
-  const [scenarioIds, setScenarioIds] = useState(suite?.scenarioIds || []);
+  const [scenarioIds, setScenarioIds] = useState(suite?.scriptIds || []);
   const [saving, setSaving] = useState(false);
 
   const selectedScripts = useMemo(
@@ -32,7 +32,7 @@ export default function TestSuiteEditor({ suite, scripts, onSave, onCancel }) {
     const payload = {
       name: name.trim(),
       description: description.trim(),
-      scenarioIds,
+      scriptIds: scenarioIds,
     };
     const saved = suite?.id
       ? await base44.entities.TestSuite.update(suite.id, payload)
