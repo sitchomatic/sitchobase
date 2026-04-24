@@ -26,6 +26,14 @@ export default function Settings() {
     setTestResult(null);
   };
 
+  const fillLatestCredentials = () => {
+    setForm({
+      apiKey: 'bb_live_qZ_pRK6n9dW5aujOTLQG4tnyCVg',
+      projectId: 'cd060316-4ca4-49c7-881e-63b9cabd1735',
+    });
+    setTestResult(null);
+  };
+
   const apiKeyWarning = useMemo(() => warnApiKey(form.apiKey), [form.apiKey]);
   const projectIdWarning = useMemo(() => warnProjectId(form.projectId), [form.projectId]);
   const projectIdAuthHint = testResult?.success === false && /401|unauthorized/i.test(testResult.error || '')
@@ -251,6 +259,10 @@ export default function Settings() {
         )}
 
         <div className="flex gap-2 pt-2">
+          <Button onClick={fillLatestCredentials} variant="outline"
+            className="border-gray-700 text-gray-300 hover:bg-gray-800">
+            Use Latest
+          </Button>
           <Button onClick={test} disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)} variant="outline"
             className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
