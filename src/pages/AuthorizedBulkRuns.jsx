@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, History, RefreshCw, Play } from 'lucide-react';
 import AuthorizedBulkRunCard from '@/components/authorizedBulk/AuthorizedBulkRunCard';
 import AuthorizedBulkRunResults from '@/components/authorizedBulk/AuthorizedBulkRunResults';
+import AuthorizedBulkMetric from '@/components/authorizedBulk/AuthorizedBulkMetric';
+import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 export default function AuthorizedBulkRuns() {
   const { id } = useParams();
@@ -17,6 +19,7 @@ export default function AuthorizedBulkRuns() {
   });
 
   const selectedRun = useMemo(() => runs.find((run) => run.id === id), [runs, id]);
+  const selectedStats = useMemo(() => getAuthorizedBulkStats(selectedRun?.results || []), [selectedRun]);
 
   if (id) {
     return (
@@ -41,11 +44,11 @@ export default function AuthorizedBulkRuns() {
               <h1 className="text-xl font-bold text-white truncate">{selectedRun.targetHost}</h1>
               <p className="text-sm text-gray-400 truncate mt-1">{selectedRun.targetUrl}</p>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5 text-sm">
-                <Metric label="Rows" value={selectedRun.totalRows || 0} />
-                <Metric label="Passed" value={selectedRun.passedCount || 0} />
-                <Metric label="Review" value={selectedRun.reviewCount || 0} />
-                <Metric label="Failed" value={selectedRun.failedCount || 0} />
-                <Metric label="Concurrency" value={selectedRun.concurrency || 1} />
+                <AuthorizedBulkMetric label="Rows" value={selectedRun.totalRows || selectedStats.total || 0} />
+                <AuthorizedBulkMetric label="Passed" value={selectedStats.passed || selectedRun.passedCount || 0} />
+                <AuthorizedBulkMetric label="Review" value={selectedStats.review || selectedRun.reviewCount || 0} />
+                <AuthorizedBulkMetric label="Failed" value={selectedStats.failed || selectedRun.failedCount || 0} />
+                <AuthorizedBulkMetric label="Concurrency" value={selectedRun.concurrency || 1} />
               </div>
             </div>
             <AuthorizedBulkRunResults results={selectedRun.results || []} />
@@ -86,15 +89,6 @@ export default function AuthorizedBulkRuns() {
           {runs.map((run) => <AuthorizedBulkRunCard key={run.id} run={run} />)}
         </div>
       )}
-    </div>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-lg font-bold text-white mt-1">{value}</div>
     </div>
   );
 }
