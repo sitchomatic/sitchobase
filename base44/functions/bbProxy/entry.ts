@@ -185,7 +185,7 @@ async function bbFetch(path, method = 'GET', apiKey, body = null, { maxRetries =
 // ── Param validation ────────────────────────────────────────────
 function normalizeSessionTimeout(options = {}) {
   const raw = options.timeout ?? 60;
-  const timeout = Math.max(1, Math.min(60000, Math.round(Number(raw) || 60)));
+  const timeout = Math.max(1, Math.min(60, Math.round(Number(raw) || 60)));
   return { ...options, timeout };
 }
 

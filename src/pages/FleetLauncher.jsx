@@ -168,8 +168,8 @@ export default function FleetLauncher() {
           </div>
 
           <div>
-            <Label className="text-gray-400 text-xs mb-2 block">Timeout: <span className="text-white">{sessionTimeout}s</span></Label>
-            <Slider min={60} max={3600} step={60} value={[sessionTimeout]} onValueChange={([v]) => setSessionTimeout(v)} className="w-full" />
+            <Label className="text-gray-400 text-xs mb-2 block">Timeout: <span className="text-white">60s</span></Label>
+            <Slider min={60} max={60} step={60} value={[sessionTimeout]} onValueChange={([v]) => setSessionTimeout(v)} className="w-full" />
           </div>
 
           <div>

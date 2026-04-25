@@ -3,7 +3,7 @@ import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '
 import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import { clampConcurrency } from '@/lib/authorizedBulkValidation';
 
-const SESSION_TIMEOUT_SECONDS = 120;
+const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
 const POST_SUBMIT_SETTLE_MS = 2_000;
 
