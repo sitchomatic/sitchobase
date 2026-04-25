@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Shield, Upload, Plus, RotateCw } from 'lucide-react';
 import ProxyRow from '@/components/proxies/ProxyRow';
 import ProxyUploadDialog from '@/components/proxies/ProxyUploadDialog';
+import ProxyNetworkHealthPanel from '@/components/proxies/ProxyNetworkHealthPanel';
+import { useCredentials } from '@/lib/useCredentials';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
 export default function Proxies() {
   const qc = useQueryClient();
+  const { credentials } = useCredentials();
   const [uploadOpen, setUploadOpen] = useState(false);
 
   // #34 Paginate so >500 proxies aren't silently truncated
@@ -67,6 +70,8 @@ export default function Proxies() {
           <Upload className="w-4 h-4" /> Import Proxies
         </Button>
       </div>
+
+      <ProxyNetworkHealthPanel projectId={credentials?.projectId} onComplete={refetch} />
 
       {isLoading ? (
         <div className="text-center text-gray-500 text-sm py-12">Loading proxies…</div>
