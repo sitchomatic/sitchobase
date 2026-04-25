@@ -7,9 +7,10 @@ import { useAuth } from '@/lib/AuthContext';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import LiveAuditStream from '@/components/shared/LiveAuditStream';
+import UserMenu from '@/components/shared/UserMenu';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route, CheckCircle2
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route, CheckCircle2, Bug
 } from 'lucide-react';
 
 const navItems = [
@@ -40,6 +41,7 @@ const navItems = [
 const adminNavItems = [
   { label: 'Metrics', icon: BarChart3, path: '/admin/metrics' },
   { label: 'Slow Calls', icon: Clock, path: '/admin/slow' },
+  { label: 'Frontend Errors', icon: Bug, path: '/admin/errors' },
   { label: 'Feature Flags', icon: Flag, path: '/admin/flags' },
   { label: 'Self-Test', icon: Shield, path: '/admin/self-test' },
 ];
@@ -89,6 +91,7 @@ export default function AppLayout() {
         </nav>
 
         <div className="p-3 border-t border-gray-800 space-y-2">
+          <UserMenu />
           <div className="flex justify-center">
             <FleetAlertBadge />
           </div>

@@ -55,7 +55,7 @@ const ITEMS = [
     ],
     steps: [
       'Check /status for API health and circuit breaker state.',
-      'Open DevTools Console — recent errors are also written to FrontendError (admin-only).',
+      'Open DevTools Console — recent errors are also written to /admin/errors (admin-only).',
       'Try hard reload (⌘⇧R / Ctrl+Shift+R).',
     ],
     action: { label: 'Check Status', to: '/status' },

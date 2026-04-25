@@ -8,6 +8,7 @@ import { Shield, Upload, Plus, RotateCw } from 'lucide-react';
 import ProxyRow from '@/components/proxies/ProxyRow';
 import ProxyUploadDialog from '@/components/proxies/ProxyUploadDialog';
 import ProxyNetworkHealthPanel from '@/components/proxies/ProxyNetworkHealthPanel';
+import ProxyAuFleetImport from '@/components/proxies/ProxyAuFleetImport';
 import { useCredentials } from '@/lib/useCredentials';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
@@ -65,6 +66,7 @@ export default function Proxies() {
         <Button variant="outline" size="sm" onClick={() => refetch()} className="border-gray-700 gap-2">
           <RotateCw className="w-3.5 h-3.5" /> Refresh
         </Button>
+        <ProxyAuFleetImport onImported={refetch} />
         <Button onClick={() => setUploadOpen(true)}
           className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2">
           <Upload className="w-4 h-4" /> Import Proxies
