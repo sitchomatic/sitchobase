@@ -310,7 +310,7 @@ export default function Dashboard() {
                   {apiStatus === 'testing' && <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />}
                   {!apiStatus             && <Shield className="w-3.5 h-3.5 flex-shrink-0" />}
                   <span>
-                    {apiStatus === 'ok'      ? `OK · ${apiLatency}ms` :
+                    {apiStatus === 'ok'      ? (apiLatency != null ? `OK · ${apiLatency}ms` : 'OK') :
                      apiStatus === 'error'   ? 'ERROR — check credentials' :
                      apiStatus === 'testing' ? 'PINGING…' :
                      'NOT TESTED'}
