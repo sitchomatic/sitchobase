@@ -2,6 +2,7 @@ import { bbClient } from '@/lib/bbClient';
 import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '@/lib/authorizedBulkCdp';
 import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import { clampConcurrency } from '@/lib/authorizedBulkValidation';
+import { captureStepScreenshot, getAutomationObservabilitySettings, upsertAutomationEvidence } from '@/lib/automationObservability';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
@@ -58,11 +59,25 @@ async function releaseSession(sessionId) {
   await bbClient.updateSession(sessionId, { status: 'REQUEST_RELEASE' }).catch(() => {});
 }
 
-async function runOne({ row, config, onRowUpdate, shouldAbort }) {
+async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
   const abortController = createAbortSignal(shouldAbort);
   const update = (patch) => onRowUpdate?.({ index: row.index, username: row.username, ...patch });
   let sessionId = null;
   let cdp = null;
+  const evidenceSettings = getAutomationObservabilitySettings();
+  const shouldCaptureStep = () => evidenceSettings.logVerbosityLevel === 'high';
+  const captureEvidence = async (stepName, status = 'running') => {
+    if (!cdp || !sessionId) return null;
+    if (status !== 'failed' && !shouldCaptureStep()) return null;
+    return captureStepScreenshot(cdp, {
+      sessionId,
+      stepName,
+      source: 'AuthorizedBulkQA',
+      runId,
+      rowIndex: row.index,
+      status,
+    }).catch(() => null);
+  };
 
   update({ status: 'running', outcome: 'Launching browser session', startedAt: new Date().toISOString() });
 
@@ -79,6 +94,16 @@ async function runOne({ row, config, onRowUpdate, shouldAbort }) {
     });
 
     sessionId = session.id;
+    if (evidenceSettings.enableVideoRecording) {
+      await upsertAutomationEvidence({
+        sessionId,
+        source: 'AuthorizedBulkQA',
+        runId,
+        rowIndex: row.index,
+        recordingUrl: `https://www.browserbase.com/sessions/${sessionId}`,
+        status: 'running',
+      }).catch(() => null);
+    }
     update({ sessionId, outcome: 'Connecting to browser' });
 
     cdp = await connectCdp(session.connectUrl);
@@ -88,12 +113,14 @@ async function runOne({ row, config, onRowUpdate, shouldAbort }) {
     update({ outcome: 'Loading target page' });
     await cdp.send('Page.navigate', { url: config.targetUrl });
     await waitForPageIdle(cdp, abortController.signal);
+    await captureEvidence('Loaded target page');
 
     update({ outcome: 'Waiting for form controls' });
     const selectorState = await evaluate(cdp, buildWaitForSelectorsScript(config), {}, SELECTOR_TIMEOUT_MS + 2_000);
     if (!selectorState?.ok) {
       throw new Error('One or more configured selectors were not found before timeout.');
     }
+    await captureEvidence('Form controls ready');
 
     update({ outcome: 'Submitting test row' });
     const fill = await evaluate(cdp, buildSubmitScript({ ...config, username: row.username, password: row.password }));
@@ -103,6 +130,7 @@ async function runOne({ row, config, onRowUpdate, shouldAbort }) {
 
     await wait(POST_SUBMIT_SETTLE_MS, abortController.signal);
     await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
+    await captureEvidence('After submit');
     const state = await collectPageState(cdp);
     const classified = classifyAuthorizedBulkOutcome({
       beforeUrl: fill.beforeUrl,
@@ -117,8 +145,11 @@ async function runOne({ row, config, onRowUpdate, shouldAbort }) {
       pageTitle: state?.title,
       endedAt: new Date().toISOString(),
     });
+    await upsertAutomationEvidence({ sessionId, source: 'AuthorizedBulkQA', runId, rowIndex: row.index, status: classified.status === 'passed' ? 'success' : 'review' }).catch(() => null);
   } catch (error) {
     const aborted = error?.name === 'AbortError' || shouldAbort?.();
+    await captureEvidence('Failure state', aborted ? 'review' : 'failed');
+    await upsertAutomationEvidence({ sessionId, source: 'AuthorizedBulkQA', runId, rowIndex: row.index, status: aborted ? 'review' : 'failed' }).catch(() => null);
     update({
       status: aborted ? 'review' : 'failed',
       outcome: aborted ? 'Stopped before this row finished' : error.message,
@@ -131,7 +162,7 @@ async function runOne({ row, config, onRowUpdate, shouldAbort }) {
   }
 }
 
-export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort }) {
+export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort, runId }) {
   const startedAt = Date.now();
   const queue = [...rows];
   const workerCount = Math.min(clampConcurrency(concurrency), queue.length || 1);
@@ -151,7 +182,7 @@ export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpda
       }
 
       const row = queue.shift();
-      if (row) await runOne({ row, config, onRowUpdate, shouldAbort });
+      if (row) await runOne({ row, config, onRowUpdate, shouldAbort, runId });
     }
   };
 

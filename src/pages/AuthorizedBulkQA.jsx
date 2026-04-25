@@ -110,6 +110,7 @@ export default function AuthorizedBulkQA() {
         concurrency: clampConcurrency(concurrency),
         config: { targetUrl, usernameSelector, passwordSelector, submitSelector },
         shouldAbort: () => abortRef.current,
+        runId: activeRunIdRef.current,
         onRowUpdate: (patch) => {
           setRows((prev) => {
             const next = updateRowByIndex(prev, patch);

@@ -1,0 +1,100 @@
+{
+  "name": "AutomationEvidence",
+  "type": "object",
+  "properties": {
+    "browserbaseSessionId": {
+      "type": "string",
+      "description": "Browserbase session ID this evidence belongs to"
+    },
+    "source": {
+      "type": "string",
+      "description": "App area that created this evidence, such as AuthorizedBulkQA"
+    },
+    "runId": {
+      "type": "string",
+      "description": "Related app run ID, if available"
+    },
+    "rowIndex": {
+      "type": "integer",
+      "description": "Related row index for bulk runs"
+    },
+    "recordingUrl": {
+      "type": "string",
+      "description": "Browserbase session inspector or recording URL"
+    },
+    "screenshotLogs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Timeline of uploaded step screenshots"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "success",
+        "failed",
+        "review"
+      ],
+      "default": "running",
+      "description": "Evidence lifecycle status"
+    }
+  },
+  "required": [
+    "browserbaseSessionId"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

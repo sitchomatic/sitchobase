@@ -19,17 +19,31 @@ function deleteSnapFromStorage(id) {
   } catch {}
 }
 
-export default function SessionScreenshotsGallery({ session }) {
+export default function SessionScreenshotsGallery({ session, evidence }) {
   const [snaps, setSnaps] = useState([]);
   const [selected, setSelected] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    setSnaps(getSessionSnaps(session.id));
+    const evidenceSnaps = (evidence?.screenshotLogs || []).map((shot, index) => ({
+      id: `${session.id}-evidence-${index}`,
+      sessionId: session.id,
+      screenshotUrl: shot.url,
+      timestamp: shot.timestamp,
+      note: shot.name,
+      status: shot.status,
+      persisted: true,
+    }));
+    setSnaps([...evidenceSnaps, ...getSessionSnaps(session.id)]);
     setSelected(null);
-  }, [session.id]);
+  }, [session.id, evidence]);
 
   const deleteSnap = (id) => {
+    const snap = snaps.find((s) => s.id === id);
+    if (snap?.persisted) {
+      toast.error('Persisted evidence screenshots cannot be removed here');
+      return;
+    }
     deleteSnapFromStorage(id);
     setSnaps(prev => prev.filter(s => s.id !== id));
     if (selected?.id === id) setSelected(null);
@@ -83,7 +97,7 @@ export default function SessionScreenshotsGallery({ session }) {
         </div>
         <div className="text-sm text-gray-500">No screenshots yet</div>
         <p className="text-xs text-gray-600 max-w-[180px]">
-          Use the Control tab to capture snapshots from this session.
+          Automated evidence screenshots and manual snapshots will appear here.
         </p>
       </div>
     );
@@ -135,10 +149,12 @@ export default function SessionScreenshotsGallery({ session }) {
                       <Download className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); deleteSnap(snap.id); }}
-                    className="w-7 h-7 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-600 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!snap.persisted && (
+                    <button onClick={e => { e.stopPropagation(); deleteSnap(snap.id); }}
+                      className="w-7 h-7 rounded-full bg-black/70 flex items-center justify-center text-white hover:bg-red-600 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 {/* Timestamp strip */}
                 <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-0.5">
@@ -193,10 +209,12 @@ export default function SessionScreenshotsGallery({ session }) {
                     </Button>
                   </a>
                 )}
-                <Button size="sm" variant="ghost" onClick={() => deleteSnap(selected.id)}
-                  className="w-full h-7 text-xs text-red-500 hover:bg-red-500/10 gap-1">
-                  <Trash2 className="w-3 h-3" /> Delete
-                </Button>
+                {!selected.persisted && (
+                  <Button size="sm" variant="ghost" onClick={() => deleteSnap(selected.id)}
+                    className="w-full h-7 text-xs text-red-500 hover:bg-red-500/10 gap-1">
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </Button>
+                )}
               </div>
             </div>
           </div>

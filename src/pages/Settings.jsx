@@ -6,6 +6,7 @@ import { useCredentials, hasStoredApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
+import AutomationObservabilitySettings from '@/components/settings/AutomationObservabilitySettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -337,6 +338,8 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+
+      <AutomationObservabilitySettings />
 
       <DiagnosePanel projectId={form.projectId} apiKey={form.apiKey} />
 

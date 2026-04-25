@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { bbClient, formatBytes } from '@/lib/bbClient';
+import { base44 } from '@/api/base44Client';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SessionRecordingPlayer from '@/components/sessions/SessionRecordingPlayer';
 import SessionFailureReplay from '@/components/sessions/SessionFailureReplay';
@@ -22,18 +23,21 @@ export default function SessionDetailPanel({ session, onClose }) {
   const [detail, setDetail] = useState(session);
   const [logs, setLogs] = useState([]);
   const [recording, setRecording] = useState(null);
+  const [evidence, setEvidence] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
-    const [d, l, r] = await Promise.allSettled([
+    const [d, l, r, e] = await Promise.allSettled([
       bbClient.getSession(session.id),
       bbClient.getSessionLogs(session.id),
       bbClient.getSessionRecording(session.id),
+      base44.entities.AutomationEvidence.filter({ browserbaseSessionId: session.id }),
     ]);
     if (d.status === 'fulfilled') setDetail(d.value);
     if (l.status === 'fulfilled') setLogs(Array.isArray(l.value) ? l.value : []);
     if (r.status === 'fulfilled') setRecording(r.value);
+    if (e.status === 'fulfilled') setEvidence(e.value?.[0] || null);
     setLoading(false);
   };
 
@@ -123,7 +127,7 @@ export default function SessionDetailPanel({ session, onClose }) {
 
         <TabsContent value="recording" className="flex-1 overflow-y-auto p-4 mt-0 space-y-3">
           <SessionFailureReplay session={detail} logs={logs} />
-          <SessionRecordingPlayer recording={recording} loading={loading} />
+          <SessionRecordingPlayer recording={recording} evidence={evidence} loading={loading} />
         </TabsContent>
 
         <TabsContent value="control" className="flex-1 overflow-y-auto mt-0">
@@ -135,7 +139,7 @@ export default function SessionDetailPanel({ session, onClose }) {
         </TabsContent>
 
         <TabsContent value="shots" className="flex-1 overflow-hidden mt-0 flex flex-col">
-          <SessionScreenshotsGallery session={detail} />
+          <SessionScreenshotsGallery session={detail} evidence={evidence} />
         </TabsContent>
 
         <TabsContent value="cdp" className="flex-1 overflow-hidden mt-0 flex flex-col">

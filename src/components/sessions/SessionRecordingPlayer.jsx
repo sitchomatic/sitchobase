@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Download, Film, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Download, Film, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 
@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
  *  - { data: [...rrweb events] } → rrweb event array
  *  - array of rrweb events directly
  */
-export default function SessionRecordingPlayer({ recording, loading }) {
+export default function SessionRecordingPlayer({ recording, evidence, loading }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -19,7 +19,8 @@ export default function SessionRecordingPlayer({ recording, loading }) {
   // Determine recording type
   const videoUrl = recording?.url || (typeof recording === 'string' ? recording : null);
   const rrwebEvents = recording?.data ?? (Array.isArray(recording) ? recording : null);
-  const hasRecording = !!(videoUrl || rrwebEvents);
+  const inspectorUrl = evidence?.recordingUrl;
+  const hasRecording = !!(videoUrl || rrwebEvents || inspectorUrl);
 
   // Video element sync
   useEffect(() => {
@@ -87,6 +88,26 @@ export default function SessionRecordingPlayer({ recording, loading }) {
           No Browserbase recording file is available for this session.<br />
           <span className="text-gray-700">Use the failure replay panel above and the live CDP / Network tabs for full debugging.</span>
         </div>
+      </div>
+    );
+  }
+
+  if (inspectorUrl && !videoUrl && !rrwebEvents) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+          Browserbase recording evidence is linked for this automation session.
+        </div>
+        <iframe
+          src={`${inspectorUrl}?embed=true`}
+          title="Browserbase Session Inspector"
+          className="w-full h-72 rounded-lg border border-gray-800 bg-black"
+        />
+        <a href={inspectorUrl} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" className="w-full border-gray-700 text-gray-300 hover:bg-gray-800 gap-2 text-xs">
+            <ExternalLink className="w-3.5 h-3.5" /> Open Browserbase Inspector
+          </Button>
+        </a>
       </div>
     );
   }
