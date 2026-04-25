@@ -4,12 +4,13 @@
  * continues across batches.
  */
 import { base44 } from '@/api/base44Client';
+import { createHealingProxyPicker, dedupeAndValidateProxies } from '@/lib/proxyHardening';
 
 const INDEX_KEY = 'joe_ignite_proxy_index';
 
 export async function fetchEnabledProxies() {
   const all = await base44.entities.ProxyPool.list('-created_date', 500);
-  return all.filter((p) => p.enabled !== false && p.server);
+  return all.filter((p) => p.enabled !== false && p.server && !p.quarantineUntil);
 }
 
 /** Convert a ProxyPool record to Browserbase external-proxy config. */
@@ -22,10 +23,11 @@ export function toBrowserbaseProxy(p) {
 
 /** Produce a round-robin picker over a proxy array, persisting the cursor. */
 export function createRoundRobinPicker(proxies) {
+  const healingPicker = createHealingProxyPicker(proxies);
   let cursor = Number(localStorage.getItem(INDEX_KEY) || 0);
   if (proxies.length === 0) return () => null;
   return () => {
-    const proxy = proxies[cursor % proxies.length];
+    const proxy = healingPicker() || proxies[cursor % proxies.length];
     cursor = (cursor + 1) % proxies.length;
     localStorage.setItem(INDEX_KEY, String(cursor));
     return proxy;
@@ -56,5 +58,5 @@ export function parseProxyList(text) {
       out.push({ server: `${parts[0]}:${parts[1]}`, enabled: true });
     }
   }
-  return out;
+  return dedupeAndValidateProxies(out).valid;
 }

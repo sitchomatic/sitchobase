@@ -18,10 +18,30 @@
       "type": "string",
       "description": "Proxy authentication password (optional)"
     },
+    "provider": {
+      "type": "string",
+      "description": "Proxy provider slug or source label"
+    },
+    "country": {
+      "type": "string",
+      "description": "Optional proxy country code"
+    },
     "enabled": {
       "type": "boolean",
       "default": true,
       "description": "Whether this proxy is active"
+    },
+    "healthStatus": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "healthy",
+        "degraded",
+        "quarantined",
+        "failed"
+      ],
+      "default": "unknown",
+      "description": "Operational health state for rotation decisions"
     },
     "timesUsed": {
       "type": "integer",
@@ -37,6 +57,30 @@
       "type": "integer",
       "default": 0,
       "description": "Number of failed attempts"
+    },
+    "consecutiveFailures": {
+      "type": "integer",
+      "default": 0,
+      "description": "Current consecutive failure streak"
+    },
+    "latencyMs": {
+      "type": "number",
+      "default": 0,
+      "description": "Last observed proxy latency in milliseconds"
+    },
+    "lastError": {
+      "type": "string",
+      "description": "Last known proxy failure reason"
+    },
+    "quarantineUntil": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Temporary cooldown expiry for unhealthy proxies"
+    },
+    "lastHealthCheckAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last health evaluation timestamp"
     },
     "lastUsedAt": {
       "type": "string",

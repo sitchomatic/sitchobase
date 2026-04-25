@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { parseProxyList } from '@/lib/proxyPool';
+import { dedupeAndValidateProxies } from '@/lib/proxyHardening';
 import { buildAuHttpsFleetText } from '@/lib/auMobilePreset';
 import { toast } from 'sonner';
 import { Zap } from 'lucide-react';
@@ -22,13 +23,19 @@ export default function ProxyUploadDialog({ open, onOpenChange, onImport }) {
       return;
     }
     setBusy(true);
-    const enriched = parsed.map((p) => ({
+    const { valid, rejected } = dedupeAndValidateProxies(parsed.map((p) => ({
       ...p,
       provider: provider || undefined,
       country: country || undefined,
       label: p.label || `${provider || 'Proxy'} ${p.server}`,
-    }));
-    await onImport(enriched);
+    })));
+    if (valid.length === 0) {
+      toast.error('All proxies were rejected by validation');
+      setBusy(false);
+      return;
+    }
+    await onImport(valid);
+    if (rejected.length) toast.info(`${rejected.length} duplicate or invalid proxies skipped`);
     setBusy(false);
     setText('');
     onOpenChange(false);

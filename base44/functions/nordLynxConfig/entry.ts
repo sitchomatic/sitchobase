@@ -2,13 +2,21 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const NORD_API = 'https://api.nordvpn.com';
 const WG_FILTER = 'filters[servers_technologies][identifier]=wireguard_udp';
+const NORD_KEY_RE = /^[A-Za-z0-9+/=]{32,64}$/;
+const SAFE_COUNTRY_RE = /^[a-zA-Z\s-]{0,64}$/;
 
 function cleanKey(value) {
   return String(value || '')
     .replace(/\\\//g, '/')
     .replace(/\\n/g, '')
     .replace(/\s+/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, '')
     .trim();
+}
+
+function assertKey(name, value) {
+  if (!NORD_KEY_RE.test(value || '')) throw new Error(`${name} failed NordLynx key validation`);
+  return value;
 }
 
 function normalizeCountry(value) {
@@ -49,6 +57,7 @@ function scoreServer(server) {
 function chooseBestServer(servers) {
   const candidates = servers
     .filter((server) => getTechnologyPublicKey(server))
+    .filter((server) => server.status !== 'offline')
     .filter((server) => Number(server.load ?? 100) < 50)
     .sort((a, b) => scoreServer(a) - scoreServer(b));
 
@@ -74,12 +83,12 @@ async function nordFetch(path, options = {}, attempt = 0) {
 }
 
 function buildWireGuardConfig({ privateKey, serverPublicKey, endpoint }) {
-  return `[Interface]\nPrivateKey = ${privateKey}\nAddress = 10.5.0.2/32\nDNS = 103.86.96.100, 103.86.99.100\nMTU = 1420\n\n[Peer]\nPublicKey = ${serverPublicKey}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${endpoint}:51820\nPersistentKeepalive = 25\n`;
+  return `[Interface]\nPrivateKey = ${assertKey('Private key', privateKey)}\nAddress = 10.5.0.2/32\nDNS = 103.86.96.100, 103.86.99.100\nMTU = 1420\nTable = off\n\n[Peer]\nPublicKey = ${assertKey('Server public key', serverPublicKey)}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${endpoint}:51820\nPersistentKeepalive = 25\n`;
 }
 
 function buildDockerBundle(configText) {
   const escapedConfig = configText.replace(/`/g, '\\`').replace(/\$/g, '\\$');
-  return `FROM alpine:3.20\nRUN apk add --no-cache wireguard-tools wireguard-go iproute2 iptables microsocks bash curl\nCOPY nordlynx.conf /etc/wireguard/nordlynx.conf\nCOPY start.sh /start.sh\nRUN chmod +x /start.sh\nEXPOSE 1080\nCMD ["/start.sh"]\n\n--- nordlynx.conf ---\n${escapedConfig}\n--- start.sh ---\n#!/usr/bin/env bash\nset -euo pipefail\nexport WG_QUICK_USERSPACE_IMPLEMENTATION=wireguard-go\nwg-quick up /etc/wireguard/nordlynx.conf\nmicrosocks -i 0.0.0.0 -p 1080\n`;
+  return `FROM alpine:3.20\nRUN apk add --no-cache wireguard-tools wireguard-go iproute2 iptables microsocks bash curl iputils drill\nCOPY nordlynx.conf /etc/wireguard/nordlynx.conf\nCOPY start.sh /start.sh\nRUN chmod +x /start.sh && chmod 600 /etc/wireguard/nordlynx.conf\nEXPOSE 1080\nHEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD curl --socks5-hostname 127.0.0.1:1080 -fsS https://api.ipify.org || exit 1\nCMD ["/start.sh"]\n\n--- nordlynx.conf ---\n${escapedConfig}\n--- start.sh ---\n#!/usr/bin/env bash\nset -euo pipefail\nexport WG_QUICK_USERSPACE_IMPLEMENTATION=wireguard-go\ncleanup() { wg-quick down /etc/wireguard/nordlynx.conf >/dev/null 2>&1 || true; }\ntrap cleanup EXIT INT TERM\nwg-quick up /etc/wireguard/nordlynx.conf\nip route add 0.0.0.0/1 dev nordlynx || true\nip route add 128.0.0.0/1 dev nordlynx || true\niptables -P OUTPUT DROP\niptables -A OUTPUT -o lo -j ACCEPT\niptables -A OUTPUT -o nordlynx -j ACCEPT\niptables -A OUTPUT -p udp --dport 51820 -j ACCEPT\niptables -A OUTPUT -p tcp --dport 1080 -j ACCEPT\niptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n(while true; do curl --socks5-hostname 127.0.0.1:1080 -fsS https://api.ipify.org >/tmp/nordlynx_ip || exit 1; sleep 20; done) &\nmicrosocks -i 0.0.0.0 -p 1080\n`;
 }
 
 Deno.serve(async (req) => {
@@ -90,7 +99,9 @@ Deno.serve(async (req) => {
 
     const { accessToken, country = 'US' } = await req.json();
     const token = String(accessToken || '').trim();
+    const safeCountry = String(country || 'US').trim();
     if (!token) return Response.json({ error: 'Nord access token is required' }, { status: 400 });
+    if (!SAFE_COUNTRY_RE.test(safeCountry)) return Response.json({ error: 'Country must be a country name or code' }, { status: 400 });
 
     const authHeaders = { Authorization: `token:${token}` };
     const [credentials, countries] = await Promise.all([
@@ -98,7 +109,7 @@ Deno.serve(async (req) => {
       nordFetch('/v1/servers/countries'),
     ]);
 
-    const countryId = findCountryId(countries, country);
+    const countryId = findCountryId(countries, safeCountry);
     const countryFilter = countryId ? `&filters[country_id]=${encodeURIComponent(countryId)}` : '';
     const servers = await nordFetch(`/v1/servers/recommendations?${WG_FILTER}${countryFilter}&limit=20`, { headers: authHeaders });
     const bestServer = chooseBestServer(Array.isArray(servers) ? servers : []);
@@ -131,7 +142,7 @@ Deno.serve(async (req) => {
       socksProxyUrl: 'socks5://127.0.0.1:1080',
       wireguardConfig,
       dockerBundle: buildDockerBundle(wireguardConfig),
-      hardening: ['Filtered for wireguard_udp', 'Preferred servers below 50% load', 'Retried transient Nord API failures', 'Sanitized escaped Nord key characters'],
+      hardening: ['Filtered for wireguard_udp', 'Preferred servers below 50% load', 'Retried transient Nord API failures', 'Sanitized escaped Nord key characters', 'Validated WireGuard key shape', 'Docker bundle uses fail-closed iptables egress rules', 'Runtime healthcheck verifies SOCKS5 public IP path'],
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
