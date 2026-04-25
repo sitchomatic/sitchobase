@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { formatBytes, formatDuration, getCircuitState } from '@/lib/bbClient';
 import { useBrowserbaseSessions, useBrowserbaseUsage } from '@/lib/browserbaseData';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { buildDashboardTestRunStats } from '@/lib/testRunDashboardStats';
+import TestRunSummaryCharts from '@/components/dashboard/TestRunSummaryCharts';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
@@ -27,6 +31,20 @@ export default function Dashboard() {
   const online = useOnlineStatus();
   const sessionsQuery = useBrowserbaseSessions({ enabled: isConfigured && online, refetchInterval: 15_000 });
   const usageQuery = useBrowserbaseUsage({ enabled: isConfigured && online, refetchInterval: 30_000 });
+  const bulkRunsQuery = useQuery({
+    queryKey: ['dashboardAuthorizedBulkRuns'],
+    queryFn: () => base44.entities.AuthorizedBulkQARun.list('-startedAt', 50),
+    enabled: isConfigured,
+    initialData: [],
+    refetchInterval: 20_000,
+  });
+  const testRunsQuery = useQuery({
+    queryKey: ['dashboardTestRuns'],
+    queryFn: () => base44.entities.TestRun.list('-startedAt', 50),
+    enabled: isConfigured,
+    initialData: [],
+    refetchInterval: 20_000,
+  });
   const sessions = Array.isArray(sessionsQuery.data) ? sessionsQuery.data : [];
   const usage = usageQuery.data || null;
   const loading = sessionsQuery.isFetching || usageQuery.isFetching;
@@ -109,6 +127,10 @@ export default function Dashboard() {
     return next;
   }, [sessions]);
 
+  const testRunStats = useMemo(
+    () => buildDashboardTestRunStats(bulkRunsQuery.data || [], testRunsQuery.data || []),
+    [bulkRunsQuery.data, testRunsQuery.data]
+  );
   const { running, pending, completed, errors, total, recentSessions } = metrics;
   const barTotal = total || 1;
   const healthPct = total === 0 ? 100 : Math.max(0, Math.round(((total - errors) / total) * 100));
@@ -197,6 +219,8 @@ export default function Dashboard() {
         </div>
 
         <ConcurrencyGauge active={running} max={50} />
+
+        <TestRunSummaryCharts stats={testRunStats} />
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

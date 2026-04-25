@@ -1,0 +1,15 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "type": "string",
+      "description": "Preferred profile display name used inside the app"
+    },
+    "preferred_timezone": {
+      "type": "string",
+      "default": "Australia/Sydney",
+      "description": "Preferred time zone for activity log timestamps"
+    }
+  }
+}

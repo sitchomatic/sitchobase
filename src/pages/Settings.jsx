@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { useCredentials, hasStoredApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
@@ -6,6 +9,7 @@ import DiagnosePanel from '@/components/settings/DiagnosePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Settings as SettingsIcon, Key, CheckCircle, AlertCircle,
@@ -14,6 +18,12 @@ import {
 
 export default function Settings() {
   const { credentials, saveCredentials, clearCredentials, isConfigured } = useCredentials();
+  const { user, checkUserAuth } = useAuth();
+  const [profileForm, setProfileForm] = useState({
+    display_name: user?.display_name || user?.full_name || '',
+    preferred_timezone: user?.preferred_timezone || 'Australia/Sydney',
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
   const [form, setForm] = useState({ apiKey: credentials.apiKey, projectId: credentials.projectId });
   const apiKeyRequired = isUsingApiKeyAuth();
   const hasApiKey = apiKeyRequired ? !!form.apiKey : hasStoredApiKey();
@@ -33,6 +43,24 @@ export default function Settings() {
     : null;
   const isDirty =
     form.apiKey !== credentials.apiKey || form.projectId !== credentials.projectId;
+  const isProfileDirty =
+    profileForm.display_name !== (user?.display_name || user?.full_name || '') ||
+    profileForm.preferred_timezone !== (user?.preferred_timezone || 'Australia/Sydney');
+
+  const saveProfile = async () => {
+    if (!profileForm.display_name.trim()) {
+      toast.error('Profile name is required');
+      return;
+    }
+    setSavingProfile(true);
+    await base44.auth.updateMe({
+      display_name: profileForm.display_name.trim(),
+      preferred_timezone: profileForm.preferred_timezone,
+    });
+    await checkUserAuth();
+    setSavingProfile(false);
+    toast.success('Profile updated');
+  };
 
   const save = () => {
     if ((apiKeyRequired && !form.apiKey) || !form.projectId) {
@@ -104,8 +132,39 @@ export default function Settings() {
         <h1 className="text-xl font-bold text-white flex items-center gap-2">
           <SettingsIcon className="w-5 h-5 text-gray-400" /> Settings
         </h1>
-        <p className="text-sm text-gray-500 mt-0.5">Configure your Browserbase credentials</p>
+        <p className="text-sm text-gray-500 mt-0.5">Manage your profile, activity log timezone, and Browserbase credentials</p>
       </div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+        <div className="text-sm font-semibold text-white">Profile Preferences</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-gray-400 text-xs mb-1.5 block">Profile name</Label>
+            <Input value={profileForm.display_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, display_name: e.target.value }))} className="bg-gray-800 border-gray-700 text-gray-200" placeholder="Your display name" />
+          </div>
+          <div>
+            <Label className="text-gray-400 text-xs mb-1.5 block">Activity log time zone</Label>
+            <Select value={profileForm.preferred_timezone} onValueChange={(value) => setProfileForm((prev) => ({ ...prev, preferred_timezone: value }))}>
+              <SelectTrigger className="bg-gray-800 border-gray-700 text-gray-200">
+                <SelectValue placeholder="Select timezone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Australia/Sydney">Australia/Sydney</SelectItem>
+                <SelectItem value="Australia/Melbourne">Australia/Melbourne</SelectItem>
+                <SelectItem value="Australia/Brisbane">Australia/Brisbane</SelectItem>
+                <SelectItem value="Australia/Perth">Australia/Perth</SelectItem>
+                <SelectItem value="UTC">UTC</SelectItem>
+                <SelectItem value="America/New_York">America/New_York</SelectItem>
+                <SelectItem value="America/Los_Angeles">America/Los_Angeles</SelectItem>
+                <SelectItem value="Europe/London">Europe/London</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button onClick={saveProfile} disabled={!isProfileDirty || savingProfile} className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold">
+          {savingProfile ? 'Saving…' : 'Save Profile'}
+        </Button>
+      </motion.div>
 
       {apiKeyAuth && directEligible && (
         <div className="flex items-start gap-2.5 p-3 rounded-lg text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-200">

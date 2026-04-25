@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { RefreshCw, BarChart3 } from 'lucide-react';
 import { useCredentials } from '@/lib/useCredentials';
@@ -57,7 +58,7 @@ export default function FleetInsights() {
         <FleetMetricCard label="Failures" value={insights.totals.failed} sub={`${insights.failureRate}% failure rate`} tone={insights.totals.failed ? 'red' : 'emerald'} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <FleetChartPanel title="Recent Session Trend">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={insights.dailyTrend} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
@@ -101,7 +102,7 @@ export default function FleetInsights() {
         </FleetChartPanel>
 
         <FleetRecentActivity items={insights.recent} />
-      </div>
+      </motion.div>
     </div>
   );
 }
