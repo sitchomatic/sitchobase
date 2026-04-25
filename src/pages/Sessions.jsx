@@ -31,7 +31,6 @@ export default function Sessions() {
   const [search, setSearch] = useState('');
   const [checkedIds, setCheckedIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const { archived, archive, unarchive } = useSessionArchive(sessions);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('bb_sessions_view') || 'list');
 
   useEffect(() => { localStorage.setItem('bb_sessions_view', viewMode); }, [viewMode]);
@@ -42,6 +41,7 @@ export default function Sessions() {
     enabled: isConfigured,
     initialData: [],
   });
+  const { archived, archive, unarchive } = useSessionArchive(sessions);
 
   const cancelMutation = useMutation({
     mutationFn: (ids) => Promise.all(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' }))),

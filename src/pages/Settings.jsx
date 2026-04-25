@@ -27,14 +27,6 @@ export default function Settings() {
     setTestResult(null);
   };
 
-  const fillLatestCredentials = () => {
-    setForm({
-      apiKey: 'bb_live_qZ_pRK6n9dW5aujOTLQG4tnyCVg',
-      projectId: 'cd060316-4ca4-49c7-881e-63b9cabd1735',
-    });
-    setTestResult(null);
-  };
-
   const apiKeyWarning = useMemo(() => warnApiKey(form.apiKey), [form.apiKey]);
   const projectIdWarning = useMemo(() => warnProjectId(form.projectId), [form.projectId]);
   const projectIdAuthHint = testResult?.success === false && /401|unauthorized/i.test(testResult.error || '')
@@ -123,7 +115,7 @@ export default function Settings() {
             <div className="font-semibold">Local dev: direct Browserbase API</div>
             <div className="text-xs mt-0.5 opacity-80">
               <code className="bg-emerald-500/10 px-1 rounded">VITE_BASE44_API_KEY</code> is set
-              and a Browserbase API key is stored — Test Connection and the
+              and a Browserbase API key is stored — Save & Test and the
               Contexts list bypass the bbProxy function and hit Browserbase
               directly via the Vite dev proxy.
             </div>
@@ -140,7 +132,7 @@ export default function Settings() {
               You're running with <code className="bg-amber-500/10 px-1 rounded">VITE_BASE44_API_KEY</code>
               {' '}but the direct Browserbase API path isn't available yet.
               Save a Browserbase API key <strong>and</strong> Project ID below
-              to enable it. Until then, Test Connection and the Contexts list
+              to enable it. Until then, Save & Test and the Contexts list
               go through the bbProxy Base44 function, which only works with an
               interactive Google login.
             </div>
@@ -266,15 +258,6 @@ export default function Settings() {
 
         <div className="flex gap-2 pt-2">
           <Button
-            onClick={fillLatestCredentials}
-            variant="outline"
-            title="Fill the known working Browserbase API key and Project ID into the form without saving them yet"
-            aria-label="Fill known working Browserbase credentials"
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-          >
-            Fill Known Working
-          </Button>
-          <Button
             onClick={test}
             disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)}
             variant="outline"
@@ -324,7 +307,7 @@ export default function Settings() {
           all Browserbase API calls are made server-side via our secure backend proxy, completely
           bypassing browser CORS restrictions and keeping your API key private. In local development
           with <code className="bg-gray-800/50 px-1 rounded">VITE_BASE44_API_KEY</code> set and
-          Browserbase credentials saved, Test Connection and Contexts list calls bypass the proxy
+          Browserbase credentials saved, Save & Test and Contexts list calls bypass the proxy
           and go directly to Browserbase via the Vite dev proxy for faster iteration.
         </p>
       </div>

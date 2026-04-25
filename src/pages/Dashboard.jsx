@@ -98,8 +98,9 @@ export default function Dashboard() {
   const pending = sessions.filter(s => s.status === 'PENDING').length;
   const completed = sessions.filter(s => s.status === 'COMPLETED').length;
   const errors = sessions.filter(s => s.status === 'ERROR' || s.status === 'TIMED_OUT').length;
-  const total = sessions.length || 1;
-  const healthPct = total === 1 ? 100 : Math.max(0, Math.round(((total - errors) / total) * 100));
+  const total = sessions.length;
+  const barTotal = total || 1;
+  const healthPct = total === 0 ? 100 : Math.max(0, Math.round(((total - errors) / total) * 100));
   const recentSessions = [...sessions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 8);
 
   return (
@@ -299,7 +300,7 @@ export default function Dashboard() {
                   { label: 'COMPLETED', count: completed, color: 'bg-cyan-400' },
                   { label: 'ERRORS',    count: errors,    color: 'bg-red-400' },
                 ].map(({ label, count, color }) => {
-                  const pct = Math.round((count / total) * 100);
+                  const pct = Math.round((count / barTotal) * 100);
                   return (
                     <div key={label}>
                       <div className="flex justify-between text-xs font-mono mb-1">

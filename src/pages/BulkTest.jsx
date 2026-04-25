@@ -136,9 +136,8 @@ export default function BulkTest() {
       let sess = null;
       let errorMessage = null;
       try {
-        const result = await bbClient.batchCreateSessions(1, options);
-        sess = result?.results?.[0] ?? null;
-        if (!sess) errorMessage = result?.errors?.[0]?.error || 'Session failed';
+        sess = await bbClient.createSession(options);
+        if (!sess) errorMessage = 'Session failed';
       } catch (err) {
         errorMessage = err?.message || 'Session request failed';
       }
@@ -168,10 +167,9 @@ export default function BulkTest() {
         suiteId: selectedSuite?.id || selectedScript.id,
         suiteName: selectedSuite ? selectedSuite.name : selectedScript.name,
         status: 'completed',
-        totalSessions: prev.length,
-        passedSessions: successCount,
-        failedSessions: failCount,
-        successRate,
+        totalCredentials: prev.length,
+        passedCount: successCount,
+        failedCount: failCount,
         results: prev,
       });
       return prev;

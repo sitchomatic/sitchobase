@@ -54,6 +54,7 @@ export default function Status() {
     checking: { color: 'yellow',  label: 'Checking…',    icon: Loader2 },
     idle:     { color: 'gray',    label: 'Not checked',  icon: Shield },
   }[state];
+  const StatusIcon = statusConfig.icon;
   const c = {
     emerald: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400',
     red:     'border-red-500/30 bg-red-500/5 text-red-400',
@@ -84,7 +85,7 @@ export default function Status() {
         {/* Overall */}
         <div className={`rounded-xl border p-5 ${c}`}>
           <div className="flex items-start gap-3">
-            <statusConfig.icon className={`w-6 h-6 flex-shrink-0 mt-0.5 ${state === 'checking' ? 'animate-spin' : ''}`} />
+            <StatusIcon className={`w-6 h-6 flex-shrink-0 mt-0.5 ${state === 'checking' ? 'animate-spin' : ''}`} />
             <div className="flex-1">
               <div className="text-lg font-bold">{statusConfig.label}</div>
               <div className="text-xs opacity-75 mt-0.5">

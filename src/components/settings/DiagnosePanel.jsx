@@ -42,7 +42,7 @@ export default function DiagnosePanel({ projectId, apiKey }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold text-white flex items-center gap-2">
-          <Stethoscope className="w-4 h-4 text-cyan-400" /> Diagnose & Auto-Fix
+          <Stethoscope className="w-4 h-4 text-cyan-400" /> Credential Diagnostics
         </div>
         <Button
           onClick={run}
