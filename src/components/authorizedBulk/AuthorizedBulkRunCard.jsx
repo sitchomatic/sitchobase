@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Clock, ExternalLink } from 'lucide-react';
+import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 const statusClass = {
   running: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300',
@@ -9,8 +10,9 @@ const statusClass = {
 };
 
 export default function AuthorizedBulkRunCard({ run }) {
-  const total = Math.max(1, run.totalRows || 0);
-  const finished = (run.passedCount || 0) + (run.reviewCount || 0) + (run.failedCount || 0);
+  const stats = getAuthorizedBulkStats(run.results || []);
+  const total = Math.max(1, run.totalRows || stats.total || 0);
+  const finished = stats.completed || (run.passedCount || 0) + (run.reviewCount || 0) + (run.failedCount || 0);
   const pct = Math.round((finished / total) * 100);
 
   return (
@@ -38,9 +40,9 @@ export default function AuthorizedBulkRunCard({ run }) {
           <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
         </div>
         <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="rounded-lg bg-emerald-500/10 text-emerald-300 px-2 py-1">Pass {run.passedCount || 0}</div>
-          <div className="rounded-lg bg-yellow-500/10 text-yellow-300 px-2 py-1">Review {run.reviewCount || 0}</div>
-          <div className="rounded-lg bg-red-500/10 text-red-300 px-2 py-1">Fail {run.failedCount || 0}</div>
+          <div className="rounded-lg bg-emerald-500/10 text-emerald-300 px-2 py-1">Pass {stats.passed || run.passedCount || 0}</div>
+          <div className="rounded-lg bg-yellow-500/10 text-yellow-300 px-2 py-1">Review {stats.review || run.reviewCount || 0}</div>
+          <div className="rounded-lg bg-red-500/10 text-red-300 px-2 py-1">Fail {stats.failed || run.failedCount || 0}</div>
         </div>
       </div>
     </Link>
