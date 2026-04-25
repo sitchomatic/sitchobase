@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { buildDashboardTestRunStats } from '@/lib/testRunDashboardStats';
 import TestRunSummaryCharts from '@/components/dashboard/TestRunSummaryCharts';
+import RoleAwareOnboarding from '@/components/onboarding/RoleAwareOnboarding';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
@@ -150,6 +151,7 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 p-6 space-y-5">
+        <RoleAwareOnboarding />
 
         {/* Header */}
         <div className="relative rounded-2xl overflow-hidden border border-emerald-500/20 bg-gradient-to-r from-gray-900 via-gray-900 to-gray-950">

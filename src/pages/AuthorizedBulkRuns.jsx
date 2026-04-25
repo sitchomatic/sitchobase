@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, History, RefreshCw, Play } from 'lucide-react';
+import EmptyState from '@/components/shared/EmptyState';
+import ApiErrorState from '@/components/shared/ApiErrorState';
+import { ArrowLeft, History, RefreshCw, Play, ClipboardList } from 'lucide-react';
 import AuthorizedBulkRunCard from '@/components/authorizedBulk/AuthorizedBulkRunCard';
 import AuthorizedBulkRunResults from '@/components/authorizedBulk/AuthorizedBulkRunResults';
 import AuthorizedBulkMetric from '@/components/authorizedBulk/AuthorizedBulkMetric';
@@ -11,7 +13,7 @@ import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 export default function AuthorizedBulkRuns() {
   const { id } = useParams();
-  const { data: runs = [], isFetching, refetch } = useQuery({
+  const { data: runs = [], isFetching, isError, error, refetch } = useQuery({
     queryKey: ['authorizedBulkRuns'],
     queryFn: () => base44.entities.AuthorizedBulkQARun.list('-startedAt', 100),
     initialData: [],
@@ -82,8 +84,15 @@ export default function AuthorizedBulkRuns() {
         </div>
       </div>
 
-      {runs.length === 0 ? (
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-10 text-center text-gray-500">No saved runs yet.</div>
+      {isError ? (
+        <ApiErrorState title="Could not load QA history" error={error?.message} onRetry={refetch} />
+      ) : runs.length === 0 ? (
+        <EmptyState
+          icon={ClipboardList}
+          title="No saved runs yet"
+          description="Start an authorized QA run and the saved results will appear here with trace links."
+          action={<Link to="/bulk"><Button size="sm">Start first run</Button></Link>}
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {runs.map((run) => <AuthorizedBulkRunCard key={run.id} run={run} />)}

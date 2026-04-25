@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { Link } from 'react-router-dom';
 
 const statusClass = {
   passed: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
@@ -19,6 +20,12 @@ function AuthorizedBulkRunResultItem({ row }) {
         </div>
         <div className="text-xs text-gray-500 mt-1">{row.outcome || 'No outcome saved'}</div>
         {row.finalUrl && <div className="text-xs font-mono text-gray-600 mt-1 truncate">{row.finalUrl}</div>}
+        {row.sessionId && (
+          <div className="flex flex-wrap gap-2 mt-2 text-[11px]">
+            <Link to={`/sessions/${row.sessionId}`} className="text-emerald-400 hover:text-emerald-300">Open session</Link>
+            <Link to="/audit" className="text-cyan-400 hover:text-cyan-300">Audit log</Link>
+          </div>
+        )}
       </div>
       {row.sessionId && <div className="hidden md:block text-[11px] font-mono text-gray-600 truncate max-w-[180px]">{row.sessionId}</div>}
     </div>

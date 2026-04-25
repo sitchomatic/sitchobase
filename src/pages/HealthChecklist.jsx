@@ -6,6 +6,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useBrowserbaseSessions, useBrowserbaseUsage } from '@/lib/browserbaseData';
 import HealthChecklistItem from '@/components/health/HealthChecklistItem';
 import HealthSummaryCard from '@/components/health/HealthSummaryCard';
+import SmokeChecks from '@/components/health/SmokeChecks';
 import { Button } from '@/components/ui/button';
 import { HeartPulse, RefreshCw } from 'lucide-react';
 
@@ -90,6 +91,8 @@ export default function HealthChecklist() {
         <HealthSummaryCard label="Needs attention" value={warnCount} tone="yellow" />
         <HealthSummaryCard label="Checking" value={checkingCount} tone="gray" />
       </div>
+
+      <SmokeChecks />
 
       <div className="space-y-3">
         {checks.map((check) => (
