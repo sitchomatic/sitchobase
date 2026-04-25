@@ -85,7 +85,10 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     const session = await bbClient.createSession({
       keepAlive: false,
       timeout: SESSION_TIMEOUT_SECONDS,
-      browserSettings: { viewport: { width: 1366, height: 768 } },
+      browserSettings: {
+        viewport: { width: 1366, height: 768 },
+        recordSession: evidenceSettings.enableVideoRecording,
+      },
       userMetadata: {
         launchedFrom: 'AuthorizedBulkQA',
         targetHost: new URL(config.targetUrl).host,

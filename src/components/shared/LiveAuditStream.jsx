@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Database, MousePointer, Navigation, Send } from 'lucide-react';
 
