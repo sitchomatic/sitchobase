@@ -23,7 +23,8 @@ export async function loadFeatureFlags() {
       (rows || []).forEach((r) => { cache[r.key] = r; });
       return cache;
     })
-    .catch(() => (cache = {}));
+    .catch(() => (cache = {}))
+    .finally(() => { loadPromise = null; });
   return loadPromise;
 }
 

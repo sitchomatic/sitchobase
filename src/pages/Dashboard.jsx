@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes, getCircuitState } from '@/lib/bbClient';
 import { createPollingBackoff } from '@/lib/pollingBackoff';
@@ -14,6 +14,9 @@ import {
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
+const MATRIX_COLUMNS = Array.from({ length: 12 }, (_, i) => i);
+const HEALTH_WAVE_BARS = Array.from({ length: 16 }, (_, i) => i);
+
 export default function Dashboard() {
   const { isConfigured } = useCredentials();
   const [sessions, setSessions] = useState([]);
@@ -25,16 +28,21 @@ export default function Dashboard() {
   const [tick, setTick] = useState(0);
   const [circuit, setCircuit] = useState(() => getCircuitState());
   const online = useOnlineStatus();
-  const backoffRef = useRef(createPollingBackoff({ baseMs: 15_000, maxMs: 5 * 60_000 }));
+  const backoffRef = useRef(createPollingBackoff({ baseMs: 15_000, maxMs: 5 * 60_000, jitter: 0.2 }));
+  const loadSeqRef = useRef(0);
 
   const load = useCallback(async () => {
     if (!isConfigured) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     const start = Date.now();
     const [sess, usg] = await Promise.allSettled([
       bbClient.listSessions(),
       bbClient.getProjectUsage(),
     ]);
+
+    if (seq !== loadSeqRef.current) return;
+
     if (sess.status === 'fulfilled') {
       setSessions(Array.isArray(sess.value) ? sess.value : []);
       setApiStatus('ok');
@@ -92,22 +100,41 @@ export default function Dashboard() {
     }
   }, [isConfigured]);
 
-  if (!isConfigured) return <CredentialsGuard />;
+  const metrics = useMemo(() => {
+    const next = {
+      running: 0,
+      pending: 0,
+      completed: 0,
+      errors: 0,
+      total: sessions.length,
+      recentSessions: [],
+    };
 
-  const running = sessions.filter(s => s.status === 'RUNNING').length;
-  const pending = sessions.filter(s => s.status === 'PENDING').length;
-  const completed = sessions.filter(s => s.status === 'COMPLETED').length;
-  const errors = sessions.filter(s => s.status === 'ERROR' || s.status === 'TIMED_OUT').length;
-  const total = sessions.length;
+    for (const session of sessions) {
+      if (session.status === 'RUNNING') next.running++;
+      else if (session.status === 'PENDING') next.pending++;
+      else if (session.status === 'COMPLETED') next.completed++;
+      else if (session.status === 'ERROR' || session.status === 'TIMED_OUT') next.errors++;
+
+      next.recentSessions.push(session);
+      next.recentSessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (next.recentSessions.length > 8) next.recentSessions.pop();
+    }
+
+    return next;
+  }, [sessions]);
+
+  const { running, pending, completed, errors, total, recentSessions } = metrics;
   const barTotal = total || 1;
   const healthPct = total === 0 ? 100 : Math.max(0, Math.round(((total - errors) / total) * 100));
-  const recentSessions = [...sessions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 8);
+
+  if (!isConfigured) return <CredentialsGuard />;
 
   return (
     <div className="min-h-full bg-gray-950 relative overflow-hidden">
       {/* Matrix rain bg */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-5">
-        {Array.from({ length: 12 }).map((_, i) => (
+        {MATRIX_COLUMNS.map((i) => (
           <div key={i} className="absolute top-0 text-emerald-400 text-xs font-mono leading-4 select-none"
             style={{ left: `${(i / 12) * 100}%`, opacity: 0.6 }}>
             {'10100110010110101001011010'.split('').join('\n')}
@@ -326,7 +353,7 @@ export default function Dashboard() {
               style={{ width: `${healthPct}%` }} />
           </div>
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {Array.from({ length: 16 }).map((_, i) => (
+            {HEALTH_WAVE_BARS.map((i) => (
               <div key={i} className="w-0.5 bg-emerald-500 rounded-full transition-all duration-300"
                 style={{ height: `${4 + Math.abs(Math.sin((tick + i) * 0.8)) * 12}px`, opacity: 0.6 + Math.abs(Math.sin((tick + i) * 0.5)) * 0.4 }} />
             ))}

@@ -14,7 +14,7 @@
  *     }
  *   };
  */
-export function createPollingBackoff({ baseMs = 15_000, maxMs = 5 * 60_000, factor = 2 } = {}) {
+export function createPollingBackoff({ baseMs = 15_000, maxMs = 5 * 60_000, factor = 2, jitter = 0 } = {}) {
   let failures = 0;
 
   return {
@@ -22,10 +22,10 @@ export function createPollingBackoff({ baseMs = 15_000, maxMs = 5 * 60_000, fact
     onFailure() { failures++; },
     getFailures() { return failures; },
     getIntervalMs() {
-      if (failures === 0) return baseMs;
-      // Exponential with cap: baseMs * factor^failures
-      const ms = baseMs * Math.pow(factor, failures);
-      return Math.min(ms, maxMs);
+      const rawMs = failures === 0 ? baseMs : Math.min(baseMs * Math.pow(factor, failures), maxMs);
+      if (!jitter) return rawMs;
+      const spread = rawMs * jitter;
+      return Math.max(0, Math.round(rawMs + (Math.random() * 2 - 1) * spread));
     },
     reset() { failures = 0; },
   };

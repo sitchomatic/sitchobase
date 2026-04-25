@@ -37,28 +37,38 @@ export const getLastRequestId = () => lastRequestId;
 // to branch on auth mode.
 export const isUsingApiKeyAuth = () => Boolean(import.meta.env.VITE_BASE44_API_KEY);
 
+let credentialCacheRaw = null;
+let credentialCache = {};
+
 function readStoredCredentials() {
   try {
     const stored = typeof localStorage !== 'undefined'
       ? localStorage.getItem('bb_credentials')
       : null;
-    if (!stored) return {};
+    if (!stored) {
+      credentialCacheRaw = null;
+      credentialCache = {};
+      return credentialCache;
+    }
+    if (stored === credentialCacheRaw) return credentialCache;
+
     const parsed = JSON.parse(stored);
-    // Coerce non-plain-object results (null, arrays, scalars) to {}
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
+      credentialCacheRaw = stored;
+      credentialCache = {};
+      return credentialCache;
     }
-    // Trim whitespace from relevant string fields
-    const result = { ...parsed };
-    if (typeof result.apiKey === 'string') {
-      result.apiKey = result.apiKey.trim();
-    }
-    if (typeof result.projectId === 'string') {
-      result.projectId = result.projectId.trim();
-    }
-    return result;
+
+    credentialCacheRaw = stored;
+    credentialCache = {
+      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey.trim() : '',
+      projectId: typeof parsed.projectId === 'string' ? parsed.projectId.trim() : '',
+    };
+    return credentialCache;
   } catch {
-    return {};
+    credentialCacheRaw = null;
+    credentialCache = {};
+    return credentialCache;
   }
 }
 
@@ -262,12 +272,11 @@ async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
       if (!isAbort && !isClientErr) circuit.recordFailure();
       if (isAbort) throw err;
 
-      const isRetryable = err.message?.includes('fetch') ||
-        err.message?.includes('network') ||
-        err.message?.includes('500') ||
-        err.message?.includes('502') ||
-        err.message?.includes('503') ||
-        err.message?.includes('504');
+      const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);
+      const retryableCodes = new Set(['BB_TIMEOUT', 'BB_NETWORK', 'BB_RATE_LIMITED', 'BB_SERVER']);
+      const isRetryable = retryableStatuses.has(err?.status) ||
+        retryableCodes.has(err?.code) ||
+        /fetch|network|\b(500|502|503|504)\b/i.test(err?.message || '');
       if (!shouldRetry || !isRetryable || attempt === maxRetries) throw err;
       // #17 jittered backoff (±25%) to avoid thundering-herd
       const j = delay * 0.25;
