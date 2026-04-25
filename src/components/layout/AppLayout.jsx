@@ -10,9 +10,11 @@ import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import UserMenu from '@/components/shared/UserMenu';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route, CheckCircle2, Bug
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug
 } from 'lucide-react';
 
+// Slimmed primary nav. Sub-views (proxy efficiency, NordLynx) are reachable
+// from their parent page; status was merged into /health.
 const navItems = [
   { label: 'Command Center', icon: LayoutGrid, path: '/' },
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
@@ -25,14 +27,11 @@ const navItems = [
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
   { label: 'Contexts', icon: Layers, path: '/contexts' },
   { label: 'Proxies', icon: Shield, path: '/proxies' },
-  { label: 'Proxy Efficiency', icon: BarChart3, path: '/proxies/efficiency' },
-  { label: 'NordLynx Proxy', icon: Route, path: '/proxies/nordlynx' },
   { label: 'Personas', icon: Users, path: '/personas' },
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
-  { label: 'Audit Log', icon: Shield, path: '/audit' },
-  { label: 'Status', icon: HeartPulse, path: '/status' },
-  { label: 'Health Checklist', icon: CheckCircle2, path: '/health' },
+  { label: 'Audit Log', icon: ScrollText, path: '/audit' },
+  { label: 'Health', icon: HeartPulse, path: '/health' },
   { label: 'Runbook', icon: BookOpen, path: '/help/runbook' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
@@ -43,7 +42,7 @@ const adminNavItems = [
   { label: 'Slow Calls', icon: Clock, path: '/admin/slow' },
   { label: 'Frontend Errors', icon: Bug, path: '/admin/errors' },
   { label: 'Feature Flags', icon: Flag, path: '/admin/flags' },
-  { label: 'Self-Test', icon: Shield, path: '/admin/self-test' },
+  { label: 'Self-Test', icon: HeartPulse, path: '/admin/self-test' },
 ];
 
 export default function AppLayout() {

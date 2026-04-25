@@ -17,7 +17,7 @@ const ITEMS = [
     steps: [
       'Open Settings and re-paste your API key and Project ID.',
       'Click Test Connection — it shows which side failed.',
-      'If it still fails, check /status for the last request ID and correlate with bbProxy logs.',
+      'If it still fails, check /health for the last request ID and correlate with bbProxy logs.',
     ],
     action: { label: 'Open Settings', to: '/settings' },
   },
@@ -54,11 +54,11 @@ const ITEMS = [
       'Stale credentials (auth required)',
     ],
     steps: [
-      'Check /status for API health and circuit breaker state.',
+      'Check /health for API health and circuit breaker state.',
       'Open DevTools Console — recent errors are also written to /admin/errors (admin-only).',
       'Try hard reload (⌘⇧R / Ctrl+Shift+R).',
     ],
-    action: { label: 'Check Status', to: '/status' },
+    action: { label: 'Check Health', to: '/health' },
   },
   {
     title: 'Rate-limited (429) from bbProxy',
@@ -87,9 +87,9 @@ export default function Runbook() {
               <p className="text-xs text-gray-500">Common issues and one-click diagnostics</p>
             </div>
           </div>
-          <Link to="/status">
+          <Link to="/health">
             <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 gap-2">
-              <Activity className="w-3.5 h-3.5" /> Status
+              <Activity className="w-3.5 h-3.5" /> Health
             </Button>
           </Link>
         </div>

@@ -19,7 +19,6 @@ import AppLayout from '@/components/layout/AppLayout';
 // Eagerly loaded (small + used on first paint)
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
-import Status from './pages/Status';
 import Settings from './pages/Settings';
 
 // #37 Lazy-load heavy pages — cuts initial bundle (~40% from recharts/quill).
@@ -103,7 +102,7 @@ const AuthenticatedApp = () => {
           <Route path="/monitor" element={<Monitor />} />
           <Route path="/audit" element={<AuditLog />} />
           <Route path="/audit/:id" element={<AuditLog />} />
-          <Route path="/status" element={<Status />} />
+          <Route path="/status" element={<Navigate to="/health" replace />} />
           <Route path="/health" element={<HealthChecklist />} />
           <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
           <Route path="/admin/slow" element={<AdminRoute><AdminSlowCalls /></AdminRoute>} />

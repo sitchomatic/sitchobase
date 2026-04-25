@@ -2,8 +2,7 @@
  * Global keyboard shortcuts (#32).
  *   g d  — Dashboard
  *   g s  — Sessions
- *   g j  — Joe Ignite
- *   g t  — Status
+ *   g h  — Health
  *   ?    — Show help
  *   /    — Focus search (if present)
  */
@@ -18,7 +17,6 @@ const ROUTES = {
   b: '/bulk',
   a: '/audit',
   h: '/health',
-  t: '/status',
   r: '/reports',
   p: '/proxies',
   f: '/fleet',
@@ -78,8 +76,7 @@ export default function KeyboardShortcuts() {
             ['g r', 'Go to Test Reports'],
             ['g m', 'Go to Monitor'],
             ['g a', 'Go to Audit Log'],
-            ['g h', 'Go to Health Checklist'],
-            ['g t', 'Go to Status'],
+            ['g h', 'Go to Health'],
             ['/', 'Focus search'],
             ['?', 'Show this help'],
           ].map(([k, label]) => (

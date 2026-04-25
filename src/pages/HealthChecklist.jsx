@@ -7,6 +7,7 @@ import { useBrowserbaseSessions, useBrowserbaseUsage } from '@/lib/browserbaseDa
 import HealthChecklistItem from '@/components/health/HealthChecklistItem';
 import HealthSummaryCard from '@/components/health/HealthSummaryCard';
 import SmokeChecks from '@/components/health/SmokeChecks';
+import LiveApiPing from '@/components/health/LiveApiPing';
 import { Button } from '@/components/ui/button';
 import { HeartPulse, RefreshCw } from 'lucide-react';
 
@@ -78,8 +79,8 @@ export default function HealthChecklist() {
           <HeartPulse className="w-5 h-5 text-emerald-400" />
         </div>
         <div className="flex-1">
-          <h1 className="text-lg font-bold text-white">Project Health Checklist</h1>
-          <p className="text-xs text-gray-400 mt-0.5">A quick operational checklist for common unfinished setup and reliability items.</p>
+          <h1 className="text-lg font-bold text-white">System Health</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Live API ping, smoke checks, and operational readiness in one place.</p>
         </div>
         <Button onClick={refreshAll} variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-2">
           <RefreshCw className="w-4 h-4" /> Refresh
@@ -91,6 +92,8 @@ export default function HealthChecklist() {
         <HealthSummaryCard label="Needs attention" value={warnCount} tone="yellow" />
         <HealthSummaryCard label="Checking" value={checkingCount} tone="gray" />
       </div>
+
+      <LiveApiPing />
 
       <SmokeChecks />
 
