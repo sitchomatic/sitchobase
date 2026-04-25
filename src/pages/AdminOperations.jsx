@@ -121,7 +121,7 @@ export default function AdminOperations() {
         <OpCard
           icon={Trash2}
           title="Cleanup Old Records"
-          description="Deletes JoeIgniteRun, SlowCall, and FrontendError records older than 90 days. Up to 500 per entity per run."
+          description="Deletes JoeIgniteRun, SlowCall, and FrontendError records older than 90 days, plus expired IdempotencyKey records. Up to 500 per entity per run."
           scheduleNote="Auto-runs daily at 17:00 (Sydney)"
           color="red"
           runFn={() => base44.functions.invoke('cleanupOldJoeIgniteRuns', {})}

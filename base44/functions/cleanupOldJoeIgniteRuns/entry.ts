@@ -8,7 +8,15 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CUTOFF_DAYS = 90;
 const MAX_DELETE_PER_RUN = 500;
-const CLEANUP_TARGETS = ['JoeIgniteRun', 'SlowCall', 'FrontendError'];
+// Each target: { name, filter(cutoff) } — JoeIgniteRun/SlowCall/FrontendError
+// purge by created_date; IdempotencyKey purges by its own expires_at field
+// (TTL = 1h) so we keep the entity bounded without waiting 90 days.
+const CLEANUP_TARGETS = [
+  { name: 'JoeIgniteRun', filter: (cutoff) => ({ created_date: { $lt: cutoff } }) },
+  { name: 'SlowCall', filter: (cutoff) => ({ created_date: { $lt: cutoff } }) },
+  { name: 'FrontendError', filter: (cutoff) => ({ created_date: { $lt: cutoff } }) },
+  { name: 'IdempotencyKey', filter: () => ({ expires_at: { $lt: new Date().toISOString() } }) },
+];
 
 Deno.serve(async (req) => {
   try {
@@ -24,9 +32,9 @@ Deno.serve(async (req) => {
     let failed = 0;
     const byEntity = {};
 
-    for (const entityName of CLEANUP_TARGETS) {
-      const entity = base44.asServiceRole.entities[entityName];
-      const rows = await entity.filter({ created_date: { $lt: cutoff } }, '-created_date', MAX_DELETE_PER_RUN);
+    for (const target of CLEANUP_TARGETS) {
+      const entity = base44.asServiceRole.entities[target.name];
+      const rows = await entity.filter(target.filter(cutoff), '-created_date', MAX_DELETE_PER_RUN);
       let entityDeleted = 0;
       let entityFailed = 0;
 
@@ -41,7 +49,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      byEntity[entityName] = { deleted: entityDeleted, failed: entityFailed };
+      byEntity[target.name] = { deleted: entityDeleted, failed: entityFailed };
     }
 
     return Response.json({ ok: true, deleted, failed, cutoff, byEntity });
