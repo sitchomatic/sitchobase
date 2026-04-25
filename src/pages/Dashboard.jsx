@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, formatBytes, getCircuitState } from '@/lib/bbClient';
-import { createPollingBackoff } from '@/lib/pollingBackoff';
+import { formatBytes, getCircuitState } from '@/lib/bbClient';
+import { useBrowserbaseSessions, useBrowserbaseUsage } from '@/lib/browserbaseData';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
@@ -19,61 +19,45 @@ const HEALTH_WAVE_BARS = Array.from({ length: 16 }, (_, i) => i);
 
 export default function Dashboard() {
   const { isConfigured } = useCredentials();
-  const [sessions, setSessions] = useState([]);
-  const [usage, setUsage] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
   const [apiStatus, setApiStatus] = useState(null); // null | 'testing' | 'ok' | 'error'
   const [apiLatency, setApiLatency] = useState(null);
   const [tick, setTick] = useState(0);
   const [circuit, setCircuit] = useState(() => getCircuitState());
   const online = useOnlineStatus();
-  const backoffRef = useRef(createPollingBackoff({ baseMs: 15_000, maxMs: 5 * 60_000, jitter: 0.2 }));
-  const loadSeqRef = useRef(0);
+  const sessionsQuery = useBrowserbaseSessions({ enabled: isConfigured && online, refetchInterval: 15_000 });
+  const usageQuery = useBrowserbaseUsage({ enabled: isConfigured && online, refetchInterval: 30_000 });
+  const sessions = Array.isArray(sessionsQuery.data) ? sessionsQuery.data : [];
+  const usage = usageQuery.data || null;
+  const loading = sessionsQuery.isFetching || usageQuery.isFetching;
+  const refetchSessions = sessionsQuery.refetch;
+  const refetchUsage = usageQuery.refetch;
 
   const load = useCallback(async () => {
-    if (!isConfigured) return;
-    const seq = ++loadSeqRef.current;
-    setLoading(true);
+    if (!isConfigured || !online) return;
     const start = Date.now();
-    const [sess, usg] = await Promise.allSettled([
-      bbClient.listSessions(),
-      bbClient.getProjectUsage(),
+    const [sess] = await Promise.allSettled([
+      refetchSessions(),
+      refetchUsage(),
     ]);
-
-    if (seq !== loadSeqRef.current) return;
-
-    if (sess.status === 'fulfilled') {
-      setSessions(Array.isArray(sess.value) ? sess.value : []);
+    if (sess.status === 'fulfilled' && !sess.value.error) {
       setApiStatus('ok');
       setApiLatency(Date.now() - start);
-      backoffRef.current.onSuccess();
     } else {
       setApiStatus('error');
-      backoffRef.current.onFailure();
     }
-    if (usg.status === 'fulfilled') setUsage(usg.value);
     setLastRefresh(new Date());
-    setLoading(false);
-  }, [isConfigured]);
+  }, [isConfigured, online, refetchSessions, refetchUsage]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // #26 Adaptive polling with exponential backoff, paused when offline.
   useEffect(() => {
-    if (!isConfigured || !online) return;
-    let cancelled = false;
-    let timer;
-    const schedule = () => {
-      if (cancelled) return;
-      timer = setTimeout(async () => {
-        await load();
-        schedule();
-      }, backoffRef.current.getIntervalMs());
-    };
-    schedule();
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [load, isConfigured, online]);
+    if (sessionsQuery.isSuccess) {
+      setApiStatus('ok');
+      setLastRefresh(new Date());
+    } else if (sessionsQuery.isError) {
+      setApiStatus('error');
+      setLastRefresh(new Date());
+    }
+  }, [sessionsQuery.isSuccess, sessionsQuery.isError, sessionsQuery.dataUpdatedAt, sessionsQuery.errorUpdatedAt]);
 
   // Waveform tick
   useEffect(() => {
@@ -92,13 +76,14 @@ export default function Dashboard() {
     setApiLatency(null);
     const start = Date.now();
     try {
-      await bbClient.listSessions();
+      const result = await refetchSessions();
+      if (result.error) throw result.error;
       setApiLatency(Date.now() - start);
       setApiStatus('ok');
     } catch {
       setApiStatus('error');
     }
-  }, [isConfigured]);
+  }, [isConfigured, refetchSessions]);
 
   const metrics = useMemo(() => {
     const next = {

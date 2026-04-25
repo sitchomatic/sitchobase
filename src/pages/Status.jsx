@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { bbClient, getCircuitState, getLastRequestId } from '@/lib/bbClient';
+import { getCircuitState, getLastRequestId } from '@/lib/bbClient';
+import { useBrowserbaseSessions } from '@/lib/browserbaseData';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { CheckCircle, AlertCircle, Loader2, RefreshCw, Home, Shield, Activity } from 'lucide-react';
@@ -16,6 +17,8 @@ export default function Status() {
   const [state, setState] = useState('idle'); // idle | checking | ok | fail
   const [latency, setLatency] = useState(null);
   const [sessionsCount, setSessionsCount] = useState(null);
+  const sessionsQuery = useBrowserbaseSessions({ enabled: false });
+  const refetchSessions = sessionsQuery.refetch;
   const [error, setError] = useState(null);
   const [requestId, setRequestId] = useState(null);
   const [checkedAt, setCheckedAt] = useState(null);
@@ -28,9 +31,11 @@ export default function Status() {
     setRequestId(null);
     const start = Date.now();
     try {
-      const sessions = await bbClient.listSessions();
+      const result = await refetchSessions();
+      if (result.error) throw result.error;
+      const sessions = Array.isArray(result.data) ? result.data : [];
       setLatency(Date.now() - start);
-      setSessionsCount(Array.isArray(sessions) ? sessions.length : 0);
+      setSessionsCount(sessions.length);
       setState('ok');
     } catch (e) {
       setError(e.message || String(e));
@@ -40,7 +45,7 @@ export default function Status() {
       setCheckedAt(new Date());
       setCircuit(getCircuitState());
     }
-  }, [isConfigured]);
+  }, [isConfigured, refetchSessions]);
 
   useEffect(() => { check(); }, [check]);
   useEffect(() => {

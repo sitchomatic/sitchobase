@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient, formatBytes, formatDuration, estimateCost, formatCost } from '@/lib/bbClient';
+import { browserbaseQueryKeys, fetchBrowserbaseSessions } from '@/lib/browserbaseData';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import SessionDetailPanel from '@/components/sessions/SessionDetailPanel';
@@ -36,18 +37,20 @@ export default function Sessions() {
   useEffect(() => { localStorage.setItem('bb_sessions_view', viewMode); }, [viewMode]);
 
   const { data: sessions = [], isFetching: loading, refetch } = useQuery({
-    queryKey: ['sessions', filter, isConfigured],
-    queryFn: () => bbClient.listSessions(filter === 'ALL' ? null : filter),
+    queryKey: browserbaseQueryKeys.sessions(filter),
+    queryFn: () => fetchBrowserbaseSessions(filter),
     enabled: isConfigured,
     initialData: [],
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
   });
   const { archived, archive, unarchive } = useSessionArchive(sessions);
 
   const cancelMutation = useMutation({
     mutationFn: (ids) => Promise.all(ids.map(id => bbClient.updateSession(id, { status: 'REQUEST_RELEASE' }))),
     onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey: ['sessions'] });
-      const snapshots = queryClient.getQueriesData({ queryKey: ['sessions'] });
+      await queryClient.cancelQueries({ queryKey: browserbaseQueryKeys.sessionsRoot });
+      const snapshots = queryClient.getQueriesData({ queryKey: browserbaseQueryKeys.sessionsRoot });
       snapshots.forEach(([key, data]) => {
         queryClient.setQueryData(key, Array.isArray(data) ? data.map(session =>
           ids.includes(session.id) && (session.status === 'RUNNING' || session.status === 'PENDING')
@@ -61,7 +64,7 @@ export default function Sessions() {
       context?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: browserbaseQueryKeys.sessionsRoot });
     }
   });
 
@@ -69,12 +72,6 @@ export default function Sessions() {
     if (!isConfigured) return;
     await refetch();
   }, [isConfigured, refetch]);
-
-  useEffect(() => {
-    if (!isConfigured) return;
-    const t = setInterval(load, 10000);
-    return () => clearInterval(t);
-  }, [load, isConfigured]);
 
   // #38 Memoize the filter so a 500-session list doesn't re-filter on every keystroke
   const filtered = useMemo(() => sessions.filter(s =>

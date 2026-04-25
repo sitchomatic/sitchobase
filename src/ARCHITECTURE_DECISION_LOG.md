@@ -37,6 +37,11 @@
 - Implemented intelligence fix: Added configurable polling jitter and enabled it on the dashboard.
 - Expected gain: Lower synchronized load spikes against backend and Browserbase APIs.
 
+### 8. Shared Browserbase query cache
+- Current issue: Dashboard, Sessions, and Status fetched overlapping Browserbase session/usage data independently.
+- Implemented intelligence fix: Added `lib/browserbaseData.js` with shared query keys/fetchers/hooks and wired the main UX pages into it.
+- Expected gain: Fewer duplicate API calls, smoother navigation, and more consistent refresh/loading states.
+
 ## High-Level Architectural Shifts Requiring Approval
 
 ### A. Server-side Browserbase secret rotation workflow
