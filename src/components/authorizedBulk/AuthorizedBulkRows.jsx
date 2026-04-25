@@ -1,10 +1,18 @@
 import AuthorizedBulkRowItem from '@/components/authorizedBulk/AuthorizedBulkRowItem';
+import WindowedList from '@/components/shared/WindowedList';
 
 export default function AuthorizedBulkRows({ rows }) {
   if (!rows.length) return null;
   return (
-    <div className="space-y-2">
-      {rows.map((row) => <AuthorizedBulkRowItem key={row.index} row={row} />)}
-    </div>
+    <WindowedList
+      items={rows}
+      rowHeight={82}
+      className="max-h-[70vh] overflow-auto pr-1"
+      renderRow={(row) => (
+        <div key={row.index} className="pb-2">
+          <AuthorizedBulkRowItem row={row} />
+        </div>
+      )}
+    />
   );
 }

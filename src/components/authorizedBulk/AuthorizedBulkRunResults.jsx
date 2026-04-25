@@ -1,4 +1,5 @@
 import AuthorizedBulkRunResultItem from '@/components/authorizedBulk/AuthorizedBulkRunResultItem';
+import WindowedList from '@/components/shared/WindowedList';
 
 export default function AuthorizedBulkRunResults({ results = [] }) {
   if (!results.length) {
@@ -8,9 +9,12 @@ export default function AuthorizedBulkRunResults({ results = [] }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-800 text-sm font-semibold text-white">Saved Results</div>
-      <div className="divide-y divide-gray-800/70">
-        {results.map((row) => <AuthorizedBulkRunResultItem key={`${row.index}-${row.username}`} row={row} />)}
-      </div>
+      <WindowedList
+        items={results}
+        rowHeight={78}
+        className="max-h-[70vh] overflow-auto divide-y divide-gray-800/70"
+        renderRow={(row) => <AuthorizedBulkRunResultItem key={`${row.index}-${row.username}`} row={row} />}
+      />
     </div>
   );
 }

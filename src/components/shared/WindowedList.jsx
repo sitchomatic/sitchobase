@@ -5,27 +5,36 @@
  * Props:
  *   items, rowHeight, renderRow(item, index), overscan = 6, className
  */
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 
 export default function WindowedList({ items, rowHeight = 56, renderRow, overscan = 6, className = '' }) {
   const containerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(600);
 
+  const syncViewport = useCallback(() => {
+    const el = containerRef.current;
+    if (el) setViewport(el.clientHeight || 600);
+  }, []);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const onScroll = () => setScrollTop(el.scrollTop);
-    const onResize = () => setViewport(el.clientHeight);
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setScrollTop(el.scrollTop));
+    };
     el.addEventListener('scroll', onScroll, { passive: true });
-    onResize();
-    const ro = new ResizeObserver(onResize);
+    syncViewport();
+    const ro = new ResizeObserver(syncViewport);
     ro.observe(el);
     return () => {
+      cancelAnimationFrame(frame);
       el.removeEventListener('scroll', onScroll);
       ro.disconnect();
     };
-  }, []);
+  }, [syncViewport]);
 
   const { startIdx, endIdx, padTop, padBottom } = useMemo(() => {
     const total = items.length;
