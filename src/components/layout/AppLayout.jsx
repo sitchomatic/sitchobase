@@ -8,7 +8,7 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +24,7 @@ const navItems = [
   { label: 'Contexts', icon: Layers, path: '/contexts' },
   { label: 'Proxies', icon: Shield, path: '/proxies' },
   { label: 'Proxy Efficiency', icon: BarChart3, path: '/proxies/efficiency' },
+  { label: 'NordLynx Proxy', icon: Route, path: '/proxies/nordlynx' },
   { label: 'Personas', icon: Users, path: '/personas' },
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
