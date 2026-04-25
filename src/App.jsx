@@ -42,6 +42,7 @@ const AdminSlowCalls = lazy(() => import('./pages/AdminSlowCalls'));
 const AdminFlags = lazy(() => import('./pages/AdminFlags'));
 const AdminSelfTest = lazy(() => import('./pages/AdminSelfTest'));
 const AdminFrontendErrors = lazy(() => import('./pages/AdminFrontendErrors'));
+const AdminOperations = lazy(() => import('./pages/AdminOperations'));
 const Runbook = lazy(() => import('./pages/Runbook'));
 const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
 
@@ -109,6 +110,7 @@ const AuthenticatedApp = () => {
           <Route path="/admin/flags" element={<AdminRoute><AdminFlags /></AdminRoute>} />
           <Route path="/admin/self-test" element={<AdminRoute><AdminSelfTest /></AdminRoute>} />
           <Route path="/admin/errors" element={<AdminRoute><AdminFrontendErrors /></AdminRoute>} />
+          <Route path="/admin/operations" element={<AdminRoute><AdminOperations /></AdminRoute>} />
           <Route path="/help/runbook" element={<Runbook />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />

@@ -10,7 +10,7 @@ import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import UserMenu from '@/components/shared/UserMenu';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug, Wrench
 } from 'lucide-react';
 
 // Slimmed primary nav. Sub-views (proxy efficiency, NordLynx) are reachable
@@ -41,6 +41,7 @@ const adminNavItems = [
   { label: 'Metrics', icon: BarChart3, path: '/admin/metrics' },
   { label: 'Slow Calls', icon: Clock, path: '/admin/slow' },
   { label: 'Frontend Errors', icon: Bug, path: '/admin/errors' },
+  { label: 'Operations', icon: Wrench, path: '/admin/operations' },
   { label: 'Feature Flags', icon: Flag, path: '/admin/flags' },
   { label: 'Self-Test', icon: HeartPulse, path: '/admin/self-test' },
 ];
