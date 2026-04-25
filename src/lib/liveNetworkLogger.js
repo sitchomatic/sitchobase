@@ -63,6 +63,7 @@ export function installLiveNetworkLogger() {
   if (typeof window === 'undefined' || window.__liveNetworkLoggerInstalled) return;
   window.__liveNetworkLoggerInstalled = true;
   const originalFetch = window.fetch.bind(window);
+  const OriginalXHR = window.XMLHttpRequest;
 
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input?.url || 'unknown';
@@ -103,4 +104,61 @@ export function installLiveNetworkLogger() {
       throw error;
     }
   };
+
+  window.XMLHttpRequest = function LoggedXMLHttpRequest() {
+    const xhr = new OriginalXHR();
+    let method = 'GET';
+    let url = 'unknown';
+    let started = 0;
+    const originalOpen = xhr.open;
+    const originalSend = xhr.send;
+
+    xhr.open = function open(nextMethod, nextUrl, ...args) {
+      method = String(nextMethod || 'GET').toUpperCase();
+      url = String(nextUrl || 'unknown');
+      return originalOpen.call(xhr, nextMethod, nextUrl, ...args);
+    };
+
+    xhr.send = function send(body) {
+      started = performance.now();
+      emit({
+        type: 'request',
+        direction: 'OUT',
+        source: 'xhr',
+        action: `${method} ${url}`,
+        payload: redact({ method, url, body: parseBody(body) }),
+      });
+      xhr.addEventListener('loadend', () => {
+        let payload = '';
+        try { payload = redact(xhr.responseText?.slice?.(0, MAX_TEXT) || ''); } catch { payload = '[Response body unavailable]'; }
+        emit({
+          type: xhr.status >= 400 ? 'error' : 'response',
+          direction: xhr.status >= 400 ? 'ERR' : 'IN',
+          source: 'xhr',
+          action: `${xhr.status || 0} ${method} ${url}`,
+          status: xhr.status,
+          durationMs: Math.round(performance.now() - started),
+          payload,
+        });
+      });
+      return originalSend.call(xhr, body);
+    };
+
+    return xhr;
+  };
+
+  ['log', 'warn', 'error'].forEach((level) => {
+    const original = console[level]?.bind(console);
+    if (!original) return;
+    console[level] = (...args) => {
+      emit({
+        type: level === 'error' ? 'error' : 'console',
+        direction: level === 'error' ? 'ERR' : 'LOG',
+        source: 'console',
+        action: level.toUpperCase(),
+        payload: redact(args.map((arg) => typeof arg === 'string' ? arg : arg)),
+      });
+      original(...args);
+    };
+  });
 }
