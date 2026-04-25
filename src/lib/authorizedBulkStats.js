@@ -21,9 +21,18 @@ export function getAuthorizedBulkStats(rows = []) {
 }
 
 export function updateRowByIndex(rows, patch) {
-  const next = rows.slice();
-  const position = next.findIndex((row) => row.index === patch.index);
+  const direct = rows[patch.index];
+  const position = direct?.index === patch.index ? patch.index : rows.findIndex((row) => row.index === patch.index);
   if (position === -1) return rows;
-  next[position] = { ...next[position], ...patch };
-  return next;
+
+  const current = rows[position];
+  for (const [key, value] of Object.entries(patch)) {
+    if (current[key] !== value) {
+      const next = rows.slice();
+      next[position] = { ...current, ...patch };
+      return next;
+    }
+  }
+
+  return rows;
 }

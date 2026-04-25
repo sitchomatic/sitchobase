@@ -39,6 +39,7 @@ export default function AuthorizedBulkQA() {
   const abortRef = useRef(false);
   const activeRunIdRef = useRef(null);
   const persistTimerRef = useRef(null);
+  const persistPromiseRef = useRef(Promise.resolve());
   const [fileName, setFileName] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
   const [usernameSelector, setUsernameSelector] = useState('input[name="email"]');
@@ -97,7 +98,9 @@ export default function AuthorizedBulkQA() {
       if (persistTimerRef.current) return;
       persistTimerRef.current = setTimeout(() => {
         persistTimerRef.current = null;
-        updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, 'running');
+        const runId = activeRunIdRef.current;
+        const snapshot = latestRows;
+        persistPromiseRef.current = persistPromiseRef.current.then(() => updateAuthorizedBulkRun(runId, snapshot, 'running'));
       }, 1500);
     };
 
@@ -120,6 +123,7 @@ export default function AuthorizedBulkQA() {
         clearTimeout(persistTimerRef.current);
         persistTimerRef.current = null;
       }
+      await persistPromiseRef.current;
       const finalStatus = abortRef.current ? 'stopped' : 'completed';
       await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, finalStatus);
       toast.success(finalStatus === 'stopped' ? 'Authorized bulk QA run stopped and saved' : 'Authorized bulk QA run complete and saved');
@@ -128,6 +132,7 @@ export default function AuthorizedBulkQA() {
         clearTimeout(persistTimerRef.current);
         persistTimerRef.current = null;
       }
+      await persistPromiseRef.current;
       await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, 'failed');
       toast.error(error.message || 'Run failed and was saved');
     } finally {

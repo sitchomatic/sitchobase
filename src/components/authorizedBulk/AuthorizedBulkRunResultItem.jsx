@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 const statusClass = {
   passed: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
   review: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30',
@@ -6,7 +8,7 @@ const statusClass = {
   queued: 'bg-gray-800 text-gray-400 border-gray-700',
 };
 
-export default function AuthorizedBulkRunResultItem({ row }) {
+function AuthorizedBulkRunResultItem({ row }) {
   return (
     <div className="px-4 py-3 flex items-start gap-3">
       <div className="w-8 text-xs font-mono text-gray-600 pt-1">#{row.index + 1}</div>
@@ -22,3 +24,5 @@ export default function AuthorizedBulkRunResultItem({ row }) {
     </div>
   );
 }
+
+export default memo(AuthorizedBulkRunResultItem);
