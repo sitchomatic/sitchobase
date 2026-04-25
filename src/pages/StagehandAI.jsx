@@ -73,6 +73,7 @@ export default function StagehandAI() {
       const sessionResults = await Promise.allSettled(
         Array.from({ length: sessionCount }, () => bbClient.createSession({
           region,
+          timeout: 60,
           userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
         }))
       );

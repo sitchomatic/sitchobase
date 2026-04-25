@@ -105,6 +105,12 @@ export const API_KEY_BBPROXY_MESSAGE =
   'interactive Google login — not the local VITE_BASE44_API_KEY. Unset ' +
   'VITE_BASE44_API_KEY and sign in via Base44 to use it.';
 
+function normalizeSessionTimeout(options = {}) {
+  const raw = options.timeout ?? 60;
+  const timeout = Math.max(1, Math.min(60000, Math.round(Number(raw) || 60)));
+  return { ...options, timeout };
+}
+
 async function callOnce(action, extras = {}, { signal } = {}) {
   const creds = readStoredCredentials();
   if (canUseDirectBrowserbase(creds)) {
@@ -173,7 +179,7 @@ async function callDirect(action, extras, creds, _opts = {}) {
       return bb.getSession(apiKey, extras.sessionId);
     case 'createSession': {
       // Ensure stored projectId is authoritative by deleting any caller-supplied override
-      const options = { ...(extras.options ?? {}) };
+      const options = normalizeSessionTimeout(extras.options ?? {});
       delete options.projectId;
       return bb.createSession(apiKey, {
         ...options,
@@ -218,7 +224,7 @@ async function callDirect(action, extras, creds, _opts = {}) {
       return bb.deleteContext(apiKey, extras.contextId);
     case 'batchCreateSessions': {
       // Ensure stored projectId is authoritative by deleting any caller-supplied override
-      const options = { ...(extras.options ?? {}) };
+      const options = normalizeSessionTimeout(extras.options ?? {});
       delete options.projectId;
       return bb.batchCreateSessions(apiKey, extras.count, {
         ...options,
@@ -292,7 +298,7 @@ export const bbClient = {
   // Sessions
   listSessions: (status = null, opts) => call('listSessions', status ? { status } : {}, opts),
   getSession: (sessionId, opts) => call('getSession', { sessionId }, opts),
-  createSession: (options = {}, opts) => call('createSession', { options }, opts),
+  createSession: (options = {}, opts) => call('createSession', { options: normalizeSessionTimeout(options) }, opts),
   updateSession: (sessionId, data, opts) => call('updateSession', { sessionId, data: data ?? {} }, opts),
   getSessionLogs: (sessionId, opts) => call('getSessionLogs', { sessionId }, opts),
   getSessionRecording: (sessionId, opts) => call('getSessionRecording', { sessionId }, opts),
@@ -308,7 +314,7 @@ export const bbClient = {
   deleteContext: (contextId, opts) => call('deleteContext', { contextId }, opts),
 
   // Batch
-  batchCreateSessions: (count, options = {}, opts) => call('batchCreateSessions', { count, options }, opts),
+  batchCreateSessions: (count, options = {}, opts) => call('batchCreateSessions', { count, options: normalizeSessionTimeout(options) }, opts),
 
   // Diagnostics — tries every key source × header variant and reports
   // which combo works. Used by Settings → "Diagnose & Auto-Fix".

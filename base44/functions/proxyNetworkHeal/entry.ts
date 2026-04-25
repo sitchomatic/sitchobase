@@ -48,6 +48,7 @@ async function testProxyWithBrowserbase({ proxy, projectId, apiKey }) {
 
   const session = await bbFetch('/sessions', 'POST', apiKey, {
     projectId,
+    timeout: 60,
     region: proxy.country === 'AU' ? 'ap-southeast-1' : undefined,
     proxies: [externalProxy],
     browserSettings: { viewport: { width: 390, height: 844 } },

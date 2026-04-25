@@ -31,7 +31,7 @@ export default function FleetLauncher() {
   const [useProxy, setUseProxy] = useState(true);
   const [recording, setRecording] = useState(false);
   const [viewportPreset, setViewportPreset] = useState('desktop_1920');
-  const [sessionTimeout, setSessionTimeout] = useState(300);
+  const [sessionTimeout, setSessionTimeout] = useState(60);
   const [tag, setTag] = useState('');
   const [contextId, setContextId] = useState('');
   const [metadata, setMetadata] = useState({ testRun: '', variant: '', priority: 'normal', task: '' });

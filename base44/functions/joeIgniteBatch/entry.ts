@@ -212,6 +212,7 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44, pro
   try {
     const sessionBody = {
       projectId,
+      timeout: 60,
       region: auMobile ? 'ap-southeast-1' : undefined,
       browserSettings: auMobile
         ? { viewport: { width: 390, height: 844 }, fingerprint: { devices: ['mobile'], locales: ['en-AU', 'en-GB', 'en'] } }

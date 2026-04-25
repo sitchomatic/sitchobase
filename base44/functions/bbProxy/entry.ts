@@ -183,6 +183,12 @@ async function bbFetch(path, method = 'GET', apiKey, body = null, { maxRetries =
 }
 
 // ── Param validation ────────────────────────────────────────────
+function normalizeSessionTimeout(options = {}) {
+  const raw = options.timeout ?? 60;
+  const timeout = Math.max(1, Math.min(60000, Math.round(Number(raw) || 60)));
+  return { ...options, timeout };
+}
+
 function requireFields(params, fields) {
   const missing = fields.filter(f => params[f] === undefined || params[f] === null || params[f] === '');
   if (missing.length) {
@@ -285,7 +291,7 @@ const sessionHandlers = {
   },
   createSession: async ({ params, projectId, apiKey }) => {
     requireFields({ projectId }, ['projectId']);
-    return bbFetch('/sessions', 'POST', apiKey, { projectId, ...(params.options || {}) });
+    return bbFetch('/sessions', 'POST', apiKey, { projectId, ...normalizeSessionTimeout(params.options || {}) });
   },
   updateSession: async ({ params, projectId, apiKey }) => {
     requireFields(params, ['sessionId']);
@@ -379,7 +385,7 @@ const batchHandlers = {
       let done = false, attempts = 0, lastErr = null;
       while (!done && attempts < MAX_ATTEMPTS) {
         try {
-          const s = await bbFetch('/sessions', 'POST', apiKey, { projectId, ...options }, { maxRetries: 1 });
+          const s = await bbFetch('/sessions', 'POST', apiKey, { projectId, ...normalizeSessionTimeout(options) }, { maxRetries: 1 });
           results.push(s);
           done = true;
           delay = 400;

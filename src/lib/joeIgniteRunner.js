@@ -50,6 +50,7 @@ export async function runJoeIgniteBatch({
 
     try {
       let sessionOpts = {
+        timeout: 60,
         browserSettings: { viewport: { width: 1366, height: 768 } },
         userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: assignedProxy?.id, auMobile },
       };
