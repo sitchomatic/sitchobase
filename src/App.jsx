@@ -24,6 +24,7 @@ import Settings from './pages/Settings';
 
 // #37 Lazy-load heavy pages — cuts initial bundle (~40% from recharts/quill).
 const FleetLauncher = lazy(() => import('./pages/FleetLauncher'));
+const FleetInsights = lazy(() => import('./pages/FleetInsights.jsx'));
 const MirrorMode = lazy(() => import('./pages/MirrorMode'));
 const Contexts = lazy(() => import('./pages/Contexts'));
 const Personas = lazy(() => import('./pages/Personas'));
@@ -81,6 +82,7 @@ const AuthenticatedApp = () => {
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/sessions/:id" element={<Sessions />} />
           <Route path="/fleet" element={<FleetLauncher />} />
+          <Route path="/fleet/insights" element={<FleetInsights />} />
           <Route path="/mirror" element={<MirrorMode />} />
           <Route path="/contexts" element={<Contexts />} />
           <Route path="/personas" element={<Personas />} />
