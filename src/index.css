@@ -91,6 +91,16 @@
     user-select: none;
   }
 
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  th,
+  td {
+    vertical-align: middle;
+  }
+
   @media (max-width: 767px) {
     button,
     a,
