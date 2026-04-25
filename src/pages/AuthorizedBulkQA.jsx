@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ShieldCheck, Upload, Play, StopCircle, Download, AlertTriangle } from 'lucide-react';
 import { parseCSV } from '@/lib/csvParser';
 import { useCredentials } from '@/lib/useCredentials';
@@ -140,10 +141,13 @@ export default function AuthorizedBulkQA() {
         <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
           <ShieldCheck className="w-5 h-5 text-emerald-400" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-bold text-white">Authorized Bulk QA Tester</h1>
           <p className="text-xs text-gray-400 mt-0.5">Reliability-first login flow testing for systems you own or are permitted to test.</p>
         </div>
+        <Link to="/bulk/runs">
+          <Button variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800">History</Button>
+        </Link>
       </div>
 
       <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4 flex gap-3 text-yellow-100">

@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Command Center', icon: LayoutGrid, path: '/' },
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
   { label: 'Authorized QA', icon: FlaskConical, path: '/bulk' },
+  { label: 'QA History', icon: Clock, path: '/bulk/runs' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
   { label: 'Test Reports', icon: BarChart3, path: '/reports' },
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },

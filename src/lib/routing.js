@@ -10,7 +10,7 @@
 // Uses strict prefix checks (explicit `/` separator or exact match) so
 // unrelated siblings like `/sessions-archive` do not collapse onto
 // `/sessions`.
-const DETAIL_PARENTS = ['/sessions', '/audit'];
+const DETAIL_PARENTS = ['/sessions', '/audit', '/bulk/runs'];
 
 export function rootPathFor(pathname) {
   for (const parent of DETAIL_PARENTS) {
