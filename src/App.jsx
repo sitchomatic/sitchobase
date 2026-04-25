@@ -43,6 +43,7 @@ const AdminSlowCalls = lazy(() => import('./pages/AdminSlowCalls'));
 const AdminFlags = lazy(() => import('./pages/AdminFlags'));
 const AdminSelfTest = lazy(() => import('./pages/AdminSelfTest'));
 const Runbook = lazy(() => import('./pages/Runbook'));
+const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
 
 function LazyFallback() {
   return (
@@ -102,6 +103,7 @@ const AuthenticatedApp = () => {
           <Route path="/audit" element={<AuditLog />} />
           <Route path="/audit/:id" element={<AuditLog />} />
           <Route path="/status" element={<Status />} />
+          <Route path="/health" element={<HealthChecklist />} />
           <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
           <Route path="/admin/slow" element={<AdminRoute><AdminSlowCalls /></AdminRoute>} />
           <Route path="/admin/flags" element={<AdminRoute><AdminFlags /></AdminRoute>} />

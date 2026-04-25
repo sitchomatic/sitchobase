@@ -9,7 +9,7 @@ import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route, CheckCircle2
 } from 'lucide-react';
 
 const navItems = [
@@ -31,6 +31,7 @@ const navItems = [
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
   { label: 'Audit Log', icon: Shield, path: '/audit' },
   { label: 'Status', icon: HeartPulse, path: '/status' },
+  { label: 'Health Checklist', icon: CheckCircle2, path: '/health' },
   { label: 'Runbook', icon: BookOpen, path: '/help/runbook' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
