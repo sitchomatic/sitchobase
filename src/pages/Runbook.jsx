@@ -28,11 +28,11 @@ const ITEMS = [
       'Polling tab was closed (backend keeps running, UI loses updates).',
     ],
     steps: [
-      'Open Joe Ignite — look for incomplete=true in the latest batch.',
-      'Rerun just the missing emails. Idempotency keys prevent duplicate sessions.',
+      'Open Authorized Bulk QA — look for incomplete=true in the latest run.',
+      'Rerun just the missing rows. Idempotency keys prevent duplicate sessions.',
       'For long batches, prefer browser mode or split into smaller batches.',
     ],
-    action: { label: 'Go to Joe Ignite', to: '/joe-ignite' },
+    action: { label: 'Go to Authorized Bulk QA', to: '/bulk' },
   },
   {
     title: 'Proxy pool exhausted / burning too fast',

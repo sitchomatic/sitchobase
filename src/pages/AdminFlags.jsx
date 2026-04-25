@@ -32,14 +32,17 @@ export default function AdminFlags() {
   const update = useMutation({
     mutationFn: ({ id, data }) => base44.entities.FeatureFlag.update(id, data),
     onSuccess: () => invalidateMany(qc, [queryKeys.featureFlags]),
+    onError: (e) => toast.error(`Update failed: ${e?.message || 'unknown error'}`),
   });
   const create = useMutation({
     mutationFn: (data) => base44.entities.FeatureFlag.create(data),
-    onSuccess: () => { invalidateMany(qc, [queryKeys.featureFlags]); setNewKey(''); setNewDesc(''); },
+    onSuccess: () => { invalidateMany(qc, [queryKeys.featureFlags]); setNewKey(''); setNewDesc(''); toast.success('Flag created'); },
+    onError: (e) => toast.error(`Create failed: ${e?.message || 'unknown error'}`),
   });
   const remove = useMutation({
     mutationFn: (id) => base44.entities.FeatureFlag.delete(id),
-    onSuccess: () => invalidateMany(qc, [queryKeys.featureFlags]),
+    onSuccess: () => { invalidateMany(qc, [queryKeys.featureFlags]); toast.success('Flag deleted'); },
+    onError: (e) => toast.error(`Delete failed: ${e?.message || 'unknown error'}`),
   });
 
   const onCreate = () => {
@@ -100,7 +103,14 @@ export default function AdminFlags() {
                 <div className="flex items-center gap-3">
                   <Switch checked={!!f.enabled}
                     onCheckedChange={(v) => update.mutate({ id: f.id, data: { enabled: v } })} />
-                  <button onClick={() => remove.mutate(f.id)}
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete flag "${f.key}"? This cannot be undone.`)) {
+                        remove.mutate(f.id);
+                      }
+                    }}
+                    title="Delete flag"
+                    aria-label={`Delete flag ${f.key}`}
                     className="text-gray-500 hover:text-red-400 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
