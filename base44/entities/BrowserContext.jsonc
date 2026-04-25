@@ -10,6 +10,15 @@
       "type": "string",
       "description": "Browserbase upload URL for this context, when available"
     },
+    "publicKey": {
+      "type": "string",
+      "description": "Public key used to encrypt context uploads"
+    },
+    "initializationVectorSize": {
+      "type": "integer",
+      "default": 16,
+      "description": "IV size required by Browserbase context upload encryption"
+    },
     "cipherAlgorithm": {
       "type": "string",
       "description": "Encryption/cipher algorithm reported by Browserbase"

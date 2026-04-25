@@ -48,56 +48,69 @@ export default function FleetLauncher() {
     setErrors([]);
     setProgress({ done: 0, total: count });
 
-    try {
-      const vp = VIEWPORT_PRESETS.find(v => v.value === viewportPreset);
-
-      const userMetadata = {
-        launchedFrom: 'BBCommandCenter',
-        ...(tag ? { tag } : {}),
-        ...(metadata.testRun ? { testRun: metadata.testRun } : {}),
-        ...(metadata.variant ? { variant: metadata.variant } : {}),
-        ...(metadata.priority ? { priority: metadata.priority } : {}),
-        ...(metadata.task ? { task: metadata.task } : {}),
-      };
-
-      const browserSettings = {
+    const vp = VIEWPORT_PRESETS.find(v => v.value === viewportPreset) || VIEWPORT_PRESETS[0];
+    const userMetadata = {
+      launchedFrom: 'BBCommandCenter',
+      ...(tag ? { tag } : {}),
+      ...(metadata.testRun ? { testRun: metadata.testRun } : {}),
+      ...(metadata.variant ? { variant: metadata.variant } : {}),
+      ...(metadata.priority ? { priority: metadata.priority } : {}),
+      ...(metadata.task ? { task: metadata.task } : {}),
+    };
+    const options = {
+      region,
+      keepAlive,
+      timeout: sessionTimeout,
+      browserSettings: {
         viewport: { width: vp.width, height: vp.height },
         recordSession: recording,
         ...(contextId ? { context: { id: contextId, persist: true } } : {}),
-      };
+      },
+      ...(useProxy ? { proxies: true } : {}),
+      userMetadata,
+    };
 
-      const options = {
+    const queue = Array.from({ length: count }, (_, index) => index);
+    const workerCount = Math.min(5, count);
+
+    const launchedSessions = [];
+    const launchErrors = [];
+
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (queue.length) {
+        const index = queue.shift();
+        try {
+          const session = await bbClient.createSession(options);
+          launchedSessions.push(session);
+          setResults(prev => [...prev, session]);
+        } catch (err) {
+          const entry = { index, error: err?.message || 'Session launch failed' };
+          launchErrors.push(entry);
+          setErrors(prev => [...prev, entry]);
+        } finally {
+          setProgress(prev => ({ ...prev, done: prev.done + 1 }));
+        }
+      }
+    }));
+
+    toast.success(`${launchedSessions.length} session${launchedSessions.length !== 1 ? 's' : ''} launched`);
+    auditLog({
+      action: 'FLEET_LAUNCHED',
+      category: 'fleet',
+      details: {
+        requested: count,
+        launched: launchedSessions.length,
+        failed: launchErrors.length,
         region,
+        tag: tag || undefined,
         keepAlive,
-        timeout: sessionTimeout,
-        browserSettings,
-        ...(useProxy ? { proxies: true } : {}),
-        userMetadata,
-      };
-
-      const res = await bbClient.batchCreateSessions(count, options);
-      setResults(res.results || []);
-      setErrors(res.errors || []);
-      setProgress({ done: count, total: count });
-      toast.success(`${res.results?.length || 0} sessions launched`);
-      auditLog({
-        action: 'FLEET_LAUNCHED',
-        category: 'fleet',
-        details: {
-          count: res.results?.length || 0,
-          region,
-          tag: tag || undefined,
-          keepAlive,
-          useProxy,
-          recording,
-          viewport: viewportPreset,
-          contextId: contextId || undefined,
-          metadata: userMetadata,
-        },
-      });
-    } catch (err) {
-      toast.error(`Launch failed: ${err.message}`);
-    }
+        useProxy,
+        recording,
+        viewport: viewportPreset,
+        contextId: contextId || undefined,
+        metadata: userMetadata,
+      },
+    });
     setLaunching(false);
   };
 

@@ -9,7 +9,7 @@ import PullToRefresh from '@/components/shared/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, EyeOff, Loader2, X, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, EyeOff, Loader2, X, LayoutGrid, List } from 'lucide-react';
 import CopyButton from '@/components/shared/CopyButton';
 import { undoToast } from '@/lib/undoToast';
 import { useSessionArchive } from '@/lib/useSessionArchive';
@@ -121,24 +121,15 @@ export default function Sessions() {
     setBulkLoading(false);
   };
 
-  const bulkArchive = () => {
-    const ids = [...checkedIds];
-    archive(ids);
-    if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
-    // #43 Undo toast
-    undoToast(`Archived ${ids.length} session${ids.length !== 1 ? 's' : ''}`, () => {
-      unarchive(ids);
-      toast.info('Archive undone');
-    });
-    clearSelection();
-  };
-
   const bulkHide = async () => {
     const ids = [...checkedIds];
     setBulkLoading(true);
     await archive(ids);
     if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
-    toast.success(`Hidden ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
+    undoToast(`Hidden ${ids.length} session${ids.length !== 1 ? 's' : ''}`, () => {
+      unarchive(ids);
+      toast.info('Hide undone');
+    });
     auditLog({ action: 'SESSIONS_BULK_HIDDEN', category: 'session', details: { count: ids.length } });
     clearSelection();
     setBulkLoading(false);
@@ -202,10 +193,6 @@ export default function Sessions() {
               className="min-h-[36px] px-3 text-xs bg-yellow-600 hover:bg-yellow-700 text-white gap-1.5">
               {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
               Cancel
-            </Button>
-            <Button size="sm" onClick={bulkArchive} disabled={bulkLoading}
-              className="min-h-[36px] px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
-              <Archive className="w-3 h-3" /> Archive
             </Button>
             <Button size="sm" onClick={bulkHide} disabled={bulkLoading}
               className="min-h-[36px] px-3 text-xs bg-gray-700 hover:bg-gray-800 text-white gap-1.5">

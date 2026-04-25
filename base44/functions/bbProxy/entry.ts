@@ -145,9 +145,11 @@ async function bbFetch(path, method = 'GET', apiKey, body = null, { maxRetries =
 
     if (res.ok) return data;
 
-    // On 401, try the next auth header variant before giving up
+    // On 401, try the next auth header variant before giving up.
+    // Do not consume a retry attempt for header fallback variants.
     if (res.status === 401 && authVariant < AUTH_HEADER_VARIANTS.length - 1) {
       authVariant++;
+      attempt--;
       continue;
     }
 
@@ -196,8 +198,8 @@ function requireFields(params, fields) {
 // eating the read budget.
 const RATE_LIMITS = {
   read:  { max: 60, windowMs: 60_000 },
-  write: { max: 10, windowMs: 60_000 },
-  batch: { max: 10, windowMs: 60_000 },
+  write: { max: 60, windowMs: 60_000 },
+  batch: { max: 20, windowMs: 60_000 },
 };
 const ACTION_CATEGORY = {
   listSessions: 'read', getSession: 'read', getSessionLogs: 'read',

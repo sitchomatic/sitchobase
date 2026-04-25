@@ -111,6 +111,7 @@ export default function BulkTest() {
     setRunProgress({ done: 0, total: csvRows.length });
 
     const queue = [...csvRows.entries()];
+    const completedResults = [];
 
     const processNext = async () => {
       if (queue.length === 0) return;
@@ -142,11 +143,18 @@ export default function BulkTest() {
         errorMessage = err?.message || 'Session request failed';
       }
 
-      setJobResults(prev => prev.map(r =>
-        r.rowIdx === rowIdx
-          ? { ...r, status: sess ? 'completed' : 'error', sessionId: sess?.id ?? null, error: sess ? null : errorMessage }
-          : r
-      ));
+      const finalResult = {
+        rowIdx,
+        row,
+        status: sess ? 'completed' : 'error',
+        sessionId: sess?.id ?? null,
+        error: sess ? null : errorMessage,
+        script: scenarioSequence[0]?.script,
+        scenarios: scenarioSequence,
+      };
+
+      completedResults.push(finalResult);
+      setJobResults(prev => prev.map(r => r.rowIdx === rowIdx ? finalResult : r));
       setRunProgress(p => ({ ...p, done: p.done + 1 }));
       await processNext();
     };
@@ -157,25 +165,23 @@ export default function BulkTest() {
     }
     await Promise.all(chains);
 
-    // Count from the final accumulated results (not stale state)
-    setJobResults(prev => {
-      const successCount = prev.filter(r => r.status === 'completed').length;
-      const failCount = prev.filter(r => r.status === 'error').length;
-      const successRate = prev.length ? Math.round((successCount / prev.length) * 100) : 0;
-      auditLog({ action: 'BULK_TEST_RUN', category: 'bulk', details: { script: selectedSuite ? selectedSuite.name : selectedScript.name, rows: csvRows.length, success: successCount, failed: failCount, region } });
-      base44.entities.TestRun.create({
-        suiteId: selectedSuite?.id || selectedScript.id,
-        suiteName: selectedSuite ? selectedSuite.name : selectedScript.name,
-        status: 'completed',
-        totalCredentials: prev.length,
-        passedCount: successCount,
-        failedCount: failCount,
-        results: prev,
-      });
-      return prev;
+    const finalResults = [...completedResults].sort((a, b) => a.rowIdx - b.rowIdx);
+    const successCount = finalResults.filter(r => r.status === 'completed').length;
+    const failCount = finalResults.filter(r => r.status === 'error').length;
+    auditLog({ action: 'BULK_TEST_RUN', category: 'bulk', details: { script: selectedSuite ? selectedSuite.name : selectedScript.name, rows: csvRows.length, success: successCount, failed: failCount, region } });
+    await base44.entities.TestRun.create({
+      suiteId: selectedSuite?.id || selectedScript.id,
+      suiteName: selectedSuite ? selectedSuite.name : selectedScript.name,
+      status: 'completed',
+      totalCredentials: finalResults.length,
+      passedCount: successCount,
+      failedCount: failCount,
+      results: finalResults,
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
     });
     setRunning(false);
-    toast.success(`Bulk test complete`);
+    toast.success('Bulk test complete');
   };
 
   if (!isConfigured) return <CredentialsGuard />;
@@ -191,7 +197,7 @@ export default function BulkTest() {
           <FlaskConical className="w-5 h-5 text-orange-400" /> Bulk Concurrent Test
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Build reusable scenario sequences, run them across batch-launched browser sessions, and review aggregated success rates.
+          Build reusable scenario sequences, run them across controlled concurrent browser sessions, and review aggregated success rates.
         </p>
       </div>
 
@@ -216,7 +222,7 @@ export default function BulkTest() {
 
             <div className="space-y-1.5">
               {scripts.map(s => (
-                <div key={s.id} onClick={() => { setSelectedScript(s); setEditingScript(null); }}
+                <div key={s.id} onClick={() => { setSelectedScript(s); setSelectedSuite(null); setEditingScript(null); }}
                   className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
                     selectedScript?.id === s.id
                       ? 'bg-purple-500/10 border border-purple-500/30'
@@ -259,7 +265,7 @@ export default function BulkTest() {
 
             <div className="space-y-1.5">
               {suites.map(suite => (
-                <div key={suite.id} onClick={() => setSelectedSuite(suite)}
+                <div key={suite.id} onClick={() => { setSelectedSuite(suite); setSelectedScript(null); }}
                   className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
                     selectedSuite?.id === suite.id ? 'bg-cyan-500/10 border border-cyan-500/30' : 'hover:bg-gray-800 border border-transparent'
                   }`}>
@@ -394,7 +400,7 @@ export default function BulkTest() {
               <Switch checked={useProxy} onCheckedChange={setUseProxy} />
             </div>
 
-            {csvRows.length > 0 && selectedScript && (
+            {csvRows.length > 0 && (selectedScript || selectedSuite) && (
               <div className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2 space-y-1">
                 <div className="flex justify-between"><span>Rows</span><span className="text-white">{csvRows.length}</span></div>
                 <div className="flex justify-between"><span>Scenario</span><span className="text-purple-300 truncate max-w-[120px]">{selectedSuite ? selectedSuite.name : selectedScript?.name}</span></div>

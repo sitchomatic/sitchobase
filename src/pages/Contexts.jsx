@@ -51,17 +51,22 @@ export default function Contexts() {
 
   const create = async () => {
     setCreating(true);
-    const ctx = await bbClient.createContext();
-    const saved = await base44.entities.BrowserContext.create({
-      contextId: ctx.id,
-      uploadUrl: ctx.uploadUrl,
-      cipherAlgorithm: ctx.cipherAlgorithm,
-      status: 'active',
-    });
-    setContexts(prev => [normalizeContext(saved), ...prev]);
-    toast.success('Context created');
-    auditLog({ action: 'CONTEXT_CREATED', category: 'context', targetId: ctx.id });
-    setCreating(false);
+    try {
+      const ctx = await bbClient.createContext();
+      const saved = await base44.entities.BrowserContext.create({
+        contextId: ctx.id,
+        uploadUrl: ctx.uploadUrl,
+        publicKey: ctx.publicKey,
+        initializationVectorSize: ctx.initializationVectorSize,
+        cipherAlgorithm: ctx.cipherAlgorithm,
+        status: 'active',
+      });
+      setContexts(prev => [normalizeContext(saved), ...prev]);
+      toast.success('Context created');
+      auditLog({ action: 'CONTEXT_CREATED', category: 'context', targetId: ctx.id });
+    } finally {
+      setCreating(false);
+    }
   };
 
   const remove = async (ctx) => {

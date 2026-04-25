@@ -70,13 +70,15 @@ export default function StagehandAI() {
     setCreatedSessions([]);
 
     try {
-      // Create sessions via backend proxy (no CORS)
-      const batchResult = await bbClient.batchCreateSessions(sessionCount, {
-        region,
-        userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
-      });
-
-      const sessions = batchResult?.results || [];
+      const sessionResults = await Promise.allSettled(
+        Array.from({ length: sessionCount }, () => bbClient.createSession({
+          region,
+          userMetadata: { stagehandPrompt: prompt.slice(0, 100), agentRun: 'true' },
+        }))
+      );
+      const sessions = sessionResults
+        .filter(result => result.status === 'fulfilled' && result.value)
+        .map(result => result.value);
       setCreatedSessions(sessions);
 
       if (sessions.length === 0) {
