@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Upload, Play, StopCircle, Download, AlertTriangle } from 'lucide-react';
 import { parseCSV } from '@/lib/csvParser';
@@ -49,6 +49,10 @@ export default function AuthorizedBulkQA() {
   const [rows, setRows] = useState([]);
   const [running, setRunning] = useState(false);
   const [savedRunId, setSavedRunId] = useState(null);
+
+  useEffect(() => () => {
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+  }, []);
 
   const validationErrors = useMemo(() => validateAuthorizedBulkConfig({
     targetUrl,
