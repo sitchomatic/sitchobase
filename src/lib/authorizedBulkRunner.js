@@ -1,131 +1,160 @@
 import { bbClient } from '@/lib/bbClient';
+import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '@/lib/authorizedBulkCdp';
+import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
+import { clampConcurrency } from '@/lib/authorizedBulkValidation';
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const SESSION_TIMEOUT_SECONDS = 120;
+const SELECTOR_TIMEOUT_MS = 12_000;
+const POST_SUBMIT_SETTLE_MS = 2_000;
 
-function buildScript({ usernameSelector, passwordSelector, submitSelector, username, password }) {
+function buildWaitForSelectorsScript({ usernameSelector, passwordSelector, submitSelector }) {
+  return `(() => new Promise((resolve) => {
+    const selectors = ${JSON.stringify([usernameSelector, passwordSelector, submitSelector])};
+    const deadline = Date.now() + ${SELECTOR_TIMEOUT_MS};
+    const check = () => {
+      const found = selectors.map((selector) => Boolean(document.querySelector(selector)));
+      if (found.every(Boolean)) return resolve({ ok: true, found });
+      if (Date.now() > deadline) return resolve({ ok: false, found });
+      requestAnimationFrame(check);
+    };
+    check();
+  }))()`;
+}
+
+function buildSubmitScript({ usernameSelector, passwordSelector, submitSelector, username, password }) {
   return `(() => {
     const setValue = (selector, value) => {
       const el = document.querySelector(selector);
       if (!el) return false;
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+      const prototype = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
       el.focus();
       if (setter) setter.call(el, value); else el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     };
+
     const userOk = setValue(${JSON.stringify(usernameSelector)}, ${JSON.stringify(username)});
     const passOk = setValue(${JSON.stringify(passwordSelector)}, ${JSON.stringify(password)});
     const submit = document.querySelector(${JSON.stringify(submitSelector)});
+    const beforeUrl = location.href;
+
     if (userOk && passOk && submit) submit.click();
-    return { userOk, passOk, submitOk: !!submit, beforeUrl: location.href };
+    return { userOk, passOk, submitOk: Boolean(submit), beforeUrl };
   })()`;
 }
 
-export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort }) {
-  const queue = [...rows];
-  const startedAt = Date.now();
+async function collectPageState(cdp) {
+  return evaluate(cdp, `(() => ({
+    url: location.href,
+    title: document.title,
+    text: (document.body?.innerText || '').slice(0, 1500),
+  }))()`);
+}
 
-  const runOne = async (row) => {
-    let sessionId = null;
-    const update = (patch) => onRowUpdate?.({ index: row.index, username: row.username, ...patch });
-    update({ status: 'running', startedAt: new Date().toISOString() });
+async function releaseSession(sessionId) {
+  if (!sessionId) return;
+  await bbClient.updateSession(sessionId, { status: 'REQUEST_RELEASE' }).catch(() => {});
+}
 
-    try {
-      const session = await bbClient.createSession({
-        keepAlive: false,
-        timeout: 120,
-        browserSettings: { viewport: { width: 1366, height: 768 } },
-        userMetadata: {
-          launchedFrom: 'AuthorizedBulkQA',
-          targetHost: new URL(config.targetUrl).host,
-          rowIndex: row.index,
-        },
-      });
-      sessionId = session.id;
-      update({ sessionId });
+async function runOne({ row, config, onRowUpdate, shouldAbort }) {
+  const abortController = createAbortSignal(shouldAbort);
+  const update = (patch) => onRowUpdate?.({ index: row.index, username: row.username, ...patch });
+  let sessionId = null;
+  let cdp = null;
 
-      const ws = new WebSocket(session.connectUrl);
-      const cdp = await new Promise((resolve, reject) => {
-        const pending = new Map();
-        let nextId = 1;
-        const timer = setTimeout(() => reject(new Error('Browser connection timed out')), 15000);
-        ws.onopen = () => {
-          clearTimeout(timer);
-          resolve({
-            send(method, params = {}) {
-              const id = nextId++;
-              ws.send(JSON.stringify({ id, method, params }));
-              return new Promise((res, rej) => {
-                pending.set(id, { res, rej });
-                setTimeout(() => {
-                  if (pending.has(id)) {
-                    pending.delete(id);
-                    rej(new Error(`${method} timed out`));
-                  }
-                }, 20000);
-              });
-            },
-            close() { try { ws.close(); } catch {} },
-            _pending: pending,
-          });
-        };
-        ws.onmessage = (event) => {
-          const message = JSON.parse(event.data);
-          if (!message.id || !pending.has(message.id)) return;
-          const callbacks = pending.get(message.id);
-          pending.delete(message.id);
-          if (message.error) callbacks.rej(new Error(message.error.message));
-          else callbacks.res(message.result);
-        };
-        ws.onerror = () => reject(new Error('Browser connection failed'));
-      });
+  update({ status: 'running', outcome: 'Launching browser session', startedAt: new Date().toISOString() });
 
-      try {
-        await cdp.send('Page.enable');
-        await cdp.send('Runtime.enable');
-        await cdp.send('Page.navigate', { url: config.targetUrl });
-        await sleep(3000);
-        const fillResult = await cdp.send('Runtime.evaluate', {
-          expression: buildScript({ ...config, username: row.username, password: row.password }),
-          returnByValue: true,
-          awaitPromise: true,
-        });
-        const fill = fillResult?.result?.value || {};
-        if (!fill.userOk || !fill.passOk || !fill.submitOk) {
-          throw new Error('One or more selectors were not found on the page.');
-        }
-        await sleep(4000);
-        const stateResult = await cdp.send('Runtime.evaluate', {
-          expression: `({ url: location.href, title: document.title, text: (document.body?.innerText || '').slice(0, 500) })`,
-          returnByValue: true,
-        });
-        const state = stateResult?.result?.value || {};
-        const changedUrl = state.url && state.url !== fill.beforeUrl;
-        update({
-          status: changedUrl ? 'passed' : 'review',
-          outcome: changedUrl ? 'Navigation changed after submit' : 'Submitted; manual review recommended',
-          finalUrl: state.url,
-          pageTitle: state.title,
-          endedAt: new Date().toISOString(),
-        });
-      } finally {
-        cdp.close();
-      }
-    } catch (error) {
-      update({ status: 'failed', outcome: error.message, endedAt: new Date().toISOString() });
-    } finally {
-      if (sessionId) await bbClient.updateSession(sessionId).catch(() => {});
+  try {
+    const session = await bbClient.createSession({
+      keepAlive: false,
+      timeout: SESSION_TIMEOUT_SECONDS,
+      browserSettings: { viewport: { width: 1366, height: 768 } },
+      userMetadata: {
+        launchedFrom: 'AuthorizedBulkQA',
+        targetHost: new URL(config.targetUrl).host,
+        rowIndex: row.index,
+      },
+    });
+
+    sessionId = session.id;
+    update({ sessionId, outcome: 'Connecting to browser' });
+
+    cdp = await connectCdp(session.connectUrl);
+    await cdp.send('Page.enable');
+    await cdp.send('Runtime.enable');
+
+    update({ outcome: 'Loading target page' });
+    await cdp.send('Page.navigate', { url: config.targetUrl });
+    await waitForPageIdle(cdp, abortController.signal);
+
+    update({ outcome: 'Waiting for form controls' });
+    const selectorState = await evaluate(cdp, buildWaitForSelectorsScript(config), {}, SELECTOR_TIMEOUT_MS + 2_000);
+    if (!selectorState?.ok) {
+      throw new Error('One or more configured selectors were not found before timeout.');
     }
-  };
+
+    update({ outcome: 'Submitting test row' });
+    const fill = await evaluate(cdp, buildSubmitScript({ ...config, username: row.username, password: row.password }));
+    if (!fill?.userOk || !fill?.passOk || !fill?.submitOk) {
+      throw new Error('One or more configured selectors could not be used.');
+    }
+
+    await wait(POST_SUBMIT_SETTLE_MS, abortController.signal);
+    await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
+    const state = await collectPageState(cdp);
+    const classified = classifyAuthorizedBulkOutcome({
+      beforeUrl: fill.beforeUrl,
+      afterUrl: state?.url,
+      title: state?.title,
+      text: state?.text,
+    });
+
+    update({
+      ...classified,
+      finalUrl: state?.url,
+      pageTitle: state?.title,
+      endedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    const aborted = error?.name === 'AbortError' || shouldAbort?.();
+    update({
+      status: aborted ? 'review' : 'failed',
+      outcome: aborted ? 'Stopped before this row finished' : error.message,
+      endedAt: new Date().toISOString(),
+    });
+  } finally {
+    abortController.abort();
+    cdp?.close();
+    await releaseSession(sessionId);
+  }
+}
+
+export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort }) {
+  const startedAt = Date.now();
+  const queue = [...rows];
+  const workerCount = Math.min(clampConcurrency(concurrency), queue.length || 1);
 
   const worker = async () => {
-    while (queue.length && !shouldAbort?.()) {
+    while (queue.length) {
+      if (shouldAbort?.()) {
+        const skipped = queue.splice(0);
+        skipped.forEach((row) => onRowUpdate?.({
+          index: row.index,
+          username: row.username,
+          status: 'review',
+          outcome: 'Skipped because run was stopped',
+          endedAt: new Date().toISOString(),
+        }));
+        return;
+      }
+
       const row = queue.shift();
-      if (row) await runOne(row);
+      if (row) await runOne({ row, config, onRowUpdate, shouldAbort });
     }
   };
 
-  await Promise.all(Array.from({ length: concurrency }, worker));
+  await Promise.all(Array.from({ length: workerCount }, worker));
   return { durationMs: Date.now() - startedAt };
 }
