@@ -15,6 +15,7 @@
 import { base44 } from '@/api/base44Client';
 import * as bb from './browserbaseApi';
 import { createCircuitBreaker, CircuitOpenError } from './circuitBreaker';
+import { terminalLog, redact } from './liveNetworkLogger';
 
 // Cost constants (Browserbase pricing — update if pricing changes)
 export const BB_COST_PER_MINUTE = 0.009; // USD per browser minute
@@ -254,9 +255,27 @@ export function isLikelyApiKeyBbProxyFailure(err) {
  * Accepts an optional opts.signal (AbortSignal) for cancellation on unmount.
  */
 async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
+  const started = performance.now();
+  terminalLog({
+    type: 'request',
+    direction: 'OUT',
+    source: 'bbClient',
+    action,
+    payload: { action, ...redact(extras) },
+  });
+
   // Circuit breaker — fast-fail if Browserbase has been failing repeatedly
   if (!circuit.canRequest()) {
-    throw new CircuitOpenError();
+    const error = new CircuitOpenError();
+    terminalLog({
+      type: 'error',
+      direction: 'ERR',
+      source: 'bbClient',
+      action,
+      durationMs: Math.round(performance.now() - started),
+      payload: { message: error.message },
+    });
+    throw error;
   }
 
   // Non-idempotent actions should not be retried automatically
@@ -269,6 +288,14 @@ async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
     try {
       const result = await callOnce(action, extras, { signal });
       circuit.recordSuccess();
+      terminalLog({
+        type: 'response',
+        direction: 'IN',
+        source: 'bbClient',
+        action,
+        durationMs: Math.round(performance.now() - started),
+        payload: result,
+      });
       return result;
     } catch (err) {
       // Don't trip the breaker on client-side aborts or auth/validation errors
@@ -283,7 +310,24 @@ async function call(action, extras = {}, { maxRetries = 3, signal } = {}) {
       const isRetryable = retryableStatuses.has(err?.status) ||
         retryableCodes.has(err?.code) ||
         /fetch|network|\b(500|502|503|504)\b/i.test(err?.message || '');
-      if (!shouldRetry || !isRetryable || attempt === maxRetries) throw err;
+      if (!shouldRetry || !isRetryable || attempt === maxRetries) {
+        terminalLog({
+          type: 'error',
+          direction: 'ERR',
+          source: 'bbClient',
+          action,
+          durationMs: Math.round(performance.now() - started),
+          payload: { message: err.message, status: err.status, code: err.code, requestId: err.requestId },
+        });
+        throw err;
+      }
+      terminalLog({
+        type: 'retry',
+        direction: 'OUT',
+        source: 'bbClient',
+        action,
+        payload: { attempt, nextAttempt: attempt + 1, reason: err.message },
+      });
       // #17 jittered backoff (±25%) to avoid thundering-herd
       const j = delay * 0.25;
       const wait = Math.max(0, delay + (Math.random() * 2 - 1) * j);
