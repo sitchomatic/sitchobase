@@ -6,6 +6,7 @@ import { pageTransition, pageVariants } from '@/lib/motion';
 import { useAuth } from '@/lib/AuthContext';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
+import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
   Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, Route
@@ -107,6 +108,7 @@ export default function AppLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
+      <LiveAuditStream />
       <MobileBottomNav />
     </div>
   );
