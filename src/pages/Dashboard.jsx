@@ -241,9 +241,9 @@ export default function Dashboard() {
                 <div className="w-1.5 h-4 rounded-full bg-cyan-400" />
                 <span className="text-sm font-bold text-white font-mono tracking-wide">QUICK LAUNCH</span>
               </div>
-              <Link to="/joe-ignite?pick=1">
+              <Link to="/bulk">
                 <Button className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold gap-2 justify-start font-mono text-xs shadow-lg shadow-orange-500/30">
-                  <Flame className="w-3.5 h-3.5" /> JOE IGNITE TESTING
+                  <Flame className="w-3.5 h-3.5" /> AUTHORIZED BULK QA
                 </Button>
               </Link>
               <Link to="/fleet">

@@ -42,6 +42,29 @@
 - Implemented intelligence fix: Added `lib/browserbaseData.js` with shared query keys/fetchers/hooks and wired the main UX pages into it.
 - Expected gain: Fewer duplicate API calls, smoother navigation, and more consistent refresh/loading states.
 
+## Full Rebuild Analysis — Bulk Credential Testing Reliability
+
+### Step 1: Why Analysis
+- Ultimate app goal: reliable, observable bulk login-flow QA using Browserbase sessions.
+- Contradiction found: the old Joe/Ignite implementation automated credential checks against hard-coded third-party gambling sites, which conflicts with a reliable authorized QA platform and creates unsafe/ambiguous usage.
+- Resolution implemented: replaced the main bulk workflow with an authorization-gated tester for targets the user owns or has written permission to test.
+
+### Step 2: Efficiency Audit
+- Code smells found: hard-coded third-party targets, duplicated browser orchestration paths, unbounded credential intent, excessive concurrency defaults, mixed browser/serverless execution semantics, and result classification tightly coupled to specific external sites.
+- Resource-heavy operations found: one Browserbase session per credential, polling loops, WebSocket automation, DOM polling, and broad session metadata updates.
+- Reliability bottlenecks found: brittle selectors, background serverless execution assumptions, inconsistent cancellation behavior, and duplicated result tracking.
+
+### Step 3: Implementation Summary
+- Rebuilt `/bulk` as `AuthorizedBulkQA`, a reliability-first workflow for approved QA only.
+- Added bounded CSV normalization, max-row and max-concurrency limits, validation checks, authorization confirmation, reusable summary/row components, result export, and a generic Browserbase-driven runner.
+- Redirected `/joe-ignite` to `/bulk` and removed the dedicated sidebar entry to prevent unsafe/contradictory usage.
+
+### Step 4: Ambiguity Report
+- Target model: generic authorized target vs site-specific templates. Recommended: generic authorized target.
+- Execution model: browser-only vs serverless background jobs. Recommended: browser-only for now, because it gives clearer cancellation and fewer timeout surprises.
+- Success detection: URL-change heuristic vs custom success selectors. Recommended: URL-change default, with future optional custom success selector.
+- Throughput: high concurrency vs conservative concurrency. Recommended: conservative concurrency for maximum reliability.
+
 ## High-Level Architectural Shifts Requiring Approval
 
 ### A. Server-side Browserbase secret rotation workflow

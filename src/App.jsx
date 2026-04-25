@@ -29,11 +29,10 @@ const Contexts = lazy(() => import('./pages/Contexts'));
 const Personas = lazy(() => import('./pages/Personas'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const StagehandAI = lazy(() => import('./pages/StagehandAI'));
-const BulkTest = lazy(() => import('./pages/BulkTest'));
+const AuthorizedBulkQA = lazy(() => import('./pages/AuthorizedBulkQA.jsx'));
 const Monitor = lazy(() => import('./pages/Monitor'));
 const AuditLog = lazy(() => import('./pages/AuditLog.jsx'));
 const TestReports = lazy(() => import('./pages/TestReports'));
-const JoeIgnite = lazy(() => import('./pages/JoeIgnite'));
 const Proxies = lazy(() => import('./pages/Proxies'));
 const ProxyEfficiency = lazy(() => import('./pages/ProxyEfficiency'));
 const AdminMetrics = lazy(() => import('./pages/AdminMetrics'));
@@ -87,8 +86,8 @@ const AuthenticatedApp = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/stagehand" element={<StagehandAI />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/bulk" element={<BulkTest />} />
-          <Route path="/joe-ignite" element={<JoeIgnite />} />
+          <Route path="/bulk" element={<AuthorizedBulkQA />} />
+          <Route path="/joe-ignite" element={<Navigate to="/bulk" replace />} />
           <Route path="/proxies" element={<Proxies />} />
           <Route path="/proxies/efficiency" element={<ProxyEfficiency />} />
           <Route path="/reports" element={<TestReports />} />
