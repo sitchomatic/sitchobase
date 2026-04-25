@@ -11,6 +11,7 @@ import AuthorizedBulkSummary from '@/components/authorizedBulk/AuthorizedBulkSum
 import AuthorizedBulkRows from '@/components/authorizedBulk/AuthorizedBulkRows';
 import { clampConcurrency, normalizeBulkRows, validateAuthorizedBulkConfig, MAX_CONCURRENCY, MAX_ROWS } from '@/lib/authorizedBulkValidation';
 import { runAuthorizedBulkQA } from '@/lib/authorizedBulkRunner';
+import { createAuthorizedBulkRun, updateAuthorizedBulkRun } from '@/lib/authorizedBulkPersistence';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 
@@ -34,6 +35,8 @@ export default function AuthorizedBulkQA() {
   const { isConfigured } = useCredentials();
   const fileInputRef = useRef(null);
   const abortRef = useRef(false);
+  const activeRunIdRef = useRef(null);
+  const persistTimerRef = useRef(null);
   const [fileName, setFileName] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
   const [usernameSelector, setUsernameSelector] = useState('input[name="email"]');
@@ -43,6 +46,7 @@ export default function AuthorizedBulkQA() {
   const [concurrency, setConcurrency] = useState(1);
   const [rows, setRows] = useState([]);
   const [running, setRunning] = useState(false);
+  const [savedRunId, setSavedRunId] = useState(null);
 
   const validationErrors = useMemo(() => validateAuthorizedBulkConfig({
     targetUrl,
@@ -73,26 +77,60 @@ export default function AuthorizedBulkQA() {
 
     abortRef.current = false;
     setRunning(true);
-    setRows((prev) => prev.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '' })));
-    auditLog({ action: 'AUTHORIZED_BULK_QA_STARTED', category: 'bulk', details: { count: rows.length, concurrency, targetHost: new URL(targetUrl).host } });
+    const resetRows = rows.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '', pageTitle: '', startedAt: '', endedAt: '' }));
+    setRows(resetRows);
 
-    await runAuthorizedBulkQA({
-      rows,
-      concurrency: clampConcurrency(concurrency),
-      config: { targetUrl, usernameSelector, passwordSelector, submitSelector },
-      shouldAbort: () => abortRef.current,
-      onRowUpdate: (patch) => {
-        setRows((prev) => prev.map((row) => (row.index === patch.index ? { ...row, ...patch } : row)));
-      },
-    });
+    const savedRun = await createAuthorizedBulkRun({ targetUrl, concurrency: clampConcurrency(concurrency), rows: resetRows });
+    activeRunIdRef.current = savedRun.id;
+    setSavedRunId(savedRun.id);
+    auditLog({ action: 'AUTHORIZED_BULK_QA_STARTED', category: 'bulk', details: { runId: savedRun.id, count: resetRows.length, concurrency, targetHost: new URL(targetUrl).host } });
 
-    setRunning(false);
-    toast.success('Authorized bulk QA run complete');
+    let latestRows = resetRows;
+    const persistSoon = (nextRows) => {
+      latestRows = nextRows;
+      if (persistTimerRef.current) return;
+      persistTimerRef.current = setTimeout(() => {
+        persistTimerRef.current = null;
+        updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, 'running');
+      }, 1500);
+    };
+
+    try {
+      await runAuthorizedBulkQA({
+        rows: resetRows,
+        concurrency: clampConcurrency(concurrency),
+        config: { targetUrl, usernameSelector, passwordSelector, submitSelector },
+        shouldAbort: () => abortRef.current,
+        onRowUpdate: (patch) => {
+          setRows((prev) => {
+            const next = prev.map((row) => (row.index === patch.index ? { ...row, ...patch } : row));
+            persistSoon(next);
+            return next;
+          });
+        },
+      });
+
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      const finalStatus = abortRef.current ? 'stopped' : 'completed';
+      await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, finalStatus);
+      toast.success(finalStatus === 'stopped' ? 'Authorized bulk QA run stopped and saved' : 'Authorized bulk QA run complete and saved');
+    } catch (error) {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+      await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, 'failed');
+      toast.error(error.message || 'Run failed and was saved');
+    } finally {
+      setRunning(false);
+    }
   };
 
   const stop = () => {
     abortRef.current = true;
-    setRunning(false);
     toast.info('Stopping after in-flight checks finish');
   };
 
@@ -151,6 +189,7 @@ export default function AuthorizedBulkQA() {
             </Button>
             <div className="text-xs text-gray-500">Expected columns: <span className="font-mono text-gray-300">username</span> or <span className="font-mono text-gray-300">email</span>, and <span className="font-mono text-gray-300">password</span>. Max {MAX_ROWS} rows.</div>
             {fileName && <div className="text-xs text-emerald-400 truncate">{fileName} · {rows.length} valid rows</div>}
+            {savedRunId && <div className="text-xs text-gray-500 truncate">Saved run: <span className="font-mono">{savedRunId}</span></div>}
           </div>
 
           <div className="flex gap-2">

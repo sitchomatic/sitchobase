@@ -1,0 +1,141 @@
+{
+  "name": "AuthorizedBulkQARun",
+  "type": "object",
+  "properties": {
+    "targetUrl": {
+      "type": "string",
+      "description": "Authorized target login URL tested"
+    },
+    "targetHost": {
+      "type": "string",
+      "description": "Hostname extracted from the target URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "stopped",
+        "failed"
+      ],
+      "default": "running",
+      "description": "Run lifecycle status"
+    },
+    "totalRows": {
+      "type": "integer",
+      "default": 0,
+      "description": "Total valid CSV rows included in this run"
+    },
+    "passedCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Rows that passed"
+    },
+    "reviewCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Rows needing manual review"
+    },
+    "failedCount": {
+      "type": "integer",
+      "default": 0,
+      "description": "Rows that failed"
+    },
+    "concurrency": {
+      "type": "integer",
+      "default": 1,
+      "description": "Worker concurrency used for this run"
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "finalUrl": {
+            "type": "string"
+          },
+          "pageTitle": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Per-row test results without passwords"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Run start timestamp"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Run completion timestamp"
+    }
+  },
+  "required": [
+    "targetUrl",
+    "targetHost",
+    "status",
+    "totalRows"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
