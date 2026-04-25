@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
+import { base44 } from '@/api/base44Client';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,15 @@ import ContextUploadDialog from '@/components/contexts/ContextUploadDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
+
+function normalizeContext(record) {
+  return {
+    ...record,
+    id: record.contextId || record.id,
+    registryId: record.id,
+    createdAt: record.createdAt || record.created_date,
+  };
+}
 
 export default function Contexts() {
   const { isConfigured } = useCredentials();
@@ -24,11 +34,11 @@ export default function Contexts() {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await bbClient.listContexts();
-      setContexts(Array.isArray(data) ? data : []);
+      const records = await base44.entities.BrowserContext.filter({ status: 'active' }, '-created_date', 100);
+      setContexts(Array.isArray(records) ? records.map(normalizeContext) : []);
     } catch (err) {
       setLoadError({
-        message: err?.message || 'Failed to load contexts',
+        message: err?.message || 'Failed to load saved contexts',
         isApiKeyLimitation: Boolean(err?.isApiKeyBbProxyLimitation),
       });
       setContexts([]);
@@ -42,17 +52,26 @@ export default function Contexts() {
   const create = async () => {
     setCreating(true);
     const ctx = await bbClient.createContext();
-    setContexts(prev => [ctx, ...prev]);
+    const saved = await base44.entities.BrowserContext.create({
+      contextId: ctx.id,
+      uploadUrl: ctx.uploadUrl,
+      cipherAlgorithm: ctx.cipherAlgorithm,
+      status: 'active',
+    });
+    setContexts(prev => [normalizeContext(saved), ...prev]);
     toast.success('Context created');
     auditLog({ action: 'CONTEXT_CREATED', category: 'context', targetId: ctx.id });
     setCreating(false);
   };
 
-  const remove = async (id) => {
-    await bbClient.deleteContext(id);
-    setContexts(prev => prev.filter(c => c.id !== id));
+  const remove = async (ctx) => {
+    await bbClient.deleteContext(ctx.id);
+    if (ctx.registryId) {
+      await base44.entities.BrowserContext.update(ctx.registryId, { status: 'deleted' });
+    }
+    setContexts(prev => prev.filter(c => c.id !== ctx.id));
     toast.success('Context deleted');
-    auditLog({ action: 'CONTEXT_DELETED', category: 'context', targetId: id });
+    auditLog({ action: 'CONTEXT_DELETED', category: 'context', targetId: ctx.id });
   };
 
   const copy = (text) => {
@@ -96,7 +115,7 @@ export default function Contexts() {
 
       {!loadError && !loading && contexts.length === 0 && (
         <div className="rounded-lg border border-gray-800 bg-gray-900/60 px-4 py-3 text-xs text-gray-500">
-          Listing contexts is limited here, but creating and deleting a known context still works.
+          Contexts created from this page will be saved here for future reuse.
         </div>
       )}
 
@@ -104,7 +123,7 @@ export default function Contexts() {
         <EmptyState
           icon={Layers}
           title="No contexts listed"
-          description="Browserbase does not provide a list-all-contexts endpoint here, so create a new context or open one directly when you already have its ID."
+          description="Create a new context and it will be saved here for future reuse."
           action={
             <Button onClick={create} className="bg-emerald-500 hover:bg-emerald-600 text-black font-semibold gap-2">
               <Plus className="w-4 h-4" /> Create New Context
@@ -127,7 +146,7 @@ export default function Contexts() {
                     className="w-7 h-7 text-gray-600 hover:text-purple-400" title="Upload user-data-directory">
                     <Upload className="w-3.5 h-3.5" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(ctx.id)}
+                  <Button size="icon" variant="ghost" onClick={() => remove(ctx)}
                     className="w-7 h-7 text-gray-600 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>

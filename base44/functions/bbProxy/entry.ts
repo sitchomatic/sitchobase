@@ -197,7 +197,7 @@ function requireFields(params, fields) {
 const RATE_LIMITS = {
   read:  { max: 60, windowMs: 60_000 },
   write: { max: 10, windowMs: 60_000 },
-  batch: { max: 3,  windowMs: 60_000 },
+  batch: { max: 10, windowMs: 60_000 },
 };
 const ACTION_CATEGORY = {
   listSessions: 'read', getSession: 'read', getSessionLogs: 'read',

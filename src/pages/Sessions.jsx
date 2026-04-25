@@ -9,7 +9,7 @@ import PullToRefresh from '@/components/shared/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, Trash2, Loader2, X, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, Archive, EyeOff, Loader2, X, LayoutGrid, List } from 'lucide-react';
 import CopyButton from '@/components/shared/CopyButton';
 import { undoToast } from '@/lib/undoToast';
 import { useSessionArchive } from '@/lib/useSessionArchive';
@@ -133,22 +133,13 @@ export default function Sessions() {
     clearSelection();
   };
 
-  const bulkDelete = async () => {
+  const bulkHide = async () => {
     const ids = [...checkedIds];
     setBulkLoading(true);
-    // Try to release running sessions; then archive/hide all
-    const runningIds = ids.filter(id => {
-      const s = sessions.find(x => x.id === id);
-      return s && (s.status === 'RUNNING' || s.status === 'PENDING');
-    });
-    if (runningIds.length) {
-      await cancelMutation.mutateAsync(runningIds);
-    }
-    // Remove from local view by archiving
     await archive(ids);
     if (selectedSession && ids.includes(selectedSession.id)) navigate('/sessions');
-    toast.success(`Deleted ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
-    auditLog({ action: 'SESSIONS_BULK_DELETED', category: 'session', details: { count: ids.length } });
+    toast.success(`Hidden ${ids.length} session${ids.length !== 1 ? 's' : ''} from view`);
+    auditLog({ action: 'SESSIONS_BULK_HIDDEN', category: 'session', details: { count: ids.length } });
     clearSelection();
     setBulkLoading(false);
   };
@@ -216,10 +207,10 @@ export default function Sessions() {
               className="min-h-[36px] px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
               <Archive className="w-3 h-3" /> Archive
             </Button>
-            <Button size="sm" onClick={bulkDelete} disabled={bulkLoading}
-              className="min-h-[36px] px-3 text-xs bg-red-700 hover:bg-red-800 text-white gap-1.5">
-              {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-              Delete
+            <Button size="sm" onClick={bulkHide} disabled={bulkLoading}
+              className="min-h-[36px] px-3 text-xs bg-gray-700 hover:bg-gray-800 text-white gap-1.5">
+              {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <EyeOff className="w-3 h-3" />}
+              Hide
             </Button>
             <button onClick={clearSelection} aria-label="Clear selection"
               className="min-h-[36px] min-w-[36px] text-gray-400 hover:text-white hover:bg-gray-800 rounded ml-1 inline-flex items-center justify-center transition-colors">
