@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { cn } from '@/lib/utils';
 import { installLiveNetworkLogger } from '@/lib/liveNetworkLogger';
+import LiveTerminalControls from '@/components/shared/LiveTerminalControls';
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Database, MousePointer, Navigation, Send, Terminal } from 'lucide-react';
 
 const MAX_EVENTS = 120;
@@ -42,15 +43,40 @@ export default function LiveAuditStream() {
   const [mode, setMode] = useState(() => localStorage.getItem('live_audit_mode') || 'audit');
   const [events, setEvents] = useState([]);
   const [terminalLogs, setTerminalLogs] = useState([]);
+  const [paused, setPaused] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState('all');
   const lastPathRef = useRef('');
+  const pausedRef = useRef(false);
 
   const addEvent = (entry) => {
+    if (pausedRef.current) return;
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       at: new Date().toISOString(),
       ...entry,
     };
     setEvents((prev) => [item, ...prev].slice(0, MAX_EVENTS));
+  };
+
+  const togglePause = () => {
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+  };
+
+  const clearLogs = () => {
+    if (mode === 'terminal') setTerminalLogs([]);
+    else setEvents([]);
+  };
+
+  const exportLogs = () => {
+    const data = mode === 'terminal' ? terminalLogs : events;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `live-${mode}-${new Date().toISOString()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -79,6 +105,7 @@ export default function LiveAuditStream() {
     const onRejection = (event) => addEvent({ type: 'error', action: 'PROMISE_REJECTION', details: String(event.reason?.message || event.reason || 'Unknown rejection').slice(0, 160) });
     const onAudit = (event) => addEvent({ type: 'audit', action: event.detail?.action || 'AUDIT_LOG', details: event.detail?.category || '' });
     const onTerminal = (event) => {
+      if (pausedRef.current) return;
       const entry = event.detail || {};
       setTerminalLogs((prev) => [entry, ...prev].slice(0, MAX_TERMINAL_LOGS));
       addEvent({ type: entry.type || 'request', action: `${entry.direction || 'LOG'} ${entry.action || ''}`.trim(), details: entry.source || 'terminal' });
@@ -114,7 +141,10 @@ export default function LiveAuditStream() {
 
   const latest = mode === 'terminal' ? terminalLogs[0] : events[0];
   const visibleEvents = useMemo(() => events.slice(0, 60), [events]);
-  const visibleTerminalLogs = useMemo(() => terminalLogs.slice(0, 80), [terminalLogs]);
+  const visibleTerminalLogs = useMemo(
+    () => terminalLogs.filter((l) => sourceFilter === 'all' || l.source === sourceFilter).slice(0, 80),
+    [terminalLogs, sourceFilter]
+  );
 
   return (
     <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-50 md:bottom-4 md:right-4 w-[calc(100vw-1.5rem)] max-w-md pointer-events-none">
@@ -157,7 +187,19 @@ export default function LiveAuditStream() {
                   {label}
                 </button>
               ))}
+              {paused && <span className="ml-auto text-[10px] font-mono text-yellow-400 px-1.5 py-0.5 rounded bg-yellow-500/10 border border-yellow-500/30">PAUSED</span>}
             </div>
+            {mode === 'terminal' && (
+              <LiveTerminalControls
+                paused={paused}
+                onTogglePause={togglePause}
+                onClear={clearLogs}
+                onExport={exportLogs}
+                sourceFilter={sourceFilter}
+                onSourceFilter={setSourceFilter}
+                count={visibleTerminalLogs.length}
+              />
+            )}
 
             {mode === 'terminal' ? (
               <div className="max-h-96 overflow-y-auto bg-black p-2 space-y-2 font-mono">

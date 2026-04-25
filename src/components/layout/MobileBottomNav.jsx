@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Activity, Radio, Settings } from 'lucide-react';
+import { LayoutGrid, Activity, FlaskConical, HeartPulse, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FleetAlertBadge from '@/components/layout/FleetAlertBadge';
 import { useAuth } from '@/lib/AuthContext';
@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/AuthContext';
 const mobileNavItems = [
   { label: 'Dashboard', icon: LayoutGrid, path: '/' },
   { label: 'Sessions', icon: Activity, path: '/sessions' },
-  { label: 'Monitor', icon: Radio, path: '/monitor' },
+  { label: 'Bulk QA', icon: FlaskConical, path: '/bulk' },
+  { label: 'Health', icon: HeartPulse, path: '/health' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ];
 
@@ -32,7 +33,11 @@ export default function MobileBottomNav() {
       <div className="px-2 pt-2 flex justify-center">
         <FleetAlertBadge />
       </div>
-      <div className={`grid px-2 pt-2 ${boundedNavItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+      <div className={cn(
+        'grid px-2 pt-2',
+        boundedNavItems.length === 5 ? 'grid-cols-5' :
+        boundedNavItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3'
+      )}>
         {boundedNavItems.map(({ label, icon: Icon, path }) => {
           const active = location.pathname === path || location.pathname.startsWith(`${path}/`);
           return (

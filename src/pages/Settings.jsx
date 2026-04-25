@@ -7,6 +7,7 @@ import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbCl
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
 import AutomationObservabilitySettings from '@/components/settings/AutomationObservabilitySettings';
+import NotificationSettings from '@/components/settings/NotificationSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -340,6 +341,8 @@ export default function Settings() {
       </div>
 
       <AutomationObservabilitySettings />
+
+      <NotificationSettings />
 
       <DiagnosePanel projectId={form.projectId} apiKey={form.apiKey} />
 
