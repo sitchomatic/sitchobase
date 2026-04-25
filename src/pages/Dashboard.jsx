@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCredentials } from '@/lib/useCredentials';
-import { formatBytes, getCircuitState } from '@/lib/bbClient';
+import { formatBytes, formatDuration, getCircuitState } from '@/lib/bbClient';
 import { useBrowserbaseSessions, useBrowserbaseUsage } from '@/lib/browserbaseData';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import StatusBadge from '@/components/shared/StatusBadge';
@@ -349,13 +349,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
-
-function formatDuration(startedAt, endedAt) {
-  const start = new Date(startedAt);
-  const end = endedAt ? new Date(endedAt) : new Date();
-  const diff = Math.floor((end - start) / 1000);
-  if (diff < 60) return `${diff}s`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ${diff % 60}s`;
-  return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
 }

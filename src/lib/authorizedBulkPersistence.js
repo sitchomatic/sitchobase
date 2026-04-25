@@ -1,10 +1,12 @@
 import { base44 } from '@/api/base44Client';
+import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 function summarize(rows) {
+  const stats = getAuthorizedBulkStats(rows);
   return {
-    passedCount: rows.filter((row) => row.status === 'passed').length,
-    reviewCount: rows.filter((row) => row.status === 'review').length,
-    failedCount: rows.filter((row) => row.status === 'failed').length,
+    passedCount: stats.passed,
+    reviewCount: stats.review,
+    failedCount: stats.failed,
   };
 }
 

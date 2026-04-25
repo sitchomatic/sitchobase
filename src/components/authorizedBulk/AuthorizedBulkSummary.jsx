@@ -1,4 +1,5 @@
 import { CheckCircle, AlertCircle, Clock, HelpCircle } from 'lucide-react';
+import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 const stats = [
   { key: 'passed', label: 'Passed', icon: CheckCircle, className: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
@@ -8,10 +9,12 @@ const stats = [
 ];
 
 export default function AuthorizedBulkSummary({ rows }) {
+  const summary = getAuthorizedBulkStats(rows);
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {stats.map(({ key, label, icon: Icon, className }) => {
-        const count = rows.filter((row) => row.status === key).length;
+        const count = summary[key] || 0;
         return (
           <div key={key} className={`rounded-xl border p-4 ${className}`}>
             <Icon className="w-4 h-4 mb-2" />

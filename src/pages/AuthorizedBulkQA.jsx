@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import AuthorizedBulkSummary from '@/components/authorizedBulk/AuthorizedBulkSummary';
 import AuthorizedBulkRows from '@/components/authorizedBulk/AuthorizedBulkRows';
 import { clampConcurrency, normalizeBulkRows, validateAuthorizedBulkConfig, MAX_CONCURRENCY, MAX_ROWS } from '@/lib/authorizedBulkValidation';
+import { updateRowByIndex } from '@/lib/authorizedBulkStats';
 import { runAuthorizedBulkQA } from '@/lib/authorizedBulkRunner';
 import { createAuthorizedBulkRun, updateAuthorizedBulkRun } from '@/lib/authorizedBulkPersistence';
 import { toast } from 'sonner';
@@ -104,7 +105,7 @@ export default function AuthorizedBulkQA() {
         shouldAbort: () => abortRef.current,
         onRowUpdate: (patch) => {
           setRows((prev) => {
-            const next = prev.map((row) => (row.index === patch.index ? { ...row, ...patch } : row));
+            const next = updateRowByIndex(prev, patch);
             persistSoon(next);
             return next;
           });
