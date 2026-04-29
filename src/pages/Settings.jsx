@@ -213,9 +213,10 @@ export default function Settings() {
         </div>
 
         <div className="space-y-4">
-          {apiKeyRequired && (
-            <div>
-              <Label className="text-gray-400 text-xs mb-1.5 block">API Key</Label>
+          {/* API Key field is always visible — operators need to update the
+              stored Browserbase key from the UI in any deployment mode. */}
+          <div>
+            <Label className="text-gray-400 text-xs mb-1.5 block">API Key</Label>
               <div className="relative">
                 <Input
                   type={showKey ? 'text' : 'password'}
@@ -254,8 +255,7 @@ export default function Settings() {
                   </a>
                 </p>
               )}
-            </div>
-          )}
+          </div>
 
           <div>
             <Label className="text-gray-400 text-xs mb-1.5 block">Project ID</Label>
