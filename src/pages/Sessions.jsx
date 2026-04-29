@@ -10,8 +10,9 @@ import PullToRefresh from '@/components/shared/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, EyeOff, Loader2, X, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, Search, Eye, CheckSquare, Square, XCircle, EyeOff, Loader2, X, LayoutGrid, List, Film } from 'lucide-react';
 import CopyButton from '@/components/shared/CopyButton';
+import { sessionInspectorUrl } from '@/lib/browserbaseUrls';
 import { undoToast } from '@/lib/undoToast';
 import { useSessionArchive } from '@/lib/useSessionArchive';
 import SessionCardGrid from '@/components/sessions/SessionCardGrid';
@@ -273,6 +274,16 @@ export default function Sessions() {
                 <div className="text-xs text-yellow-500/80 font-mono mt-0.5">{formatCost(estimateCost(s.startedAt, s.endedAt))}</div>
                 {s.contextId && <div className="text-xs text-purple-400 mt-0.5">Context</div>}
               </div>
+              <a
+                href={sessionInspectorUrl(s.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Watch Browserbase Session Replay"
+                className="flex-shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-purple-400/70 hover:text-purple-300 hover:bg-purple-500/10 rounded transition-colors"
+              >
+                <Film className="w-3.5 h-3.5" />
+              </a>
               <Eye className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
             </div>
           ))}

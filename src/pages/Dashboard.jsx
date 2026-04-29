@@ -14,7 +14,7 @@ import ConcurrencyGauge from '@/components/dashboard/ConcurrencyGauge';
 import { Button } from '@/components/ui/button';
 import {
   RefreshCw, Activity, Clock, Globe, Zap, Layers, TrendingUp,
-  Play, XCircle, CheckCircle, AlertCircle, Terminal, Shield, Flame
+  Play, XCircle, CheckCircle, AlertCircle, Terminal, Shield, Flame, Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -267,6 +267,11 @@ export default function Dashboard() {
                 <div className="w-1.5 h-4 rounded-full bg-cyan-400" />
                 <span className="text-sm font-bold text-white font-mono tracking-wide">QUICK LAUNCH</span>
               </div>
+              <Link to="/au-casino">
+                <Button className="w-full bg-amber-500 hover:bg-amber-400 text-black font-bold gap-2 justify-start font-mono text-xs shadow-lg shadow-amber-500/30">
+                  <Sparkles className="w-3.5 h-3.5" /> AU CASINO DUAL LAUNCH
+                </Button>
+              </Link>
               <Link to="/bulk">
                 <Button className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold gap-2 justify-start font-mono text-xs shadow-lg shadow-orange-500/30">
                   <Flame className="w-3.5 h-3.5" /> AUTHORIZED BULK QA

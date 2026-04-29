@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { X, ChevronLeft, ExternalLink, RefreshCw, Terminal, Film, Info, Gamepad2, Radio, ImageIcon, Cpu, Network, Layers2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { sessionInspectorUrl } from '@/lib/browserbaseUrls';
 
 export default function SessionDetailPanel({ session, onClose }) {
   const isMobile = useIsMobile();
@@ -91,15 +92,20 @@ export default function SessionDetailPanel({ session, onClose }) {
           {detail.endedAt && <InfoRow label="Ended" value={format(new Date(detail.endedAt), 'MMM d, HH:mm:ss')} />}
           {detail.expiresAt && <InfoRow label="Expires" value={format(new Date(detail.expiresAt), 'MMM d, HH:mm:ss')} />}
 
-          {detail.connectUrl && (
-            <div className="pt-2 border-t border-gray-800">
+          <div className="pt-2 border-t border-gray-800 space-y-2">
+            <a href={sessionInspectorUrl(detail.id)} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" className="w-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 gap-2 text-xs">
+                <Film className="w-3.5 h-3.5" /> Watch Session Replay
+              </Button>
+            </a>
+            {detail.connectUrl && (
               <a href={detail.connectUrl} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline" className="w-full border-gray-700 text-gray-300 hover:bg-gray-800 gap-2 text-xs">
                   <ExternalLink className="w-3.5 h-3.5" /> Open Connect URL
                 </Button>
               </a>
-            </div>
-          )}
+            )}
+          </div>
 
           {detail.userMetadata && Object.keys(detail.userMetadata).length > 0 && (
             <div className="pt-2 border-t border-gray-800">
@@ -127,7 +133,7 @@ export default function SessionDetailPanel({ session, onClose }) {
 
         <TabsContent value="recording" className="flex-1 overflow-y-auto p-4 mt-0 space-y-3">
           <SessionFailureReplay session={detail} logs={logs} />
-          <SessionRecordingPlayer recording={recording} evidence={evidence} loading={loading} />
+          <SessionRecordingPlayer recording={recording} evidence={evidence} loading={loading} session={detail} />
         </TabsContent>
 
         <TabsContent value="control" className="flex-1 overflow-y-auto mt-0">

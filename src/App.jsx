@@ -30,6 +30,7 @@ const Personas = lazy(() => import('./pages/Personas'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const StagehandAI = lazy(() => import('./pages/StagehandAI'));
 const Activity = lazy(() => import('./pages/Activity.jsx'));
+const AUCasino = lazy(() => import('./pages/AUCasino.jsx'));
 const AuthorizedBulkQA = lazy(() => import('./pages/AuthorizedBulkQA.jsx'));
 const AuthorizedBulkRuns = lazy(() => import('./pages/AuthorizedBulkRuns.jsx'));
 const Monitor = lazy(() => import('./pages/Monitor'));
@@ -93,6 +94,7 @@ const AuthenticatedApp = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/stagehand" element={<StagehandAI />} />
           <Route path="/activity" element={<Activity />} />
+          <Route path="/au-casino" element={<AUCasino />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/bulk" element={<AuthorizedBulkQA />} />
           <Route path="/bulk/runs" element={<AuthorizedBulkRuns />} />

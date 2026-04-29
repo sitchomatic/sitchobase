@@ -10,7 +10,7 @@ import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import UserMenu from '@/components/shared/UserMenu';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug, Wrench
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug, Wrench, Sparkles
 } from 'lucide-react';
 
 // Slimmed primary nav. Sub-views (proxy efficiency, NordLynx) are reachable
@@ -19,6 +19,7 @@ const navItems = [
   { label: 'Command Center', icon: LayoutGrid, path: '/' },
   { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
   { label: 'Fleet Insights', icon: BarChart3, path: '/fleet/insights' },
+  { label: 'AU Casino', icon: Sparkles, path: '/au-casino' },
   { label: 'Authorized QA', icon: FlaskConical, path: '/bulk' },
   { label: 'QA History', icon: Clock, path: '/bulk/runs' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },

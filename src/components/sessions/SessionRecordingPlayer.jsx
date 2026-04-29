@@ -2,14 +2,20 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Download, Film, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { sessionInspectorUrl } from '@/lib/browserbaseUrls';
 
 /**
  * Browserbase /recording returns either:
  *  - { url: string }            → direct video file
  *  - { data: [...rrweb events] } → rrweb event array
  *  - array of rrweb events directly
+ *
+ * The REST recording endpoint is deprecated, so the most reliable replay path
+ * is the public Session Inspector at https://www.browserbase.com/sessions/{id}
+ * — that always works for any past session. We synthesize that URL from the
+ * session prop as a fallback when no AutomationEvidence record exists.
  */
-export default function SessionRecordingPlayer({ recording, evidence, loading }) {
+export default function SessionRecordingPlayer({ recording, evidence, loading, session }) {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -19,7 +25,7 @@ export default function SessionRecordingPlayer({ recording, evidence, loading })
   // Determine recording type
   const videoUrl = recording?.url || (typeof recording === 'string' ? recording : null);
   const rrwebEvents = recording?.data ?? (Array.isArray(recording) ? recording : null);
-  const inspectorUrl = evidence?.recordingUrl;
+  const inspectorUrl = evidence?.recordingUrl || sessionInspectorUrl(session?.id);
   const hasRecording = !!(videoUrl || rrwebEvents || inspectorUrl);
 
   // Video element sync

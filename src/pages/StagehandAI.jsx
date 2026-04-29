@@ -47,6 +47,9 @@ export default function StagehandAI() {
   const [results, setResults] = useState([]);
   const [createdSessions, setCreatedSessions] = useState([]);
   const [saveAsCloudFunctionOpen, setSaveAsCloudFunctionOpen] = useState(false);
+  // Tracks the Cloud Function backing the current prompt so execute() can log
+  // a CLOUD_FUNCTION_RUN with the right target_id. Cleared on manual edits.
+  const [loadedFunction, setLoadedFunction] = useState(null);
 
   // Used by the Cloud Function Picker above the prompt. Loads the saved
   // function's `script` (or its description as a fallback) into the prompt
@@ -54,7 +57,15 @@ export default function StagehandAI() {
   const loadCloudFunction = (fn) => {
     const next = fn?.script?.trim() || fn?.description?.trim() || fn?.name || '';
     setPrompt(next);
+    setLoadedFunction(fn || null);
     toast.success(`Loaded ${fn.name}`);
+  };
+
+  const handlePromptChange = (e) => {
+    setPrompt(e.target.value);
+    // Once the user edits the loaded prompt, it's no longer the saved
+    // function being run — clear the link so we don't mis-attribute logs.
+    if (loadedFunction) setLoadedFunction(null);
   };
 
   if (!isConfigured) return <CredentialsGuard />;
@@ -119,8 +130,33 @@ Be specific and technical. Format as a structured execution plan.`,
       }]);
       toast.success(`${sessions.length} sessions created with execution plan`);
       auditLog({ action: 'STAGEHAND_RUN', category: 'cloud_function', details: { sessionCount: sessions.length, region, promptPreview: prompt.slice(0, 80) } });
+      // If the prompt came from a saved Cloud Function, also record an
+      // explicit CLOUD_FUNCTION_RUN so the Activity dashboard can attribute
+      // the execution to the function it originated from.
+      if (loadedFunction) {
+        auditLog({
+          action: 'CLOUD_FUNCTION_RUN',
+          category: 'cloud_function',
+          targetId: loadedFunction.id,
+          details: {
+            name: loadedFunction.name,
+            runtime: loadedFunction.runtime,
+            sessionCount: sessions.length,
+            region,
+          },
+        });
+      }
     } catch (err) {
       auditLog({ action: 'STAGEHAND_RUN', category: 'cloud_function', status: 'failure', details: { region, error: err?.message, promptPreview: prompt.slice(0, 80) } });
+      if (loadedFunction) {
+        auditLog({
+          action: 'CLOUD_FUNCTION_RUN',
+          category: 'cloud_function',
+          status: 'failure',
+          targetId: loadedFunction.id,
+          details: { name: loadedFunction.name, error: err?.message, region },
+        });
+      }
       toast.error(`Stagehand run failed: ${err?.message || 'unknown error'}`);
     } finally {
       setRunning(false);
@@ -161,9 +197,15 @@ Be specific and technical. Format as a structured execution plan.`,
               <Textarea
                 placeholder='e.g. "Navigate to google.com and take a screenshot of the search results for AI news"'
                 value={prompt}
-                onChange={e => setPrompt(e.target.value)}
+                onChange={handlePromptChange}
                 className="bg-gray-800 border-gray-700 text-gray-200 min-h-[120px] resize-none"
               />
+              {loadedFunction && (
+                <div className="text-xs text-cyan-400/80 mt-1.5 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3" />
+                  Linked to Cloud Function: <span className="font-mono text-cyan-300">{loadedFunction.name}</span>
+                </div>
+              )}
             </div>
 
             <SaveAsCloudFunctionDialog
