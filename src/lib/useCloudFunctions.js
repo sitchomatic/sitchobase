@@ -219,16 +219,24 @@ export function useCloudFunctions({ autoload = true } = {}) {
       throw err;
     }
     try {
-      // If the patch carries fields we validate, run them through normalize so
-      // the same constraints apply on edit as on create.
-      const validated = (patch?.name || patch?.script || patch?.runtime || patch?.description !== undefined)
-        ? normalizeSavePayload({
-            name: patch.name ?? itemsCache.find((i) => i.id === id)?.name,
-            script: patch.script ?? itemsCache.find((i) => i.id === id)?.script,
-            description: patch.description ?? itemsCache.find((i) => i.id === id)?.description,
-            runtime: patch.runtime ?? itemsCache.find((i) => i.id === id)?.runtime,
-          })
-        : patch;
+      // Validate only the fields actually being changed. Merging with the
+      // cached record then normalizing breaks legacy records missing fields
+      // (e.g. an older row without `runtime`). We only enforce the same
+      // limits the create path does, on the patched fields themselves.
+      const validated = { ...patch };
+      if (typeof validated.name === 'string') {
+        validated.name = validated.name.trim();
+        if (!validated.name) throw new Error('Function name is required');
+        if (validated.name.length > MAX_NAME_LENGTH) throw new Error(`Function name must be ≤ ${MAX_NAME_LENGTH} characters`);
+      }
+      if (typeof validated.script === 'string') {
+        validated.script = validated.script.trim();
+        if (!validated.script) throw new Error('Function script is required');
+        if (validated.script.length > MAX_SCRIPT_SIZE) throw new Error(`Script body must be ≤ ${Math.round(MAX_SCRIPT_SIZE / 1024)}KB`);
+      }
+      if (typeof validated.runtime === 'string' && !['playwright', 'puppeteer', 'stagehand'].includes(validated.runtime)) {
+        throw new Error(`Unsupported runtime: ${validated.runtime}`);
+      }
       const updated = await base44.entities.CloudFunction.update(id, validated);
       broadcastItems(itemsCache.map((item) => (item.id === id ? { ...item, ...updated } : item)));
       return updated;
