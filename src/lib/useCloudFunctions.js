@@ -29,6 +29,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { auditLog } from '@/lib/auditLog';
 
 // ── Module-level shared state ────────────────────────────────────────────────
 let unavailableCache = false;
@@ -196,12 +197,24 @@ export function useCloudFunctions({ autoload = true } = {}) {
         // Re-read the cache *now* so we don't trample updates made between
         // the user clicking save and Base44 returning.
         broadcastItems([saved, ...itemsCache]);
+        auditLog({
+          action: 'CLOUD_FUNCTION_SAVED',
+          category: 'cloud_function',
+          targetId: saved?.id,
+          details: { name: clean.name, runtime: clean.runtime, scriptSize: clean.script.length },
+        });
         return saved;
       } catch (err) {
         if (isEntityMissingError(err)) {
           broadcastUnavailable(true);
           err.entityMissing = true;
         }
+        auditLog({
+          action: 'CLOUD_FUNCTION_SAVED',
+          category: 'cloud_function',
+          status: 'failure',
+          details: { name: clean.name, runtime: clean.runtime, error: err?.message },
+        });
         throw err;
       } finally {
         inFlightSaves.delete(dedupKey);
@@ -239,6 +252,12 @@ export function useCloudFunctions({ autoload = true } = {}) {
       }
       const updated = await base44.entities.CloudFunction.update(id, validated);
       broadcastItems(itemsCache.map((item) => (item.id === id ? { ...item, ...updated } : item)));
+      auditLog({
+        action: 'CLOUD_FUNCTION_UPDATED',
+        category: 'cloud_function',
+        targetId: id,
+        details: { fields: Object.keys(validated) },
+      });
       return updated;
     } catch (err) {
       if (isEntityMissingError(err)) {
@@ -257,8 +276,15 @@ export function useCloudFunctions({ autoload = true } = {}) {
       throw err;
     }
     try {
+      const removed = itemsCache.find((item) => item.id === id);
       await base44.entities.CloudFunction.delete(id);
       broadcastItems(itemsCache.filter((item) => item.id !== id));
+      auditLog({
+        action: 'CLOUD_FUNCTION_DELETED',
+        category: 'cloud_function',
+        targetId: id,
+        details: { name: removed?.name },
+      });
       return true;
     } catch (err) {
       if (isEntityMissingError(err)) {
