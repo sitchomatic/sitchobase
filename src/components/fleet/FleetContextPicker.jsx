@@ -36,8 +36,11 @@ export default function FleetContextPicker({ contextId, setContextId }) {
   return (
     <div>
       <Label className="text-gray-400 text-xs mb-2 block flex items-center gap-1.5">
-        <Layers className="w-3 h-3 text-purple-400" /> Reusable Context ID
+        <Layers className="w-3 h-3 text-purple-400" /> Saved Login / Cookies (optional)
       </Label>
+      <div className="text-[11px] text-gray-500 mb-2">
+        Reuse a saved browser profile so sessions start already logged in. Leave blank to start fresh.
+      </div>
       {savedContexts.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {savedContexts.slice(0, 4).map(ctx => (
@@ -54,7 +57,7 @@ export default function FleetContextPicker({ contextId, setContextId }) {
       )}
       <div className="flex gap-2">
         <Input value={contextId} onChange={e => { setContextId(e.target.value.trim()); setStatus(null); }}
-          placeholder="Paste context ID (optional)"
+          placeholder="Pick a saved profile above, or paste an ID"
           className="bg-gray-800 border-gray-700 text-gray-200 text-xs h-8 flex-1" />
         <Button size="sm" onClick={validate} disabled={!contextId || validating}
           className="h-8 px-2.5 text-xs bg-purple-600 hover:bg-purple-700 text-white gap-1">
@@ -64,8 +67,8 @@ export default function FleetContextPicker({ contextId, setContextId }) {
           Verify
         </Button>
       </div>
-      {status === 'valid' && <div className="text-[11px] text-emerald-400 mt-1">Context verified and ready to reuse</div>}
-      {status === 'invalid' && <div className="text-[11px] text-red-400 mt-1">Context ID is invalid</div>}
+      {status === 'valid' && <div className="text-[11px] text-emerald-400 mt-1">Profile found — sessions will reuse it</div>}
+      {status === 'invalid' && <div className="text-[11px] text-red-400 mt-1">No saved profile with this ID</div>}
     </div>
   );
 }

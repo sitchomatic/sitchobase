@@ -126,17 +126,17 @@ export default function FleetLauncher() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-xl font-bold text-white">Fleet Launcher</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Launch concurrent browser sessions via backend proxy</p>
+        <p className="text-sm text-gray-500 mt-0.5">Start multiple browsers at once</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Config */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
-          <div className="text-sm font-semibold text-white">Launch Configuration</div>
+          <div className="text-sm font-semibold text-white">Setup</div>
 
           <div>
             <Label className="text-gray-400 text-xs mb-2 block">
-              Session Count: <span className="text-emerald-400 font-bold">{count}</span>
+              How many browsers? <span className="text-emerald-400 font-bold">{count}</span>
             </Label>
             <Slider min={1} max={50} step={1} value={[count]} onValueChange={([v]) => setCount(v)} className="w-full" />
             <div className="flex justify-between text-xs text-gray-600 mt-1"><span>1</span><span>50</span></div>
@@ -179,7 +179,7 @@ export default function FleetLauncher() {
           </div>
 
           <div>
-            <Label className="text-gray-400 text-xs mb-2 block">Tag / Label</Label>
+            <Label className="text-gray-400 text-xs mb-2 block">Nickname for this batch</Label>
             <Input placeholder="e.g. scrape-job-01" value={tag} onChange={e => setTag(e.target.value)}
               className="bg-gray-800 border-gray-700 text-gray-200" />
           </div>
@@ -189,30 +189,39 @@ export default function FleetLauncher() {
 
           <div className="space-y-3 pt-2 border-t border-gray-800">
             <div className="flex items-center justify-between">
-              <Label className="text-gray-300 text-sm flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" /> Keep Alive
-              </Label>
+              <div>
+                <Label className="text-gray-300 text-sm flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-emerald-400" /> Keep browsers running
+                </Label>
+                <div className="text-[11px] text-gray-500 mt-0.5">Don't shut down when idle</div>
+              </div>
               <Switch checked={keepAlive} onCheckedChange={setKeepAlive} />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-gray-300 text-sm flex items-center gap-2">
-                <Shield className="w-3.5 h-3.5 text-blue-400" /> Residential Proxy
-              </Label>
+              <div>
+                <Label className="text-gray-300 text-sm flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5 text-blue-400" /> Hide my real IP
+                </Label>
+                <div className="text-[11px] text-gray-500 mt-0.5">Route through a residential proxy</div>
+              </div>
               <Switch checked={useProxy} onCheckedChange={setUseProxy} />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-gray-300 text-sm flex items-center gap-2">
-                <Video className="w-3.5 h-3.5 text-red-400" /> Record Session
-              </Label>
+              <div>
+                <Label className="text-gray-300 text-sm flex items-center gap-2">
+                  <Video className="w-3.5 h-3.5 text-red-400" /> Record video
+                </Label>
+                <div className="text-[11px] text-gray-500 mt-0.5">Save a replay you can watch later</div>
+              </div>
               <Switch checked={recording} onCheckedChange={setRecording} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-gray-300 text-sm flex items-center gap-2">
-                  <Eye className="w-3.5 h-3.5 text-purple-400" /> Headful Mode
+                  <Eye className="w-3.5 h-3.5 text-purple-400" /> Show the browser
                 </Label>
                 <div className="text-[11px] text-gray-500 mt-0.5">
-                  {headful ? 'Visible browser · live-view & Mirror compatible' : 'Headless · faster, no live UI'}
+                  {headful ? 'On — you can watch it live (needed for Mirror Mode)' : 'Off — runs invisibly, faster'}
                 </div>
               </div>
               <Switch checked={headful} onCheckedChange={setHeadful} />
@@ -222,13 +231,13 @@ export default function FleetLauncher() {
           <Button onClick={launch} disabled={launching}
             className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold gap-2">
             {launching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {launching ? `Launching… (${progress.done}/${progress.total})` : `Launch ${count} Session${count > 1 ? 's' : ''}`}
+            {launching ? `Starting… (${progress.done}/${progress.total})` : `Start ${count} browser${count > 1 ? 's' : ''}`}
           </Button>
         </div>
 
         {/* Results */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-          <div className="text-sm font-semibold text-white">Launch Results</div>
+          <div className="text-sm font-semibold text-white">Results</div>
 
           {launching && (
             <div className="space-y-2">
@@ -244,7 +253,7 @@ export default function FleetLauncher() {
           {results.length === 0 && errors.length === 0 && !launching && (
             <div className="text-center py-8 text-gray-600 text-sm">
               <Globe className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              Launch results will appear here
+              Your browsers will appear here once launched
             </div>
           )}
 
@@ -266,7 +275,7 @@ export default function FleetLauncher() {
 
           {results.length > 0 && (
             <div className="pt-3 border-t border-gray-800 text-xs text-gray-400">
-              ✓ {results.length} sessions launched · {errors.length} failed
+              ✓ {results.length} started · {errors.length} failed
             </div>
           )}
         </div>
