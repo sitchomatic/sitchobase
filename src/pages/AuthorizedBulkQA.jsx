@@ -14,8 +14,20 @@ import { clampConcurrency, normalizeBulkRows, validateAuthorizedBulkConfig, MAX_
 import { updateRowByIndex } from '@/lib/authorizedBulkStats';
 import { runAuthorizedBulkQA } from '@/lib/authorizedBulkRunner';
 import { createAuthorizedBulkRun, updateAuthorizedBulkRun } from '@/lib/authorizedBulkPersistence';
+import { dispatchWebhookEvent } from '@/lib/webhookDispatcher';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
+
+function summarizeForWebhook(rows) {
+  const total = rows.length;
+  let passed = 0, failed = 0, review = 0;
+  for (const r of rows) {
+    if (r.status === 'passed') passed++;
+    else if (r.status === 'failed') failed++;
+    else if (r.status === 'review') review++;
+  }
+  return { total, passed, failed, review };
+}
 
 function toCsv(rows) {
   const headers = ['index', 'username', 'status', 'outcome', 'sessionId', 'finalUrl', 'startedAt', 'endedAt'];
@@ -40,6 +52,8 @@ export default function AuthorizedBulkQA() {
   const activeRunIdRef = useRef(null);
   const persistTimerRef = useRef(null);
   const persistPromiseRef = useRef(Promise.resolve());
+  const consecutiveErrorsRef = useRef(0);
+  const thresholdFiredRef = useRef(false);
   const [fileName, setFileName] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
   const [usernameSelector, setUsernameSelector] = useState('input[name="email"]');
@@ -83,6 +97,8 @@ export default function AuthorizedBulkQA() {
     }
 
     abortRef.current = false;
+    consecutiveErrorsRef.current = 0;
+    thresholdFiredRef.current = false;
     setRunning(true);
     const resetRows = rows.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '', pageTitle: '', startedAt: '', endedAt: '' }));
     setRows(resetRows);
@@ -117,6 +133,22 @@ export default function AuthorizedBulkQA() {
             persistSoon(next);
             return next;
           });
+          // Track consecutive failures for the threshold webhook event.
+          if (patch.status === 'failed') {
+            consecutiveErrorsRef.current += 1;
+            const threshold = 5; // matches WebhookConfig default; per-config threshold is enforced server-side later
+            if (!thresholdFiredRef.current && consecutiveErrorsRef.current >= threshold) {
+              thresholdFiredRef.current = true;
+              dispatchWebhookEvent('consecutive_error_threshold', {
+                runId: activeRunIdRef.current,
+                targetUrl,
+                consecutiveErrors: consecutiveErrorsRef.current,
+                lastFailure: { index: patch.index, username: patch.username, outcome: patch.outcome },
+              }).catch(() => {});
+            }
+          } else if (patch.status === 'passed' || patch.status === 'review') {
+            consecutiveErrorsRef.current = 0;
+          }
         },
       });
 
@@ -127,6 +159,10 @@ export default function AuthorizedBulkQA() {
       await persistPromiseRef.current;
       const finalStatus = abortRef.current ? 'stopped' : 'completed';
       await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, finalStatus);
+      const summary = summarizeForWebhook(latestRows);
+      const webhookPayload = { runId: activeRunIdRef.current, status: finalStatus, targetUrl, ...summary };
+      dispatchWebhookEvent('bulk_run_completed', webhookPayload).catch(() => {});
+      if (finalStatus === 'stopped') dispatchWebhookEvent('bulk_run_failed', webhookPayload).catch(() => {});
       toast.success(finalStatus === 'stopped' ? 'Authorized bulk QA run stopped and saved' : 'Authorized bulk QA run complete and saved');
     } catch (error) {
       if (persistTimerRef.current) {
@@ -135,6 +171,10 @@ export default function AuthorizedBulkQA() {
       }
       await persistPromiseRef.current;
       await updateAuthorizedBulkRun(activeRunIdRef.current, latestRows, 'failed');
+      const summary = summarizeForWebhook(latestRows);
+      const webhookPayload = { runId: activeRunIdRef.current, status: 'failed', targetUrl, error: error.message, ...summary };
+      dispatchWebhookEvent('bulk_run_completed', webhookPayload).catch(() => {});
+      dispatchWebhookEvent('bulk_run_failed', webhookPayload).catch(() => {});
       toast.error(error.message || 'Run failed and was saved');
     } finally {
       setRunning(false);

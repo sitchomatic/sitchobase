@@ -8,6 +8,7 @@ import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialS
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
 import AutomationObservabilitySettings from '@/components/settings/AutomationObservabilitySettings';
 import NotificationSettings from '@/components/settings/NotificationSettings';
+import WebhookSettings from '@/components/settings/WebhookSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -343,6 +344,8 @@ export default function Settings() {
       <AutomationObservabilitySettings />
 
       <NotificationSettings />
+
+      <WebhookSettings />
 
       <DiagnosePanel projectId={form.projectId} apiKey={form.apiKey} />
 

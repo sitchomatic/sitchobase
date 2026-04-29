@@ -1,0 +1,97 @@
+{
+  "name": "WebhookConfig",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Friendly label for this webhook"
+    },
+    "url": {
+      "type": "string",
+      "description": "Outbound webhook URL (must be https)"
+    },
+    "secret": {
+      "type": "string",
+      "description": "Optional shared secret sent as X-Webhook-Secret header"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "bulk_run_completed",
+          "bulk_run_failed",
+          "consecutive_error_threshold"
+        ]
+      },
+      "default": [],
+      "description": "Which bulk QA events trigger this webhook"
+    },
+    "consecutiveErrorThreshold": {
+      "type": "integer",
+      "default": 5,
+      "description": "Trigger consecutive_error_threshold after N consecutive failed rows"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Master enable switch"
+    },
+    "lastFiredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last successful delivery timestamp"
+    },
+    "lastStatus": {
+      "type": "string",
+      "description": "Last delivery result (e.g. '200 OK' or 'fetch failed')"
+    },
+    "lastError": {
+      "type": "string",
+      "description": "Last delivery failure message"
+    }
+  },
+  "required": [
+    "name",
+    "url"
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
