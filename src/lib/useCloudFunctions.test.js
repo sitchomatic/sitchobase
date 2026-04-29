@@ -2,29 +2,39 @@
  * useCloudFunctions — unit tests.
  *
  * The hook itself needs a React renderer, which this repo does not install.
- * We cover the non-render pieces directly:
- *   1. isEntityMissingError recognizes the real Base44 SDK 404 shape so we
- *      never mis-classify a normal HTTP error as "entity missing" and hide
- *      a feature that's just temporarily unreachable.
- *   2. The module-level cache exposed via __resetCloudFunctionsCacheForTests
- *      is in fact resetable between tests — every other CloudFunction test
- *      relies on this escape hatch to prevent the cross-test state bleed
- *      that would otherwise mask a regression.
+ * We cover all non-render pieces directly through the exported helpers and
+ * test-only escape hatches:
+ *   1. isEntityMissingError — recognizes the real Base44 SDK 404 shape so we
+ *      never mis-classify a normal HTTP error as "entity missing".
+ *   2. normalizeSavePayload — input validation; size + length limits.
+ *   3. Module-level cache resetability — every other test relies on this.
+ *   4. UNAVAILABLE_TTL_MS — guard against silent drift from the documented
+ *      5 minute default.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// The Base44 client module pulls real env + SDK on import (and reaches into
-// window.location at the top level). Stub it so the helper module can load
-// in a Node test environment.
 vi.mock('@/api/base44Client', () => ({
-  base44: { entities: { CloudFunction: { list: vi.fn(), create: vi.fn() } } },
+  base44: {
+    entities: {
+      CloudFunction: {
+        list: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+    },
+  },
 }));
 
 const {
   isEntityMissingError,
+  normalizeSavePayload,
   UNAVAILABLE_TTL_MS,
+  MAX_SCRIPT_SIZE,
+  MAX_NAME_LENGTH,
   __resetCloudFunctionsCacheForTests,
   __getUnavailableStateForTests,
+  __getInFlightSavesSizeForTests,
 } = await import('./useCloudFunctions');
 
 describe('isEntityMissingError', () => {
@@ -49,37 +59,111 @@ describe('isEntityMissingError', () => {
     expect(isEntityMissingError({ response: { status: 401 } })).toBe(false);
   });
 
-  it('tolerates null / undefined without throwing', () => {
+  it('tolerates null / undefined / empty without throwing', () => {
     expect(isEntityMissingError(null)).toBe(false);
     expect(isEntityMissingError(undefined)).toBe(false);
     expect(isEntityMissingError({})).toBe(false);
   });
 });
 
+describe('normalizeSavePayload', () => {
+  it('trims name and script and defaults runtime to playwright', () => {
+    const out = normalizeSavePayload({ name: '  hello  ', script: '  do thing  ' });
+    expect(out).toEqual({ name: 'hello', script: 'do thing', description: undefined, runtime: 'playwright' });
+  });
+
+  it('keeps a provided description (trimmed) and runtime', () => {
+    const out = normalizeSavePayload({ name: 'a', script: 'b', description: '  desc  ', runtime: 'puppeteer' });
+    expect(out.description).toBe('desc');
+    expect(out.runtime).toBe('puppeteer');
+  });
+
+  it('strips empty descriptions', () => {
+    expect(normalizeSavePayload({ name: 'a', script: 'b', description: '   ' }).description).toBeUndefined();
+  });
+
+  it('rejects empty name', () => {
+    expect(() => normalizeSavePayload({ name: '', script: 'b' })).toThrow(/name is required/i);
+    expect(() => normalizeSavePayload({ name: '   ', script: 'b' })).toThrow(/name is required/i);
+  });
+
+  it('rejects empty script', () => {
+    expect(() => normalizeSavePayload({ name: 'a', script: '' })).toThrow(/script is required/i);
+    expect(() => normalizeSavePayload({ name: 'a', script: '   ' })).toThrow(/script is required/i);
+  });
+
+  it('rejects oversized name', () => {
+    const longName = 'a'.repeat(MAX_NAME_LENGTH + 1);
+    expect(() => normalizeSavePayload({ name: longName, script: 'b' })).toThrow(/≤/);
+  });
+
+  it('rejects oversized script', () => {
+    const longScript = 'a'.repeat(MAX_SCRIPT_SIZE + 1);
+    expect(() => normalizeSavePayload({ name: 'a', script: longScript })).toThrow(/KB/);
+  });
+
+  it('accepts script exactly at the size limit', () => {
+    const okScript = 'a'.repeat(MAX_SCRIPT_SIZE);
+    expect(() => normalizeSavePayload({ name: 'a', script: okScript })).not.toThrow();
+  });
+
+  it('rejects unsupported runtime values', () => {
+    expect(() => normalizeSavePayload({ name: 'a', script: 'b', runtime: 'selenium' })).toThrow(/Unsupported runtime/);
+  });
+
+  it('accepts each supported runtime', () => {
+    for (const r of ['playwright', 'puppeteer', 'stagehand']) {
+      expect(normalizeSavePayload({ name: 'a', script: 'b', runtime: r }).runtime).toBe(r);
+    }
+  });
+
+  it('coerces non-string inputs gracefully', () => {
+    expect(() => normalizeSavePayload({ name: null, script: 'b' })).toThrow(/name is required/i);
+    expect(() => normalizeSavePayload({ name: 'a', script: null })).toThrow(/script is required/i);
+    expect(() => normalizeSavePayload(null)).toThrow(/name is required/i);
+    expect(() => normalizeSavePayload(undefined)).toThrow(/name is required/i);
+  });
+
+  it('falls back to playwright when runtime is empty/falsy', () => {
+    expect(normalizeSavePayload({ name: 'a', script: 'b', runtime: '' }).runtime).toBe('playwright');
+    expect(normalizeSavePayload({ name: 'a', script: 'b', runtime: undefined }).runtime).toBe('playwright');
+  });
+});
+
 describe('__resetCloudFunctionsCacheForTests', () => {
+  beforeEach(() => __resetCloudFunctionsCacheForTests());
+  afterEach(() => __resetCloudFunctionsCacheForTests());
+
   it('is callable without arguments and without throwing', () => {
     expect(() => __resetCloudFunctionsCacheForTests()).not.toThrow();
+  });
+
+  it('clears in-flight saves bookkeeping', () => {
+    expect(__getInFlightSavesSizeForTests()).toBe(0);
   });
 });
 
 describe('UNAVAILABLE_TTL_MS', () => {
-  beforeEach(() => {
-    __resetCloudFunctionsCacheForTests();
-  });
-
+  beforeEach(() => __resetCloudFunctionsCacheForTests());
   afterEach(() => {
     vi.useRealTimers();
     __resetCloudFunctionsCacheForTests();
   });
 
   it('is exposed as a named constant so callers can align retry cadence', () => {
-    // Five minutes is the deliberate default documented on the source. If we
-    // ever shorten or lengthen it, both the hook and any downstream wait
-    // heuristic need updating together — this test catches silent drift.
     expect(UNAVAILABLE_TTL_MS).toBe(5 * 60 * 1000);
   });
 
-  it('has no unavailableAt until the reset is followed by a real broadcast', () => {
+  it('has no unavailableAt until a real broadcast', () => {
     expect(__getUnavailableStateForTests()).toEqual({ unavailable: false, unavailableAt: 0 });
+  });
+});
+
+describe('Size constants', () => {
+  it('MAX_SCRIPT_SIZE is 64KB', () => {
+    expect(MAX_SCRIPT_SIZE).toBe(64 * 1024);
+  });
+  it('MAX_NAME_LENGTH is 120', () => {
+    expect(MAX_NAME_LENGTH).toBe(120);
   });
 });
