@@ -31,9 +31,11 @@ export default function CloudFunctionPicker({
   label = 'Load Cloud Function',
   className = '',
 }) {
-  const { items, loading, unavailable } = useCloudFunctions();
+  const { items, loading, unavailable, error, retry } = useCloudFunctions();
   const [open, setOpen] = useState(false);
 
+  // Hide entirely only when the entity is undeployed (permanent state).
+  // Transient errors keep the picker visible so the user can hit Retry.
   if (unavailable) return null;
 
   return (
@@ -58,6 +60,14 @@ export default function CloudFunctionPicker({
         {loading ? (
           <div className="flex items-center gap-2 px-2 py-3 text-xs text-gray-500">
             <Loader2 className="w-3 h-3 animate-spin" /> Loading…
+          </div>
+        ) : error ? (
+          <div className="px-2 py-3 space-y-2">
+            <div className="text-xs text-red-300">{error?.message || 'Failed to load'}</div>
+            <Button size="sm" variant="ghost" onClick={(e) => { e.preventDefault(); retry(); }}
+              className="h-6 text-xs text-cyan-300 hover:bg-cyan-500/10 px-2">
+              Retry
+            </Button>
           </div>
         ) : items.length === 0 ? (
           <div className="px-2 py-3 text-xs text-gray-600">No cloud functions saved yet.</div>

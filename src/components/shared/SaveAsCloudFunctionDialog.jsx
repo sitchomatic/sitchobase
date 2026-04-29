@@ -46,7 +46,10 @@ export default function SaveAsCloudFunctionDialog({
   title = 'Save as Cloud Function',
   onSaved,
 }) {
-  const { saveFunction, unavailable } = useCloudFunctions({ autoload: false });
+  // Autoload so `unavailable` is known by the time the dialog opens — that
+  // way the inline yellow banner shows BEFORE the user fills the form,
+  // instead of after a failed save round-trip.
+  const { saveFunction, unavailable } = useCloudFunctions();
   const [name, setName] = useState(defaultName);
   const [description, setDescription] = useState(defaultDescription);
   const [runtime, setRuntime] = useState(defaultRuntime);
@@ -123,6 +126,7 @@ export default function SaveAsCloudFunctionDialog({
                 <SelectContent className="bg-gray-900 border-gray-800 text-gray-200">
                   <SelectItem value="playwright">playwright</SelectItem>
                   <SelectItem value="puppeteer">puppeteer</SelectItem>
+                  <SelectItem value="stagehand">stagehand</SelectItem>
                 </SelectContent>
               </Select>
             </div>
