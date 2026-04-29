@@ -29,7 +29,6 @@ const Contexts = lazy(() => import('./pages/Contexts'));
 const Personas = lazy(() => import('./pages/Personas'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const StagehandAI = lazy(() => import('./pages/StagehandAI'));
-const Activity = lazy(() => import('./pages/Activity.jsx'));
 const AuthorizedBulkQA = lazy(() => import('./pages/AuthorizedBulkQA.jsx'));
 const AuthorizedBulkRuns = lazy(() => import('./pages/AuthorizedBulkRuns.jsx'));
 const Monitor = lazy(() => import('./pages/Monitor'));
@@ -46,7 +45,7 @@ const AdminFrontendErrors = lazy(() => import('./pages/AdminFrontendErrors'));
 const AdminOperations = lazy(() => import('./pages/AdminOperations'));
 const Runbook = lazy(() => import('./pages/Runbook'));
 const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
-const Activity = lazy(() => import('./pages/Activity.jsx'));
+const ActivityPage = lazy(() => import('./pages/Activity.jsx'));
 
 function LazyFallback() {
   return (
@@ -93,7 +92,6 @@ const AuthenticatedApp = () => {
           <Route path="/personas" element={<Personas />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/stagehand" element={<StagehandAI />} />
-          <Route path="/activity" element={<Activity />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/bulk" element={<AuthorizedBulkQA />} />
           <Route path="/bulk/runs" element={<AuthorizedBulkRuns />} />
@@ -106,7 +104,7 @@ const AuthenticatedApp = () => {
           <Route path="/monitor" element={<Monitor />} />
           <Route path="/audit" element={<AuditLog />} />
           <Route path="/audit/:id" element={<AuditLog />} />
-          <Route path="/activity" element={<Activity />} />
+          <Route path="/activity" element={<ActivityPage />} />
           <Route path="/status" element={<Navigate to="/health" replace />} />
           <Route path="/health" element={<HealthChecklist />} />
           <Route path="/admin/metrics" element={<AdminRoute><AdminMetrics /></AdminRoute>} />
