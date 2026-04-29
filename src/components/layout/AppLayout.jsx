@@ -30,6 +30,7 @@ const navItems = [
   { label: 'Personas', icon: Users, path: '/personas' },
   { label: 'Analytics', icon: Network, path: '/analytics' },
   { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
+  { label: 'Activity', icon: Activity, path: '/activity' },
   { label: 'Audit Log', icon: ScrollText, path: '/audit' },
   { label: 'Health', icon: HeartPulse, path: '/health' },
   { label: 'Runbook', icon: BookOpen, path: '/help/runbook' },

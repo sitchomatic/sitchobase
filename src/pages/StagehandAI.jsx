@@ -120,6 +120,7 @@ Be specific and technical. Format as a structured execution plan.`,
       toast.success(`${sessions.length} sessions created with execution plan`);
       auditLog({ action: 'STAGEHAND_RUN', category: 'session', details: { sessionCount: sessions.length, region, promptPreview: prompt.slice(0, 80) } });
     } catch (err) {
+      auditLog({ action: 'STAGEHAND_RUN', category: 'session', status: 'failure', details: { region, error: err?.message, promptPreview: prompt.slice(0, 80) } });
       toast.error(`Stagehand run failed: ${err?.message || 'unknown error'}`);
     } finally {
       setRunning(false);

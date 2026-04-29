@@ -4,7 +4,7 @@
   "properties": {
     "action": {
       "type": "string",
-      "description": "The action performed (e.g., CONTEXT_CREATED, SESSION_LAUNCHED)"
+      "description": "The action performed (e.g., CONTEXT_CREATED, SESSION_LAUNCHED, CLOUD_FUNCTION_RUN)"
     },
     "category": {
       "type": "string",
@@ -14,7 +14,8 @@
         "persona",
         "fleet",
         "bulk",
-        "settings"
+        "settings",
+        "cloud_function"
       ],
       "description": "Category of the action"
     },
@@ -43,5 +44,30 @@
   "required": [
     "action",
     "category"
-  ]
+  ],
+  "rls": {
+    "create": {},
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

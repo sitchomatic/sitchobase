@@ -10,12 +10,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { pageTransition, slideInVariants } from '@/lib/motion';
 
 const CATEGORY_COLORS = {
-  session:  'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  context:  'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  persona:  'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-  fleet:    'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  bulk:     'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  settings: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  session:        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  context:        'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  persona:        'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  fleet:          'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  bulk:           'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  settings:       'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  cloud_function: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
 };
 
 export default function AuditLog() {
@@ -89,7 +90,7 @@ export default function AuditLog() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-gray-800 border-gray-700">
-              {['ALL', 'session', 'context', 'persona', 'fleet', 'bulk', 'settings'].map(c => (
+              {['ALL', 'session', 'context', 'persona', 'fleet', 'bulk', 'settings', 'cloud_function'].map(c => (
                 <SelectItem key={c} value={c} className="text-gray-200 capitalize">{c}</SelectItem>
               ))}
             </SelectContent>
