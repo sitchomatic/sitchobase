@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock, Video, Monitor } from 'lucide-react';
+import { Zap, CheckCircle, AlertCircle, Loader2, Globe, Shield, Clock, Video, Monitor, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { auditLog } from '@/lib/auditLog';
 import { VIEWPORT_PRESETS } from '@/components/fleet/FleetLaunchPresets';
@@ -30,6 +30,10 @@ export default function FleetLauncher() {
   const [keepAlive, setKeepAlive] = useState(false);
   const [useProxy, setUseProxy] = useState(true);
   const [recording, setRecording] = useState(false);
+  // Headful = visible browser UI (default for live-debug / Mirror Mode).
+  // Headless = no UI, faster + lower memory. Browserbase reads this via
+  // browserSettings.headless (default false = headful).
+  const [headful, setHeadful] = useState(true);
   const [viewportPreset, setViewportPreset] = useState('desktop_1920');
   const [sessionTimeout, setSessionTimeout] = useState(60);
   const [tag, setTag] = useState('');
@@ -64,6 +68,7 @@ export default function FleetLauncher() {
       browserSettings: {
         viewport: { width: vp.width, height: vp.height },
         recordSession: recording,
+        headless: !headful,
         ...(contextId ? { context: { id: contextId, persist: true } } : {}),
       },
       ...(useProxy ? { proxies: true } : {}),
@@ -106,6 +111,7 @@ export default function FleetLauncher() {
         keepAlive,
         useProxy,
         recording,
+        headful,
         viewport: viewportPreset,
         contextId: contextId || undefined,
         metadata: userMetadata,
@@ -199,6 +205,17 @@ export default function FleetLauncher() {
                 <Video className="w-3.5 h-3.5 text-red-400" /> Record Session
               </Label>
               <Switch checked={recording} onCheckedChange={setRecording} />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-gray-300 text-sm flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5 text-purple-400" /> Headful Mode
+                </Label>
+                <div className="text-[11px] text-gray-500 mt-0.5">
+                  {headful ? 'Visible browser · live-view & Mirror compatible' : 'Headless · faster, no live UI'}
+                </div>
+              </div>
+              <Switch checked={headful} onCheckedChange={setHeadful} />
             </div>
           </div>
 
