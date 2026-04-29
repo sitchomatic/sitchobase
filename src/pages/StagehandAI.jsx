@@ -57,10 +57,6 @@ export default function StagehandAI() {
     toast.success(`Loaded ${fn.name}`);
   };
 
-  const launchCloudFunction = async (item) => {
-    loadCloudFunction(item);
-  };
-
   if (!isConfigured) return <CredentialsGuard />;
 
   const execute = async () => {
@@ -268,7 +264,7 @@ Be specific and technical. Format as a structured execution plan.`,
 
         {/* Sidebar */}
         <div className="space-y-3">
-          <CloudFunctionLibrary onLaunch={launchCloudFunction} />
+          <CloudFunctionLibrary onLaunch={loadCloudFunction} />
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <div className="text-sm font-semibold text-white mb-3">Example Prompts</div>
             <div className="space-y-2">

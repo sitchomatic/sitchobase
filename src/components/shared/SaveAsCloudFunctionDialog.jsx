@@ -29,7 +29,7 @@ import { toast } from 'sonner';
  * @param {boolean} props.open - Whether the dialog is open.
  * @param {(open: boolean) => void} props.onOpenChange - Callback invoked when the dialog open state should change.
  * @param {string} props.scriptBody - Initial script or prompt body to edit and save.
- * @param {string} [props.defaultRuntime='playwright'] - Initial runtime selection (`"playwright"` or `"puppeteer"`).
+ * @param {string} [props.defaultRuntime='playwright'] - Initial runtime selection (`"playwright"`, `"puppeteer"`, or `"stagehand"`).
  * @param {string} [props.defaultName=''] - Initial name for the Cloud Function.
  * @param {string} [props.defaultDescription=''] - Initial description for the Cloud Function.
  * @param {string} [props.title='Save as Cloud Function'] - Dialog title text.
@@ -102,7 +102,7 @@ export default function SaveAsCloudFunctionDialog({
         {unavailable && (
           <div className="rounded-md border border-yellow-500/20 bg-yellow-500/5 p-3 text-xs text-yellow-200/90">
             The <code className="text-yellow-100 bg-yellow-500/10 px-1 rounded">CloudFunction</code> entity is not deployed to this Base44 app. Publishing{' '}
-            <code className="text-yellow-100 bg-yellow-500/10 px-1 rounded">base44/entities/CloudFunction.jsonc</code> via the Base44 Builder will enable saving.
+            <code className="text-yellow-100 bg-yellow-500/10 px-1 rounded">entities/CloudFunction.json</code> via the Base44 Builder will enable saving.
           </div>
         )}
 
