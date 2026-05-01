@@ -41,7 +41,10 @@ export default function Dashboard() {
   });
   const testRunsQuery = useQuery({
     queryKey: ['dashboardTestRuns'],
-    queryFn: () => base44.entities.TestRun.list('-startedAt', 50),
+    // Tolerate legacy TestRun records that may be missing newly-required
+    // fields under stricter SDK validation — fall back to an empty list so
+    // a single bad row doesn't take down the whole dashboard.
+    queryFn: () => base44.entities.TestRun.list('-startedAt', 50).catch(() => []),
     enabled: isConfigured,
     initialData: [],
     refetchInterval: 20_000,
@@ -105,27 +108,19 @@ export default function Dashboard() {
   }, [isConfigured, refetchSessions]);
 
   const metrics = useMemo(() => {
-    const next = {
-      running: 0,
-      pending: 0,
-      completed: 0,
-      errors: 0,
-      total: sessions.length,
-      recentSessions: [],
-    };
-
+    let running = 0, pending = 0, completed = 0, errors = 0;
     for (const session of sessions) {
-      if (session.status === 'RUNNING') next.running++;
-      else if (session.status === 'PENDING') next.pending++;
-      else if (session.status === 'COMPLETED') next.completed++;
-      else if (session.status === 'ERROR' || session.status === 'TIMED_OUT') next.errors++;
-
-      next.recentSessions.push(session);
-      next.recentSessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      if (next.recentSessions.length > 8) next.recentSessions.pop();
+      if (session.status === 'RUNNING') running++;
+      else if (session.status === 'PENDING') pending++;
+      else if (session.status === 'COMPLETED') completed++;
+      else if (session.status === 'ERROR' || session.status === 'TIMED_OUT') errors++;
     }
-
-    return next;
+    // Sort once at the end (not per-row) and slice — was previously O(n² log n)
+    // because we re-sorted on every push inside the loop.
+    const recentSessions = [...sessions]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 8);
+    return { running, pending, completed, errors, total: sessions.length, recentSessions };
   }, [sessions]);
 
   const testRunStats = useMemo(
