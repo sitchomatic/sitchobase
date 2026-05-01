@@ -32,3 +32,12 @@ export function sessionInspectorUrl(sessionId) {
   if (!sessionId || typeof sessionId !== 'string') return null;
   return `${BROWSERBASE_DASHBOARD_HOST}/sessions/${encodeURIComponent(sessionId)}`;
 }
+
+/**
+ * Embeddable variant of the Session Inspector — same URL with `?embed=true`
+ * so it renders chrome-less inside an <iframe> without the Browserbase nav.
+ */
+export function sessionInspectorEmbedUrl(sessionId) {
+  const base = sessionInspectorUrl(sessionId);
+  return base ? `${base}?embed=true` : null;
+}

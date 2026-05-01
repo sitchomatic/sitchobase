@@ -99,31 +99,32 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     });
 
     sessionId = session.id;
-    if (evidenceSettings.enableVideoRecording) {
-      await upsertAutomationEvidence({
-        sessionId,
-        source: 'AuthorizedBulkQA',
-        runId,
-        rowIndex: row.index,
-        recordingUrl: `https://www.browserbase.com/sessions/${sessionId}`,
-        status: 'running',
-      }).catch(() => null);
-    }
+    // Always persist the session + recording URL link so the inspector embed
+    // and timeline always have something to attach to, even on `low` verbosity.
+    await upsertAutomationEvidence({
+      sessionId,
+      source: 'AuthorizedBulkQA',
+      runId,
+      rowIndex: row.index,
+      recordingUrl: `https://www.browserbase.com/sessions/${sessionId}`,
+      status: 'running',
+    }).catch(() => null);
     update({ sessionId, outcome: 'Connecting to browser' });
 
     cdp = await connectCdp(session.connectUrl);
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
 
-    // Start 500ms background screenshot poller — frames are uploaded and
-    // batched into AutomationEvidence so each row's timeline is viewable
-    // from the bulk QA UI without blocking the automation flow.
-    stopPoller = startScreenshotPoller(cdp, {
-      sessionId,
-      source: 'AuthorizedBulkQA',
-      runId,
-      rowIndex: row.index,
-    });
+    // 500ms background screenshot poller — only on `high` verbosity. On
+    // `low`, evidence is captured only at major steps and on failure.
+    if (evidenceSettings.logVerbosityLevel === 'high') {
+      stopPoller = startScreenshotPoller(cdp, {
+        sessionId,
+        source: 'AuthorizedBulkQA',
+        runId,
+        rowIndex: row.index,
+      });
+    }
 
     update({ outcome: 'Loading target page' });
     await cdp.send('Page.navigate', { url: config.targetUrl });
