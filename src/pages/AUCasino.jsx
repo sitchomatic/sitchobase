@@ -11,13 +11,14 @@
  *    both sessions in parallel rather than sequentially.
  */
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCredentials } from '@/lib/useCredentials';
 import { bbClient } from '@/lib/bbClient';
 import { auditLog } from '@/lib/auditLog';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Zap, Loader2, Shield, Smartphone, Globe, Info } from 'lucide-react';
+import { Sparkles, Zap, Loader2, Shield, Smartphone, Globe, Info, FlaskConical } from 'lucide-react';
 import CredentialsGuard from '@/components/shared/CredentialsGuard';
 import AuCasinoTargetCard from '@/components/auCasino/AuCasinoTargetCard';
 import {
@@ -111,6 +112,20 @@ export default function AUCasino() {
           </Badge>
         </div>
       </div>
+
+      {/* Bulk dual-target validation entry point */}
+      <Link to="/au-casino/dual-validation" className="block">
+        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-red-500/5 to-transparent p-4 flex items-center gap-3 hover:border-amber-500/50 transition-colors">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+            <FlaskConical className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-bold text-white">Dual-Target Validation Mode</div>
+            <div className="text-xs text-gray-500">Upload a credentials CSV — every row runs against both Joe Fortune + Ignition with screenshot evidence per task.</div>
+          </div>
+          <span className="text-xs text-amber-400">Open →</span>
+        </div>
+      </Link>
 
       {/* Dual launcher */}
       <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-amber-500/5 via-gray-900 to-red-500/5 p-5 flex items-center justify-between gap-4 flex-wrap">

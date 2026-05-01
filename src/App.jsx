@@ -30,6 +30,7 @@ const Personas = lazy(() => import('./pages/Personas'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const StagehandAI = lazy(() => import('./pages/StagehandAI'));
 const AUCasino = lazy(() => import('./pages/AUCasino.jsx'));
+const AuCasinoDualValidation = lazy(() => import('./pages/AuCasinoDualValidation.jsx'));
 const CasinoCredentials = lazy(() => import('./pages/CasinoCredentials.jsx'));
 const AuthorizedBulkQA = lazy(() => import('./pages/AuthorizedBulkQA.jsx'));
 const AuthorizedBulkRuns = lazy(() => import('./pages/AuthorizedBulkRuns.jsx'));
@@ -99,6 +100,7 @@ const AuthenticatedApp = () => {
           {/* Activity was a filtered subset of /audit — redirect to remove duplication. */}
           <Route path="/activity" element={<Navigate to="/audit" replace />} />
           <Route path="/au-casino" element={<AUCasino />} />
+          <Route path="/au-casino/dual-validation" element={<AuCasinoDualValidation />} />
           <Route path="/au-casino/credentials" element={<CasinoCredentials />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/api-key" element={<UpdateApiKey />} />

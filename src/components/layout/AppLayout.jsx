@@ -32,6 +32,7 @@ const NAV_GROUPS = [
       { label: 'Command Center', icon: LayoutGrid, path: '/' },
       { label: 'Fleet Launcher', icon: Zap, path: '/fleet' },
       { label: 'AU Casino', icon: Sparkles, path: '/au-casino' },
+      { label: 'AU Dual Validation', icon: FlaskConical, path: '/au-casino/dual-validation' },
       { label: 'Authorized QA', icon: FlaskConical, path: '/bulk' },
       { label: 'Stagehand AI', icon: Terminal, path: '/stagehand' },
       { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
