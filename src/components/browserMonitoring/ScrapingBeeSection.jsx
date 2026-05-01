@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import useProviderStatus from '@/hooks/useProviderStatus';
+import { appendFromInvoke } from '@/lib/monitoringLog';
 import ProviderSectionShell from './ProviderSectionShell';
+import ProviderDiagnostics from './ProviderDiagnostics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +43,7 @@ export default function ScrapingBeeSection() {
       provider: 'scrapingbee', op: 'screenshot', url, fullPage, premiumProxy,
     });
     setLoading(false);
+    appendFromInvoke(res, { provider: 'scrapingbee', op: 'screenshot' });
     if (res.data?.ok && res.data.data?.dataUrl) {
       setShot(res.data.data);
       toast.success('Screenshot captured');
@@ -122,6 +125,7 @@ export default function ScrapingBeeSection() {
       lastCheckedAt={status.lastCheckedAt}
       onPing={status.ping}
       metricStrip={metricStrip}
+      diagnostics={<ProviderDiagnostics diagnostics={status.diagnostics} />}
       defaultTab="screenshot"
       tabs={[
         { value: 'screenshot', label: 'Screenshot', icon: Camera, content: screenshotTab },

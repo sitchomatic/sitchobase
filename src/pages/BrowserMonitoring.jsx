@@ -18,6 +18,7 @@ import BrowserbaseSection from '@/components/browserMonitoring/BrowserbaseSectio
 import BrowserlessSection from '@/components/browserMonitoring/BrowserlessSection';
 import ScrapingBeeSection from '@/components/browserMonitoring/ScrapingBeeSection';
 import MonitoringSpacer from '@/components/browserMonitoring/MonitoringSpacer';
+import LogExportPanel from '@/components/browserMonitoring/LogExportPanel';
 
 export default function BrowserMonitoring() {
   return (
@@ -36,6 +37,8 @@ export default function BrowserMonitoring() {
       <BrowserlessSection />
       <MonitoringSpacer accent="cyan" />
       <ScrapingBeeSection />
+      <MonitoringSpacer accent="amber" />
+      <LogExportPanel />
     </div>
   );
 }

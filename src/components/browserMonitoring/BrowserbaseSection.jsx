@@ -4,7 +4,9 @@ import { useCredentials } from '@/lib/useCredentials';
 import { useBrowserbaseSessions } from '@/lib/browserbaseData';
 import { sessionInspectorUrl } from '@/lib/browserbaseUrls';
 import useProviderStatus from '@/hooks/useProviderStatus';
+import { appendFromInvoke } from '@/lib/monitoringLog';
 import ProviderSectionShell from './ProviderSectionShell';
+import ProviderDiagnostics from './ProviderDiagnostics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +51,7 @@ export default function BrowserbaseSection() {
     setLoadingDebug(true); setDebug(null); setDebugError('');
     const res = await base44.functions.invoke('liveLook', { provider: 'browserbase', op: 'live', sessionId, apiKeyOverride });
     setLoadingDebug(false);
+    appendFromInvoke(res, { provider: 'browserbase', op: 'live' });
     if (res.data?.ok) setDebug(res.data.data);
     else setDebugError(res.data?.error || 'Failed to fetch debug URLs');
   }, [sessionId, apiKeyOverride]);
@@ -58,6 +61,7 @@ export default function BrowserbaseSection() {
     setLoadingRecording(true); setRecording(null); setRecordingError('');
     const res = await base44.functions.invoke('liveLook', { provider: 'browserbase', op: 'recording', sessionId, apiKeyOverride });
     setLoadingRecording(false);
+    appendFromInvoke(res, { provider: 'browserbase', op: 'recording' });
     if (res.data?.ok) setRecording(res.data.data);
     else setRecordingError(res.data?.error || 'Failed to fetch recording');
   }, [sessionId, apiKeyOverride]);
@@ -176,6 +180,7 @@ export default function BrowserbaseSection() {
       error={status.error}
       lastCheckedAt={status.lastCheckedAt}
       onPing={status.ping}
+      diagnostics={<ProviderDiagnostics diagnostics={status.diagnostics} />}
       tabs={[
         { value: 'live', label: 'Live Look-In', icon: Eye, content: liveTab },
         { value: 'recording', label: 'Recording', icon: Film, content: recordingTab },

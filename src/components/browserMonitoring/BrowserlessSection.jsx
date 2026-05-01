@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import useProviderStatus from '@/hooks/useProviderStatus';
+import { appendFromInvoke } from '@/lib/monitoringLog';
 import ProviderSectionShell from './ProviderSectionShell';
+import ProviderDiagnostics from './ProviderDiagnostics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +53,7 @@ export default function BrowserlessSection() {
       options: { interactable, showBrowserInterface },
     });
     setLoadingLive(false);
+    appendFromInvoke(res, { provider: 'browserless', op: 'live' });
     if (res.data?.ok && res.data.data?.liveURL) {
       setLiveUrl(res.data.data.liveURL);
       toast.success('Live session ready');
@@ -64,6 +67,7 @@ export default function BrowserlessSection() {
       provider: 'browserless', op: 'screenshot', url: shotUrl, fullPage: shotFullPage,
     });
     setLoadingShot(false);
+    appendFromInvoke(res, { provider: 'browserless', op: 'screenshot' });
     if (res.data?.ok && res.data.data?.dataUrl) {
       setShot(res.data.data);
       toast.success('Screenshot captured');
@@ -174,6 +178,7 @@ export default function BrowserlessSection() {
       error={status.error}
       lastCheckedAt={status.lastCheckedAt}
       onPing={status.ping}
+      diagnostics={<ProviderDiagnostics diagnostics={status.diagnostics} />}
       tabs={[
         { value: 'live', label: 'Live Look-In', icon: Play, content: liveTab },
         { value: 'screenshot', label: 'Screenshot', icon: Camera, content: screenshotTab },

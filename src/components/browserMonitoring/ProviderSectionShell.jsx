@@ -21,6 +21,7 @@ export default function ProviderSectionShell({
   lastCheckedAt,
   onPing,
   metricStrip,
+  diagnostics,
   defaultTab,
   tabs,
 }) {
@@ -55,9 +56,10 @@ export default function ProviderSectionShell({
         </div>
       </header>
 
-      {metricStrip && (
-        <div className="px-5 py-2 border-b border-gray-800 bg-gray-950/40 text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
-          {metricStrip}
+      {(metricStrip || diagnostics) && (
+        <div className="px-5 py-2 border-b border-gray-800 bg-gray-950/40 text-xs text-gray-500 flex flex-col gap-1">
+          {metricStrip && <div className="flex flex-wrap gap-x-4 gap-y-1">{metricStrip}</div>}
+          {diagnostics}
         </div>
       )}
 
