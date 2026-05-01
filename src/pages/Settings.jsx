@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { formatDistanceToNow } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { useCredentials, hasStoredApiKey } from '@/lib/useCredentials';
+import { useCredentials, hasStoredApiKey, maskApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
@@ -16,11 +17,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import {
   Settings as SettingsIcon, Key, CheckCircle, AlertCircle,
-  Loader2, Trash2, ExternalLink, Eye, EyeOff
+  Loader2, Trash2, ExternalLink, Eye, EyeOff, RotateCcw, Clock
 } from 'lucide-react';
 
 export default function Settings() {
-  const { credentials, saveCredentials, clearCredentials, isConfigured } = useCredentials();
+  const { credentials, saveCredentials, clearCredentials, isConfigured, savedAt } = useCredentials();
   const { user, checkUserAuth } = useAuth();
   const [profileForm, setProfileForm] = useState({
     display_name: user?.display_name || user?.full_name || '',
@@ -46,6 +47,34 @@ export default function Settings() {
     : null;
   const isDirty =
     form.apiKey !== credentials.apiKey || form.projectId !== credentials.projectId;
+
+  // If credentials change in another tab (or via Clear), keep this form
+  // in sync as long as the user hasn't started editing it.
+  useEffect(() => {
+    if (!isDirty) {
+      setForm({ apiKey: credentials.apiKey, projectId: credentials.projectId });
+    }
+    // We deliberately depend only on the stored credentials — the effect
+    // is a one-way sync from storage → form when there are no pending edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentials.apiKey, credentials.projectId]);
+
+  // Warn before navigating away with unsaved credential edits — easy to
+  // hit Cmd-W after pasting a new key and forget to press Save.
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  const resetForm = () => {
+    setForm({ apiKey: credentials.apiKey, projectId: credentials.projectId });
+    setTestResult(null);
+  };
   const isProfileDirty =
     profileForm.display_name !== (user?.display_name || user?.full_name || '') ||
     profileForm.preferred_timezone !== (user?.preferred_timezone || 'Australia/Sydney');
@@ -213,6 +242,23 @@ export default function Settings() {
           )}
         </div>
 
+        {(credentials.apiKey || savedAt) && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 -mt-1">
+            {credentials.apiKey && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-gray-600">Stored key:</span>
+                <code className="font-mono text-emerald-400/90">{maskApiKey(credentials.apiKey)}</code>
+              </span>
+            )}
+            {savedAt && (
+              <span className="inline-flex items-center gap-1 text-gray-600" title={new Date(savedAt).toLocaleString()}>
+                <Clock className="w-3 h-3" />
+                Last saved {formatDistanceToNow(new Date(savedAt), { addSuffix: true })}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="space-y-4">
           {/* API Key field is always visible — operators need to update the
               stored Browserbase key from the UI in any deployment mode. */}
@@ -317,7 +363,7 @@ export default function Settings() {
           </div>
         )}
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Button
             onClick={test}
             disabled={testing || !form.projectId || (apiKeyRequired && !form.apiKey) || (!apiKeyRequired && !hasApiKey)}
@@ -328,6 +374,16 @@ export default function Settings() {
           >
             {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
             {testing ? 'Testing…' : 'Save & Test'}
+          </Button>
+          <Button
+            onClick={resetForm}
+            disabled={!isDirty}
+            variant="outline"
+            title="Discard unsaved edits and revert to the stored credentials"
+            aria-label="Reset credential form"
+            className="border-gray-700 text-gray-400 hover:bg-gray-800 gap-2 disabled:opacity-40"
+          >
+            <RotateCcw className="w-4 h-4" /> Reset
           </Button>
           <Button
             onClick={save}
