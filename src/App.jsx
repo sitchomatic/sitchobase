@@ -51,6 +51,7 @@ const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
 const UpdateApiKey = lazy(() => import('./pages/UpdateApiKey.jsx'));
 const LiveLook = lazy(() => import('./pages/LiveLook.jsx'));
 const BrowserMonitoring = lazy(() => import('./pages/BrowserMonitoring.jsx'));
+const Diagnostics = lazy(() => import('./pages/Diagnostics.jsx'));
 
 function LazyFallback() {
   return (
@@ -104,6 +105,7 @@ const AuthenticatedApp = () => {
           <Route path="/settings/api-key" element={<UpdateApiKey />} />
           <Route path="/live" element={<LiveLook />} />
           <Route path="/monitoring" element={<BrowserMonitoring />} />
+          <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/bulk" element={<AuthorizedBulkQA />} />
           <Route path="/bulk/runs" element={<AuthorizedBulkRuns />} />
           <Route path="/bulk/runs/:id" element={<AuthorizedBulkRuns />} />
