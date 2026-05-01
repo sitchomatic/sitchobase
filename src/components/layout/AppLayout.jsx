@@ -10,7 +10,7 @@ import LiveAuditStream from '@/components/shared/LiveAuditStream';
 import UserMenu from '@/components/shared/UserMenu';
 import {
   LayoutGrid, Activity, Layers, Users, Settings,
-  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug, Wrench, Sparkles, KeyRound
+  Zap, Globe, Network, Eye, Terminal, FlaskConical, Radio, Shield, BarChart3, HeartPulse, BookOpen, Flag, Clock, ScrollText, Bug, Wrench, Sparkles, KeyRound, Telescope
 } from 'lucide-react';
 
 // Slimmed primary nav. Sub-views (proxy efficiency, NordLynx) are reachable
@@ -25,6 +25,7 @@ const navItems = [
   { label: 'QA History', icon: Clock, path: '/bulk/runs' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
   { label: 'Live Look-In', icon: Eye, path: '/live' },
+  { label: 'Browser Monitoring', icon: Telescope, path: '/monitoring' },
   { label: 'Test Reports', icon: BarChart3, path: '/reports' },
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },

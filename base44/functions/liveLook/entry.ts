@@ -62,6 +62,32 @@ async function bbPing(apiKey) {
   return json({ ok: false, error: `Browserbase ${res.status}: ${text.slice(0, 200)}` }, 200);
 }
 
+// Browserbase session recording — rrweb event log retrievable any time
+// after the session ends. Docs: GET /v1/sessions/:id/recording
+async function bbRecording(apiKey, sessionId) {
+  const res = await fetch(`${BB_BASE}/sessions/${encodeURIComponent(sessionId)}/recording`, {
+    headers: await bbHeaders(apiKey),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    return json({ ok: false, error: `Browserbase ${res.status}: ${text.slice(0, 300)}` }, 200);
+  }
+  let events;
+  try { events = JSON.parse(text); } catch { events = []; }
+  const arr = Array.isArray(events) ? events : (events?.events || []);
+  return json({
+    ok: true,
+    data: {
+      eventCount: arr.length,
+      firstTimestamp: arr[0]?.timestamp ?? null,
+      lastTimestamp: arr[arr.length - 1]?.timestamp ?? null,
+      // Don't pipe back the full event stream by default — can be 10s of MB.
+      // Caller can request preview via `op: 'recording_preview'` if needed.
+      sample: arr.slice(0, 3),
+    },
+  });
+}
+
 // ── Browserless ────────────────────────────────────────────────────────────
 async function blLive(token, url, opts = {}) {
   // BrowserQL mutation that goto()s the URL then mints a shareable liveURL.
@@ -89,6 +115,32 @@ async function blLive(token, url, opts = {}) {
   const liveURL = body?.data?.liveURL?.liveURL;
   if (!liveURL) return json({ ok: false, error: 'Browserless: no liveURL in response' }, 200);
   return json({ ok: true, data: { liveURL, gotoStatus: body?.data?.goto?.status ?? null } });
+}
+
+// Browserless on-demand screenshot via the documented /screenshot REST API.
+// Docs: https://docs.browserless.io/HTTP-APIs/screenshot
+async function blScreenshot(token, targetUrl, { fullPage = false } = {}) {
+  const res = await fetch(`${BL_BASE}/screenshot?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: targetUrl,
+      options: { fullPage, type: 'png' },
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    return json({ ok: false, error: `Browserless ${res.status}: ${text.slice(0, 300)}` }, 200);
+  }
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
+  return json({
+    ok: true,
+    data: { dataUrl: `data:image/png;base64,${base64}`, bytes: bytes.length },
+  });
 }
 
 async function blPing(token) {
@@ -173,6 +225,10 @@ Deno.serve(async (req) => {
         if (!body.sessionId) return json({ ok: false, error: 'sessionId required' }, 400);
         return bbLive(apiKey, body.sessionId);
       }
+      if (op === 'recording') {
+        if (!body.sessionId) return json({ ok: false, error: 'sessionId required' }, 400);
+        return bbRecording(apiKey, body.sessionId);
+      }
       return json({ ok: false, error: `Unknown op for browserbase: ${op}` }, 400);
     }
 
@@ -183,6 +239,10 @@ Deno.serve(async (req) => {
       if (op === 'live') {
         if (!body.url) return json({ ok: false, error: 'url required' }, 400);
         return blLive(token, body.url, body.options || {});
+      }
+      if (op === 'screenshot') {
+        if (!body.url) return json({ ok: false, error: 'url required' }, 400);
+        return blScreenshot(token, body.url, { fullPage: !!body.fullPage });
       }
       return json({ ok: false, error: `Unknown op for browserless: ${op}` }, 400);
     }
