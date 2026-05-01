@@ -5,6 +5,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { BookOpen, AlertCircle, CheckCircle, Activity, Wrench } from 'lucide-react';
+import ErrorBundleExporter from '@/components/shared/ErrorBundleExporter';
 
 const ITEMS = [
   {
@@ -93,6 +94,8 @@ export default function Runbook() {
             </Button>
           </Link>
         </div>
+
+        <ErrorBundleExporter />
 
         {ITEMS.map((item) => (
           <div key={item.title} className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">

@@ -4,11 +4,12 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Bug, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Bug, Trash2, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
+import ErrorBundleExporter from '@/components/shared/ErrorBundleExporter';
 
 const SOURCE_COLORS = {
   render: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
@@ -30,16 +31,6 @@ export default function AdminFrontendErrors() {
     onError: (e) => toast.error(`Delete failed: ${e?.message || 'unknown'}`),
   });
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(errors, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `frontend-errors-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-5xl mx-auto space-y-5">
@@ -57,12 +48,11 @@ export default function AdminFrontendErrors() {
             <Button variant="outline" size="sm" onClick={() => refetch()} className="border-gray-700 text-gray-300 gap-2">
               <RefreshCw className="w-3.5 h-3.5" /> Refresh
             </Button>
-            <Button variant="outline" size="sm" onClick={exportJson} disabled={errors.length === 0} className="border-gray-700 text-gray-300 gap-2">
-              <Download className="w-3.5 h-3.5" /> Export
-            </Button>
             <Link to="/"><Button variant="outline" size="sm" className="border-gray-700 text-gray-300">Dashboard</Button></Link>
           </div>
         </div>
+
+        <ErrorBundleExporter />
 
         {isLoading && <div className="text-center text-gray-500 py-10">Loading…</div>}
         {!isLoading && errors.length === 0 && (

@@ -8,6 +8,7 @@ import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbCl
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
 import { useConfirm } from '@/hooks/useConfirm';
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
+import ErrorBundleExporter from '@/components/shared/ErrorBundleExporter';
 import AutomationObservabilitySettings from '@/components/settings/AutomationObservabilitySettings';
 import NotificationSettings from '@/components/settings/NotificationSettings';
 import WebhookSettings from '@/components/settings/WebhookSettings';
@@ -420,6 +421,8 @@ export default function Settings() {
       <WebhookSettings />
 
       <DiagnosePanel projectId={form.projectId} apiKey={form.apiKey} />
+
+      <ErrorBundleExporter />
 
       {isConfigured && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
