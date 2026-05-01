@@ -83,12 +83,10 @@ export function subscribe(fn) {
  * Convert the buffer to CSV. We pin a stable column order so spreadsheets
  * line up across exports.
  */
+import { rowsToCSV } from '@/lib/csvExport';
+
+const CSV_COLS = ['timestamp', 'level', 'provider', 'op', 'duration_ms', 'upstream_status', 'ok', 'error_kind', 'error_summary', 'hint', 'request_id'];
+
 export function toCSV(entries = buffer) {
-  const cols = ['timestamp', 'level', 'provider', 'op', 'duration_ms', 'upstream_status', 'ok', 'error_kind', 'error_summary', 'hint', 'request_id'];
-  const esc = (v) => {
-    if (v == null) return '';
-    const s = String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  return [cols.join(','), ...entries.map((e) => cols.map((c) => esc(e[c])).join(','))].join('\n');
+  return rowsToCSV(entries, CSV_COLS);
 }

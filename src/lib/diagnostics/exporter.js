@@ -6,38 +6,22 @@
  * download for offline triage / sharing with engineers.
  */
 import { getLogs } from '@/lib/monitoringLog';
+import { rowsToCSV, downloadFile } from '@/lib/csvExport';
 import { clusterFailures } from './patterns';
 import { suggestRemediation } from './remediations';
 
-function triggerDownload(filename, content, mime) {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function csvEscape(value) {
-  if (value == null) return '';
-  const s = typeof value === 'string' ? value : JSON.stringify(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+const CSV_COLS = ['id', 'source', 'when', 'target', 'pattern', 'message', 'remediation', 'swap'];
 
 function recordsToCSV(records) {
-  const cols = ['id', 'source', 'when', 'target', 'pattern', 'message', 'remediation', 'swap'];
-  const lines = [cols.join(',')];
-  for (const rec of records) {
-    const clusters = clusterFailures([rec]);
-    const pattern = clusters[0]?.kind || 'unknown';
+  const flat = records.map((rec) => {
+    const pattern = clusterFailures([rec])[0]?.kind || 'unknown';
     const remedy = suggestRemediation(pattern);
-    lines.push(cols.map((c) => csvEscape({
+    return {
       id: rec.id, source: rec.source, when: rec.when, target: rec.target,
       pattern, message: rec.message, remediation: remedy.action, swap: remedy.swap,
-    }[c])).join(','));
-  }
-  return lines.join('\n');
+    };
+  });
+  return rowsToCSV(flat, CSV_COLS);
 }
 
 export function exportCompleteJSON(records, ctx = {}) {
@@ -60,9 +44,9 @@ export function exportCompleteJSON(records, ctx = {}) {
     records,
     monitoring_log: getLogs(),
   };
-  triggerDownload(`diagnostics-export-${Date.now()}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  downloadFile(`diagnostics-export-${Date.now()}.json`, JSON.stringify(payload, null, 2), 'application/json');
 }
 
 export function exportCompleteCSV(records) {
-  triggerDownload(`diagnostics-export-${Date.now()}.csv`, recordsToCSV(records), 'text/csv');
+  downloadFile(`diagnostics-export-${Date.now()}.csv`, recordsToCSV(records), 'text/csv');
 }

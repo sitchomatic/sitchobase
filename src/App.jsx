@@ -29,7 +29,6 @@ const Contexts = lazy(() => import('./pages/Contexts'));
 const Personas = lazy(() => import('./pages/Personas'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const StagehandAI = lazy(() => import('./pages/StagehandAI'));
-const Activity = lazy(() => import('./pages/Activity.jsx'));
 const AUCasino = lazy(() => import('./pages/AUCasino.jsx'));
 const CasinoCredentials = lazy(() => import('./pages/CasinoCredentials.jsx'));
 const AuthorizedBulkQA = lazy(() => import('./pages/AuthorizedBulkQA.jsx'));
@@ -49,7 +48,6 @@ const AdminOperations = lazy(() => import('./pages/AdminOperations'));
 const Runbook = lazy(() => import('./pages/Runbook'));
 const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
 const UpdateApiKey = lazy(() => import('./pages/UpdateApiKey.jsx'));
-const LiveLook = lazy(() => import('./pages/LiveLook.jsx'));
 const BrowserMonitoring = lazy(() => import('./pages/BrowserMonitoring.jsx'));
 const Diagnostics = lazy(() => import('./pages/Diagnostics.jsx'));
 
@@ -98,12 +96,14 @@ const AuthenticatedApp = () => {
           <Route path="/personas" element={<Personas />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/stagehand" element={<StagehandAI />} />
-          <Route path="/activity" element={<Activity />} />
+          {/* Activity was a filtered subset of /audit — redirect to remove duplication. */}
+          <Route path="/activity" element={<Navigate to="/audit" replace />} />
           <Route path="/au-casino" element={<AUCasino />} />
           <Route path="/au-casino/credentials" element={<CasinoCredentials />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/api-key" element={<UpdateApiKey />} />
-          <Route path="/live" element={<LiveLook />} />
+          {/* /live was a duplicate of Browser Monitoring — redirect to the consolidated page. */}
+          <Route path="/live" element={<Navigate to="/monitoring" replace />} />
           <Route path="/monitoring" element={<BrowserMonitoring />} />
           <Route path="/diagnostics" element={<Diagnostics />} />
           <Route path="/bulk" element={<AuthorizedBulkQA />} />

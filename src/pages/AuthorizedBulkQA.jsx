@@ -29,20 +29,12 @@ function summarizeForWebhook(rows) {
   return { total, passed, failed, review };
 }
 
-function toCsv(rows) {
-  const headers = ['index', 'username', 'status', 'outcome', 'sessionId', 'finalUrl', 'startedAt', 'endedAt'];
-  const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-  return [headers.join(','), ...rows.map((row) => headers.map((h) => escape(row[h])).join(','))].join('\n');
-}
+import { rowsToCSV, downloadFile } from '@/lib/csvExport';
+
+const BULK_CSV_COLS = ['index', 'username', 'status', 'outcome', 'sessionId', 'finalUrl', 'startedAt', 'endedAt'];
 
 function downloadResults(rows) {
-  const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `authorized-bulk-qa-${Date.now()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadFile(`authorized-bulk-qa-${Date.now()}.csv`, rowsToCSV(rows, BULK_CSV_COLS), 'text/csv');
 }
 
 export default function AuthorizedBulkQA() {
