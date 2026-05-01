@@ -2,7 +2,7 @@ import { bbClient } from '@/lib/bbClient';
 import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '@/lib/authorizedBulkCdp';
 import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import { clampConcurrency } from '@/lib/authorizedBulkValidation';
-import { captureStepScreenshot, getAutomationObservabilitySettings, upsertAutomationEvidence } from '@/lib/automationObservability';
+import { captureStepScreenshot, getAutomationObservabilitySettings, startScreenshotPoller, upsertAutomationEvidence } from '@/lib/automationObservability';
 import { storeSnapshot } from '@/lib/diagnostics/snapshotCache';
 
 const SESSION_TIMEOUT_SECONDS = 60;
@@ -65,6 +65,7 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
   const update = (patch) => onRowUpdate?.({ index: row.index, username: row.username, ...patch });
   let sessionId = null;
   let cdp = null;
+  let stopPoller = null;
   const evidenceSettings = getAutomationObservabilitySettings();
   const shouldCaptureStep = () => evidenceSettings.logVerbosityLevel === 'high';
   const captureEvidence = async (stepName, status = 'running') => {
@@ -113,6 +114,16 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     cdp = await connectCdp(session.connectUrl);
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
+
+    // Start 500ms background screenshot poller — frames are uploaded and
+    // batched into AutomationEvidence so each row's timeline is viewable
+    // from the bulk QA UI without blocking the automation flow.
+    stopPoller = startScreenshotPoller(cdp, {
+      sessionId,
+      source: 'AuthorizedBulkQA',
+      runId,
+      rowIndex: row.index,
+    });
 
     update({ outcome: 'Loading target page' });
     await cdp.send('Page.navigate', { url: config.targetUrl });
@@ -167,6 +178,7 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     });
   } finally {
     abortController.abort();
+    if (stopPoller) await stopPoller().catch(() => {});
     cdp?.close();
     await releaseSession(sessionId);
   }
