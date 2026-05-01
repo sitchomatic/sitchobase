@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { useCredentials, hasStoredApiKey, maskApiKey } from '@/lib/useCredentials';
 import { bbClient, isUsingApiKeyAuth, canUseDirectBrowserbase } from '@/lib/bbClient';
 import { sanitizeCredential, warnApiKey, warnProjectId } from '@/lib/credentialSanitize';
+import { useConfirm } from '@/hooks/useConfirm';
 import DiagnosePanel from '@/components/settings/DiagnosePanel';
 import AutomationObservabilitySettings from '@/components/settings/AutomationObservabilitySettings';
 import NotificationSettings from '@/components/settings/NotificationSettings';
@@ -23,6 +24,7 @@ import {
 export default function Settings() {
   const { credentials, saveCredentials, clearCredentials, isConfigured, savedAt } = useCredentials();
   const { user, checkUserAuth } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const [profileForm, setProfileForm] = useState({
     display_name: user?.display_name || user?.full_name || '',
     preferred_timezone: user?.preferred_timezone || 'Australia/Sydney',
@@ -139,7 +141,13 @@ export default function Settings() {
     setTesting(false);
   };
 
-  const clear = () => {
+  const clear = async () => {
+    const ok = await confirm({
+      title: 'Clear saved credentials?',
+      description: 'This removes the Browserbase API Key and Project ID from this browser. You will need to re-enter them to use the app.',
+      confirmText: 'Clear credentials',
+    });
+    if (!ok) return;
     clearCredentials();
     setForm({ apiKey: '', projectId: '' });
     setTestResult(null);
@@ -420,6 +428,8 @@ export default function Settings() {
           </Button>
         </div>
       )}
+
+      <ConfirmDialog />
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-2">
         <div className="text-sm font-semibold text-white">How It Works</div>

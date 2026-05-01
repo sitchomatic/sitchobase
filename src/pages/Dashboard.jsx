@@ -296,9 +296,15 @@ export default function Dashboard() {
 
             {/* API Health */}
             <div className="rounded-xl border border-gray-800 bg-gray-900/80 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-4 rounded-full bg-yellow-400" />
-                <span className="text-sm font-bold text-white font-mono tracking-wide">API HEALTH</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-4 rounded-full bg-yellow-400" />
+                  <span className="text-sm font-bold text-white font-mono tracking-wide">API HEALTH</span>
+                </div>
+                <Link to="/settings"
+                  className="text-xs text-gray-500 hover:text-emerald-400 font-mono border border-gray-700 hover:border-emerald-500/40 px-2 py-0.5 rounded transition-colors">
+                  UPDATE KEY →
+                </Link>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`flex-1 flex items-center gap-2 text-xs px-3 py-2 rounded-lg border font-mono ${
