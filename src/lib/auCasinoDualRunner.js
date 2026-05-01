@@ -53,11 +53,17 @@ const SUBMIT_SELECTORS = [
   'button[id*="submit" i]',
 ];
 
-function buildFindSelectorsScript() {
+function buildFindSelectorsScript(target) {
+  // Per-target canonical selectors (from the validated reference script)
+  // are tried first; fall back to broad heuristics if the markup changes.
+  const canonical = target?.selectors || {};
+  const userOpts = [canonical.username, ...USERNAME_SELECTORS].filter(Boolean);
+  const passOpts = [canonical.password, ...PASSWORD_SELECTORS].filter(Boolean);
+  const submitOpts = [canonical.submit, ...SUBMIT_SELECTORS].filter(Boolean);
   return `(() => new Promise((resolve) => {
-    const userOpts = ${JSON.stringify(USERNAME_SELECTORS)};
-    const passOpts = ${JSON.stringify(PASSWORD_SELECTORS)};
-    const submitOpts = ${JSON.stringify(SUBMIT_SELECTORS)};
+    const userOpts = ${JSON.stringify(userOpts)};
+    const passOpts = ${JSON.stringify(passOpts)};
+    const submitOpts = ${JSON.stringify(submitOpts)};
     const deadline = Date.now() + ${SELECTOR_TIMEOUT_MS};
     const firstMatch = (selectors) => selectors.find((s) => document.querySelector(s)) || null;
     const check = () => {
@@ -139,15 +145,19 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
   });
 
   try {
+    // keepAlive: true so an operator can attach Live Look mid-run when an
+    // unexpected security challenge appears (e.g. CAPTCHA, geo prompt).
+    // The session is still released in `finally` once the task ends.
+    const baseOptions = buildAuCasinoSessionOptions(target, { keepAlive: true });
     const options = {
-      ...buildAuCasinoSessionOptions(target, { keepAlive: false }),
+      ...baseOptions,
       timeout: SESSION_TIMEOUT_SECONDS,
       browserSettings: {
-        ...buildAuCasinoSessionOptions(target).browserSettings,
+        ...baseOptions.browserSettings,
         recordSession: evidenceSettings.enableVideoRecording,
       },
       userMetadata: {
-        ...buildAuCasinoSessionOptions(target).userMetadata,
+        ...baseOptions.userMetadata,
         launchedFrom: 'BBCommandCenter-AUCasinoDualValidation',
         rowIndex: row.index,
         runId,
@@ -188,7 +198,7 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
     await captureEvidence(`${target.label} — initial load`);
 
     update({ outcome: 'Locating login form' });
-    const found = await evaluate(cdp, buildFindSelectorsScript(), {}, SELECTOR_TIMEOUT_MS + 2_000);
+    const found = await evaluate(cdp, buildFindSelectorsScript(target), {}, SELECTOR_TIMEOUT_MS + 2_000);
     if (!found?.ok) {
       throw new Error('Login form not detected within timeout (selectors may have changed).');
     }

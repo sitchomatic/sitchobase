@@ -14,12 +14,20 @@
  * Dashboard quick-launch and the dedicated AU Casino page can't drift apart.
  */
 
+// Per-site canonical selectors — taken from the validated reference script
+// (Browserbase SDK v2.10.0 dual-target validator). The runner tries these
+// first; if missing it falls back to broad heuristic selectors.
 export const JOE_FORTUNE = {
   key: 'joefortune',
   label: 'Joe Fortune',
   url: 'https://www.joefortune.com/',
   loginUrl: 'https://www.joefortune.com/login',
   brandColor: 'amber',
+  selectors: {
+    username: '#username',
+    password: '#password',
+    submit: '#loginSubmit',
+  },
 };
 
 export const IGNITION = {
@@ -28,6 +36,11 @@ export const IGNITION = {
   url: 'https://www.ignitioncasino.eu/',
   loginUrl: 'https://www.ignitioncasino.eu/login',
   brandColor: 'red',
+  selectors: {
+    username: '#email',
+    password: '#login-password',
+    submit: '#login-submit',
+  },
 };
 
 export const AU_CASINO_TARGETS = [JOE_FORTUNE, IGNITION];
@@ -50,12 +63,27 @@ export const AU_VIEWPORT = { width: 412, height: 915 };
  * Build the Browserbase createSession payload for an AU casino target.
  * Identical for Joe Fortune and Ignition — only userMetadata.target differs.
  */
+/**
+ * Build the Browserbase createSession payload for an AU casino target.
+ *
+ * Aligned with the validated SDK v2.10.0 shape from the reference script:
+ *   - proxies: [{ type: 'browserbase', geolocation: { country, city } }]
+ *   - browserSettings: advancedStealth, verified, recordSession,
+ *     logSession, solveCaptchas, os
+ *   - keepAlive: true so the session survives client disconnects long
+ *     enough for Live Look to attach.
+ */
 export function buildAuCasinoSessionOptions(target, { keepAlive = true } = {}) {
   return {
     region: AU_REGION,
     keepAlive,
     timeout: 60,
-    proxies: true, // residential AU proxy via Browserbase
+    proxies: [
+      {
+        type: 'browserbase',
+        geolocation: { country: 'AU', city: 'Melbourne' },
+      },
+    ],
     fingerprint: {
       devices: ['mobile'],
       locales: ['en-AU'],
@@ -65,6 +93,12 @@ export function buildAuCasinoSessionOptions(target, { keepAlive = true } = {}) {
     browserSettings: {
       viewport: AU_VIEWPORT,
       blockAds: true,
+      advancedStealth: true,
+      verified: true,
+      recordSession: true,
+      logSession: true,
+      solveCaptchas: true,
+      os: 'windows',
     },
     userMetadata: {
       target: target.key,
