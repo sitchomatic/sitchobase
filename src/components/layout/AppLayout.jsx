@@ -24,6 +24,7 @@ const navItems = [
   { label: 'Authorized QA', icon: FlaskConical, path: '/bulk' },
   { label: 'QA History', icon: Clock, path: '/bulk/runs' },
   { label: 'Live Sessions', icon: Activity, path: '/sessions' },
+  { label: 'Live Look-In', icon: Eye, path: '/live' },
   { label: 'Test Reports', icon: BarChart3, path: '/reports' },
   { label: 'RT Monitor', icon: Radio, path: '/monitor' },
   { label: 'Mirror Mode', icon: Eye, path: '/mirror' },
