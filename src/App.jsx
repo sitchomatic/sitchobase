@@ -48,6 +48,7 @@ const AdminFrontendErrors = lazy(() => import('./pages/AdminFrontendErrors'));
 const AdminOperations = lazy(() => import('./pages/AdminOperations'));
 const Runbook = lazy(() => import('./pages/Runbook'));
 const HealthChecklist = lazy(() => import('./pages/HealthChecklist.jsx'));
+const UpdateApiKey = lazy(() => import('./pages/UpdateApiKey.jsx'));
 
 function LazyFallback() {
   return (
@@ -98,6 +99,7 @@ const AuthenticatedApp = () => {
           <Route path="/au-casino" element={<AUCasino />} />
           <Route path="/au-casino/credentials" element={<CasinoCredentials />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/api-key" element={<UpdateApiKey />} />
           <Route path="/bulk" element={<AuthorizedBulkQA />} />
           <Route path="/bulk/runs" element={<AuthorizedBulkRuns />} />
           <Route path="/bulk/runs/:id" element={<AuthorizedBulkRuns />} />

@@ -243,11 +243,19 @@ export default function Settings() {
           <div className="flex items-center gap-2">
             <Key className="w-4 h-4 text-emerald-400" /> API Credentials
           </div>
-          {isDirty && (
-            <span className="text-[10px] font-normal uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
-              Unsaved changes
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <span className="text-[10px] font-normal uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                Unsaved changes
+              </span>
+            )}
+            <a
+              href="/settings/api-key"
+              className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+            >
+              Rotate Key →
+            </a>
+          </div>
         </div>
 
         {(credentials.apiKey || savedAt) && (

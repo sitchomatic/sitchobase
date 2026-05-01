@@ -301,7 +301,7 @@ export default function Dashboard() {
                   <div className="w-1.5 h-4 rounded-full bg-yellow-400" />
                   <span className="text-sm font-bold text-white font-mono tracking-wide">API HEALTH</span>
                 </div>
-                <Link to="/settings"
+                <Link to="/settings/api-key"
                   className="text-xs text-gray-500 hover:text-emerald-400 font-mono border border-gray-700 hover:border-emerald-500/40 px-2 py-0.5 rounded transition-colors">
                   UPDATE KEY →
                 </Link>
