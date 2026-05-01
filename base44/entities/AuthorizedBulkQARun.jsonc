@@ -10,6 +10,18 @@
       "type": "string",
       "description": "Hostname extracted from the target URL"
     },
+    "usernameSelector": {
+      "type": "string",
+      "description": "CSS selector for the username/email field (used for Smart Retry)"
+    },
+    "passwordSelector": {
+      "type": "string",
+      "description": "CSS selector for the password field (used for Smart Retry)"
+    },
+    "submitSelector": {
+      "type": "string",
+      "description": "CSS selector for the submit button (used for Smart Retry)"
+    },
     "status": {
       "type": "string",
       "enum": [

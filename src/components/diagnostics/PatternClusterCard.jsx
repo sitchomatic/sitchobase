@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldAlert, Lock, KeyRound, AlertTriangle, Shield, Gauge, Clock,
-  Zap, WifiOff, ServerCrash, HelpCircle, ChevronDown, ChevronUp, Wrench,
+  Zap, WifiOff, ServerCrash, HelpCircle, ChevronDown, ChevronUp, Wrench, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +26,7 @@ const SWAP_ICON = { proxy: Shield, credential: KeyRound, config: Wrench, manual:
  * One pattern = one card. Shows count, suggested remediation, the swap CTA,
  * and an expandable list of sample failed records.
  */
-export default function PatternClusterCard({ cluster, ctx }) {
+export default function PatternClusterCard({ cluster, ctx, onSmartRetry }) {
   const [open, setOpen] = useState(false);
   const t = tints[cluster.color] || tints.gray;
   const Icon = ICONS[cluster.icon] || HelpCircle;
@@ -74,6 +74,7 @@ export default function PatternClusterCard({ cluster, ctx }) {
                 <th className="px-3 py-1.5 font-medium">Source</th>
                 <th className="px-3 py-1.5 font-medium">Target</th>
                 <th className="px-3 py-1.5 font-medium">Message</th>
+                <th className="px-3 py-1.5 font-medium text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -85,6 +86,12 @@ export default function PatternClusterCard({ cluster, ctx }) {
                   <td className="px-3 py-1.5 text-gray-400">{rec.source}</td>
                   <td className="px-3 py-1.5 text-gray-300 truncate max-w-[180px]" title={rec.target}>{rec.target}</td>
                   <td className="px-3 py-1.5 text-gray-500 truncate max-w-[320px]" title={rec.message}>{rec.message}</td>
+                  <td className="px-3 py-1.5 text-right">
+                    <Button size="sm" variant="outline" onClick={() => onSmartRetry?.(rec, remedy)}
+                      className="h-6 px-2 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 gap-1">
+                      <RefreshCw className="w-3 h-3" /> Retry
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>

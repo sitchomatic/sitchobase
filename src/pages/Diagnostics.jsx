@@ -10,14 +10,18 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Stethoscope, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Stethoscope, RefreshCw, CheckCircle2, AlertTriangle, FileJson, FileSpreadsheet } from 'lucide-react';
 import { loadFailedRecords } from '@/lib/diagnostics/sources';
 import { clusterFailures } from '@/lib/diagnostics/patterns';
 import { subscribe as subscribeLogs } from '@/lib/monitoringLog';
+import { exportCompleteJSON, exportCompleteCSV } from '@/lib/diagnostics/exporter';
 import PatternClusterCard from '@/components/diagnostics/PatternClusterCard';
+import SmartRetryDialog from '@/components/diagnostics/SmartRetryDialog';
 
 export default function Diagnostics() {
   const [tick, setTick] = useState(0);
+  const [retryRecord, setRetryRecord] = useState(null);
+  const [retryRemedy, setRetryRemedy] = useState(null);
 
   // Re-aggregate when the in-memory monitoring log changes.
   useEffect(() => subscribeLogs(() => setTick((t) => t + 1)), []);
@@ -71,10 +75,22 @@ export default function Diagnostics() {
             Parses failed runs across Joe/Ignite, Authorized Bulk QA, and Browser Monitoring. Groups them by failure pattern and suggests the fastest swap to retry.
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={refresh} disabled={loading}
-          className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Re-scan
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button size="sm" variant="outline" onClick={() => exportCompleteJSON(failuresQuery.data || [], ctx)}
+            disabled={total === 0}
+            className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
+            <FileJson className="w-3.5 h-3.5" /> Export JSON
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => exportCompleteCSV(failuresQuery.data || [])}
+            disabled={total === 0}
+            className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
+            <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
+          </Button>
+          <Button size="sm" variant="outline" onClick={refresh} disabled={loading}
+            className="border-gray-700 text-gray-300 hover:bg-gray-800 gap-1.5">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Re-scan
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -105,10 +121,24 @@ export default function Diagnostics() {
             </div>
           )}
           {clusters.map((cluster) => (
-            <PatternClusterCard key={cluster.kind} cluster={cluster} ctx={ctx} />
+            <PatternClusterCard
+              key={cluster.kind}
+              cluster={cluster}
+              ctx={ctx}
+              onSmartRetry={(rec, remedy) => { setRetryRecord(rec); setRetryRemedy(remedy); }}
+            />
           ))}
         </div>
       )}
+
+      <SmartRetryDialog
+        open={!!retryRecord}
+        onOpenChange={(o) => { if (!o) { setRetryRecord(null); setRetryRemedy(null); } }}
+        record={retryRecord}
+        suggestedSwap={retryRemedy}
+        proxies={proxiesQuery.data || []}
+        credentials={credsQuery.data || []}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '
 import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import { clampConcurrency } from '@/lib/authorizedBulkValidation';
 import { captureStepScreenshot, getAutomationObservabilitySettings, upsertAutomationEvidence } from '@/lib/automationObservability';
+import { storeSnapshot } from '@/lib/diagnostics/snapshotCache';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
@@ -153,6 +154,12 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     const aborted = error?.name === 'AbortError' || shouldAbort?.();
     await captureEvidence('Failure state', aborted ? 'review' : 'failed');
     await upsertAutomationEvidence({ sessionId, source: 'AuthorizedBulkQA', runId, rowIndex: row.index, status: aborted ? 'review' : 'failed' }).catch(() => null);
+    // Capture a small DOM snapshot for the Diagnostics view (in-memory only,
+    // never persisted to the entity to keep records small).
+    if (cdp && !aborted) {
+      const snap = await collectPageState(cdp).catch(() => null);
+      if (snap) storeSnapshot(`${runId}:${row.index}`, { ...snap, error: error.message, sessionId });
+    }
     update({
       status: aborted ? 'review' : 'failed',
       outcome: aborted ? 'Stopped before this row finished' : error.message,

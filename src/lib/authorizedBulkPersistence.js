@@ -24,12 +24,15 @@ export function sanitizeAuthorizedBulkResults(rows) {
   }));
 }
 
-export async function createAuthorizedBulkRun({ targetUrl, concurrency, rows }) {
+export async function createAuthorizedBulkRun({ targetUrl, concurrency, rows, usernameSelector, passwordSelector, submitSelector }) {
   const targetHost = new URL(targetUrl).host;
   const startedAt = new Date().toISOString();
   return base44.entities.AuthorizedBulkQARun.create({
     targetUrl,
     targetHost,
+    usernameSelector,
+    passwordSelector,
+    submitSelector,
     status: 'running',
     totalRows: rows.length,
     concurrency,

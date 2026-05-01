@@ -103,7 +103,14 @@ export default function AuthorizedBulkQA() {
     const resetRows = rows.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '', pageTitle: '', startedAt: '', endedAt: '' }));
     setRows(resetRows);
 
-    const savedRun = await createAuthorizedBulkRun({ targetUrl, concurrency: clampConcurrency(concurrency), rows: resetRows });
+    const savedRun = await createAuthorizedBulkRun({
+      targetUrl,
+      concurrency: clampConcurrency(concurrency),
+      rows: resetRows,
+      usernameSelector,
+      passwordSelector,
+      submitSelector,
+    });
     activeRunIdRef.current = savedRun.id;
     setSavedRunId(savedRun.id);
     auditLog({ action: 'AUTHORIZED_BULK_QA_STARTED', category: 'bulk', details: { runId: savedRun.id, count: resetRows.length, concurrency, targetHost: new URL(targetUrl).host } });
