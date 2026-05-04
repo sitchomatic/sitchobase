@@ -1,3 +1,5 @@
+import { extractAltPasswords } from '@/lib/auCasinoPasswordPaths';
+
 const MAX_ROWS = 100;
 const MAX_CONCURRENCY = 3;
 
@@ -5,12 +7,20 @@ export function normalizeBulkRows(rows) {
   if (!Array.isArray(rows)) return [];
   return rows
     .slice(0, MAX_ROWS)
-    .map((row, index) => ({
-      index,
-      username: String(row.username || row.email || '').trim(),
-      password: String(row.password || '').trim(),
-      raw: row,
-    }))
+    .map((row, index) => {
+      // Pull optional alt-password columns (Path A) without breaking the
+      // existing single-password contract used by the Authorized Bulk QA
+      // page. Single-target callers simply ignore these fields.
+      const { password2, password3 } = extractAltPasswords(row);
+      return {
+        index,
+        username: String(row.username || row.email || '').trim(),
+        password: String(row.password || '').trim(),
+        password2: String(password2 || '').trim(),
+        password3: String(password3 || '').trim(),
+        raw: row,
+      };
+    })
     .filter((row) => row.username && row.password);
 }
 
