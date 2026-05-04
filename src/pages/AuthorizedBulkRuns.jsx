@@ -10,6 +10,7 @@ import AuthorizedBulkRunCard from '@/components/authorizedBulk/AuthorizedBulkRun
 import AuthorizedBulkRunResults from '@/components/authorizedBulk/AuthorizedBulkRunResults';
 import AuthorizedBulkMetric from '@/components/authorizedBulk/AuthorizedBulkMetric';
 import RemediationPanel from '@/components/authorizedBulk/RemediationPanel';
+import FailureScreenshotReview from '@/components/authorizedBulk/FailureScreenshotReview';
 import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 export default function AuthorizedBulkRuns() {
@@ -54,6 +55,7 @@ export default function AuthorizedBulkRuns() {
                 <AuthorizedBulkMetric label="Concurrency" value={selectedRun.concurrency || 1} />
               </div>
             </div>
+            <FailureScreenshotReview run={selectedRun} />
             <AuthorizedBulkRunResults results={selectedRun.results || []} />
             {!selectedRun.isHealRun && <RemediationPanel parentRun={selectedRun} />}
           </>
