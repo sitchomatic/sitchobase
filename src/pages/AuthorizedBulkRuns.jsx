@@ -9,6 +9,7 @@ import { ArrowLeft, History, RefreshCw, Play, ClipboardList } from 'lucide-react
 import AuthorizedBulkRunCard from '@/components/authorizedBulk/AuthorizedBulkRunCard';
 import AuthorizedBulkRunResults from '@/components/authorizedBulk/AuthorizedBulkRunResults';
 import AuthorizedBulkMetric from '@/components/authorizedBulk/AuthorizedBulkMetric';
+import RemediationPanel from '@/components/authorizedBulk/RemediationPanel';
 import { getAuthorizedBulkStats } from '@/lib/authorizedBulkStats';
 
 export default function AuthorizedBulkRuns() {
@@ -54,6 +55,7 @@ export default function AuthorizedBulkRuns() {
               </div>
             </div>
             <AuthorizedBulkRunResults results={selectedRun.results || []} />
+            {!selectedRun.isHealRun && <RemediationPanel parentRun={selectedRun} />}
           </>
         )}
       </div>

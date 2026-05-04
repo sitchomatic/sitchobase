@@ -65,6 +65,7 @@ const NAV_GROUPS = [
     items: [
       { label: 'AU Credentials', icon: KeyRound, path: '/au-casino/credentials' },
       { label: 'Proxies', icon: Shield, path: '/proxies' },
+      { label: 'Proxy Health', icon: Activity, path: '/proxies/health' },
       { label: 'Contexts', icon: Layers, path: '/contexts' },
       { label: 'Personas', icon: Users, path: '/personas' },
       { label: 'Analytics', icon: Network, path: '/analytics' },

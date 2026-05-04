@@ -94,6 +94,15 @@
       },
       "description": "Per-row test results without passwords"
     },
+    "parentRunId": {
+      "type": "string",
+      "description": "ID of the original run this heal-run was created from (only set on heal-runs)"
+    },
+    "isHealRun": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this run was generated from the Remediation panel re-running failed rows"
+    },
     "startedAt": {
       "type": "string",
       "format": "date-time",

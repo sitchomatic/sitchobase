@@ -39,6 +39,7 @@ const AuditLog = lazy(() => import('./pages/AuditLog.jsx'));
 const TestReports = lazy(() => import('./pages/TestReports'));
 const Proxies = lazy(() => import('./pages/Proxies'));
 const ProxyEfficiency = lazy(() => import('./pages/ProxyEfficiency'));
+const ProxyHealth = lazy(() => import('./pages/ProxyHealth.jsx'));
 const NordLynxProxy = lazy(() => import('./pages/NordLynxProxy.jsx'));
 const AdminMetrics = lazy(() => import('./pages/AdminMetrics'));
 const AdminSlowCalls = lazy(() => import('./pages/AdminSlowCalls'));
@@ -113,6 +114,7 @@ const AuthenticatedApp = () => {
           <Route path="/bulk/runs/:id" element={<AuthorizedBulkRuns />} />
           <Route path="/joe-ignite" element={<Navigate to="/bulk" replace />} />
           <Route path="/proxies" element={<Proxies />} />
+          <Route path="/proxies/health" element={<ProxyHealth />} />
           <Route path="/proxies/efficiency" element={<ProxyEfficiency />} />
           <Route path="/proxies/nordlynx" element={<NordLynxProxy />} />
           <Route path="/reports" element={<TestReports />} />
