@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import PixelDeviationPanel from '@/components/authorizedBulk/PixelDeviationPanel';
 
 export default function FailureScreenshotCarousel({ items }) {
   const [index, setIndex] = useState(0);
@@ -55,6 +56,8 @@ export default function FailureScreenshotCarousel({ items }) {
             <span className="px-2 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 text-[11px]">UI change?</span>
             <span className="px-2 py-1 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-300 text-[11px]">Site block?</span>
           </div>
+
+          <PixelDeviationPanel currentUrl={current.url} baselineUrl={current.baselineUrl} />
 
           {current.sessionId && (
             <a href={`https://www.browserbase.com/sessions/${current.sessionId}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 py-2 border border-emerald-500/20 rounded-lg">
