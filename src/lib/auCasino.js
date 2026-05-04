@@ -55,7 +55,7 @@ export const AU_REGION = 'ap-southeast-1';
 // bot-detection. Update when Chrome stable rolls forward.
 export const AU_MOBILE_USER_AGENT =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+  '(KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36';
 
 export const AU_VIEWPORT = { width: 412, height: 915 };
 
@@ -98,7 +98,7 @@ export function buildAuCasinoSessionOptions(target, { keepAlive = true } = {}) {
       recordSession: true,
       logSession: true,
       solveCaptchas: true,
-      os: 'windows',
+      os: 'android',
     },
     userMetadata: {
       target: target.key,

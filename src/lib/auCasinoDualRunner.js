@@ -32,7 +32,12 @@ import { humanType } from '@/lib/auCasinoHumanType';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
-const POST_SUBMIT_SETTLE_MS = 2_500;
+const POST_SUBMIT_SETTLE_MS_BASE = 2_500;
+/** ±30% jitter so timing isn't a fixed constant across runs. */
+function settleDelay() {
+  const jitter = 0.7 + Math.random() * 0.6; // 0.7 – 1.3
+  return Math.round(POST_SUBMIT_SETTLE_MS_BASE * jitter);
+}
 const MAX_TASK_CONCURRENCY = 6;
 const MAX_PASSWORD_ATTEMPTS = 4;
 
@@ -237,7 +242,7 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
       const click = await evaluate(cdp, buildClickSubmitScript(found.submit));
       if (!click?.ok) throw new Error('Submit button vanished between attempts.');
 
-      await wait(POST_SUBMIT_SETTLE_MS, abortController.signal).catch(() => {});
+      await wait(settleDelay(), abortController.signal).catch(() => {});
       await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
       await captureEvidence(`${target.label} — attempt ${i + 1} result`);
 

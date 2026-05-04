@@ -7,7 +7,10 @@ import { storeSnapshot } from '@/lib/diagnostics/snapshotCache';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
-const POST_SUBMIT_SETTLE_MS = 2_000;
+const POST_SUBMIT_SETTLE_MS_BASE = 2_000;
+function settleDelay() {
+  return Math.round(POST_SUBMIT_SETTLE_MS_BASE * (0.7 + Math.random() * 0.6));
+}
 
 function buildWaitForSelectorsScript({ usernameSelector, passwordSelector, submitSelector }) {
   return `(() => new Promise((resolve) => {
@@ -144,7 +147,7 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
       throw new Error('One or more configured selectors could not be used.');
     }
 
-    await wait(POST_SUBMIT_SETTLE_MS, abortController.signal);
+    await wait(settleDelay(), abortController.signal);
     await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
     await captureEvidence('After submit');
     const state = await collectPageState(cdp);
