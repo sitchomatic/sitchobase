@@ -16,6 +16,8 @@ import { parseCSV } from '@/lib/csvParser';
 import { autoHealRun, matchHealCandidates } from '@/lib/autoHealRuns';
 import { auditLog } from '@/lib/auditLog';
 import RemediationCompareTable from '@/components/authorizedBulk/RemediationCompareTable';
+import SelectorRemediationSettings from '@/components/authorizedBulk/SelectorRemediationSettings';
+import { buildSelectorRemediationDefaults } from '@/lib/authorizedBulkSelectorSuggestions';
 
 const HEALABLE_STATUSES = new Set(['failed', 'review']);
 
@@ -28,6 +30,7 @@ export default function RemediationPanel({ parentRun }) {
   const [healing, setHealing] = useState(false);
   const [healRunId, setHealRunId] = useState(null);
   const [liveResults, setLiveResults] = useState({});
+  const [selectorConfig, setSelectorConfig] = useState(() => buildSelectorRemediationDefaults(parentRun));
 
   const failedRows = useMemo(
     () => (parentRun?.results || []).filter((r) => HEALABLE_STATUSES.has(r.status)),
@@ -89,7 +92,7 @@ export default function RemediationPanel({ parentRun }) {
       action: 'AUTHORIZED_BULK_HEAL_STARTED',
       category: 'bulk',
       targetId: parentRun.id,
-      details: { matched: matchInfo.matched.length, missing: matchInfo.missing.length },
+      details: { matched: matchInfo.matched.length, missing: matchInfo.missing.length, selectorConfig },
     });
 
     try {
@@ -97,6 +100,7 @@ export default function RemediationPanel({ parentRun }) {
         parentRun,
         matched: matchInfo.matched,
         concurrency: Math.min(2, matchInfo.matched.length),
+        selectorConfig,
         shouldAbort: () => abortRef.current,
         onRowUpdate: (patch) => {
           setLiveResults((prev) => ({ ...prev, [patch.username]: { ...(prev[patch.username] || {}), ...patch } }));
@@ -130,7 +134,7 @@ export default function RemediationPanel({ parentRun }) {
         <div className="flex-1">
           <h2 className="text-base font-bold text-white">Remediation</h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            Re-run failed rows from this run with the same target + selectors. Compare before vs after side-by-side.
+            Suggest selector fixes, then re-run only the selected failed rows with the corrected configuration.
           </p>
         </div>
       </div>
@@ -198,7 +202,15 @@ export default function RemediationPanel({ parentRun }) {
             )}
           </div>
 
-          {/* Step 3 — run */}
+          <SelectorRemediationSettings
+            parentRun={parentRun}
+            failedRows={failedRows}
+            value={selectorConfig}
+            onChange={setSelectorConfig}
+            disabled={healing}
+          />
+
+          {/* Step 4 — run failed subset */}
           <div className="flex items-center gap-3">
             <Button
               onClick={startHeal}
@@ -206,7 +218,7 @@ export default function RemediationPanel({ parentRun }) {
               className="bg-rose-500 hover:bg-rose-400 text-white font-bold gap-2"
             >
               {healing ? <Activity className="w-4 h-4 animate-pulse" /> : <Play className="w-4 h-4" />}
-              {healing ? `Healing ${Object.keys(liveResults).length}/${matchInfo.matched.length}` : `Heal ${matchInfo.matched.length} row${matchInfo.matched.length !== 1 ? 's' : ''}`}
+              {healing ? `Re-running ${Object.keys(liveResults).length}/${matchInfo.matched.length}` : `Re-run ${matchInfo.matched.length} failed row${matchInfo.matched.length !== 1 ? 's' : ''}`}
             </Button>
             {healing && (
               <Button onClick={() => { abortRef.current = true; toast.info('Stopping heal-run…'); }} variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800">

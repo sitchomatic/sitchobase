@@ -40,15 +40,15 @@ export function matchHealCandidates(failedUsernames, suppliedRows) {
  * Run a heal pass over the given matched rows using the parent run's
  * exact selectors + URL, then persist a child run record.
  */
-export async function autoHealRun({ parentRun, matched, concurrency = 2, onRowUpdate, shouldAbort }) {
+export async function autoHealRun({ parentRun, matched, concurrency = 2, selectorConfig, onRowUpdate, shouldAbort }) {
   if (!parentRun) throw new Error('Parent run is required');
   if (!matched?.length) throw new Error('No matched credentials to heal');
 
   const config = {
     targetUrl: parentRun.targetUrl,
-    usernameSelector: parentRun.usernameSelector,
-    passwordSelector: parentRun.passwordSelector,
-    submitSelector: parentRun.submitSelector,
+    usernameSelector: selectorConfig?.usernameSelector || parentRun.usernameSelector,
+    passwordSelector: selectorConfig?.passwordSelector || parentRun.passwordSelector,
+    submitSelector: selectorConfig?.submitSelector || parentRun.submitSelector,
   };
 
   const rows = matched.map((m, i) => ({ index: i, username: m.username, password: m.password }));
@@ -66,9 +66,9 @@ export async function autoHealRun({ parentRun, matched, concurrency = 2, onRowUp
   const child = await base44.entities.AuthorizedBulkQARun.create({
     targetUrl: parentRun.targetUrl,
     targetHost: parentRun.targetHost,
-    usernameSelector: parentRun.usernameSelector,
-    passwordSelector: parentRun.passwordSelector,
-    submitSelector: parentRun.submitSelector,
+    usernameSelector: config.usernameSelector,
+    passwordSelector: config.passwordSelector,
+    submitSelector: config.submitSelector,
     status: 'running',
     totalRows: rows.length,
     concurrency,
