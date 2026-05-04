@@ -29,6 +29,7 @@ import { classifyAttempt, classifyTaskFromAttempts, OUTCOMES, outcomeLabel } fro
 import { buildAttemptSequence } from '@/lib/auCasinoPasswordPaths';
 import { buildCookieDismissScript } from '@/lib/auCasinoCookieDismiss';
 import { humanType } from '@/lib/auCasinoHumanType';
+import { runPreflight } from '@/lib/auCasinoPreflight';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
@@ -198,7 +199,13 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
       });
     }
 
-    update({ outcome: `Loading ${target.label}` });
+    // Pre-flight: visit a neutral page first to build navigation
+    // history and cookies before hitting login directly.
+    update({ outcome: `Pre-flight warm-up on ${target.label}` });
+    const preflight = await runPreflight(cdp, target, abortController.signal);
+    await captureEvidence(`${target.label} — preflight (${preflight.url})`);
+
+    update({ outcome: `Loading ${target.label} login` });
     await cdp.send('Page.navigate', { url: target.loginUrl });
     await waitForPageIdle(cdp, abortController.signal);
 
