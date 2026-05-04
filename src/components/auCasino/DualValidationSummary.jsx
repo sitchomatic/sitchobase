@@ -1,31 +1,38 @@
-import { CheckCircle, AlertCircle, Clock, HelpCircle, Activity } from 'lucide-react';
+import { OUTCOME_UI, SUMMARY_ORDER } from '@/lib/auCasinoOutcomeUi';
 
-const cards = [
-  { key: 'passed', label: 'Passed', icon: CheckCircle, className: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  { key: 'review', label: 'Review', icon: HelpCircle, className: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' },
-  { key: 'failed', label: 'Failed', icon: AlertCircle, className: 'text-red-400 bg-red-500/10 border-red-500/20' },
-  { key: 'running', label: 'Running', icon: Activity, className: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-  { key: 'queued', label: 'Queued', icon: Clock, className: 'text-gray-400 bg-gray-800 border-gray-700' },
-];
-
+/**
+ * Summary tiles for the dual-target validator. One tile per terminal
+ * outcome category from GOAL.md (success / noaccount / tempdisabled /
+ * permdisabled / na) plus running + queued. Counts are derived from
+ * the live `tasksByKey` map the page maintains.
+ */
 export default function DualValidationSummary({ tasksByKey, totalTasks }) {
-  const counts = { passed: 0, review: 0, failed: 0, running: 0, queued: 0 };
+  const counts = {};
+  for (const key of SUMMARY_ORDER) counts[key] = 0;
+
   for (const t of Object.values(tasksByKey || {})) {
-    const s = t?.status || 'queued';
-    if (counts[s] !== undefined) counts[s] += 1;
+    const s = t?.status;
+    if (s && counts[s] !== undefined) counts[s] += 1;
   }
-  const accountedFor = counts.passed + counts.review + counts.failed + counts.running;
+
+  const accountedFor = SUMMARY_ORDER
+    .filter((k) => k !== 'queued')
+    .reduce((sum, k) => sum + counts[k], 0);
   counts.queued = Math.max(0, totalTasks - accountedFor);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-      {cards.map(({ key, label, icon: Icon, className }) => (
-        <div key={key} className={`rounded-xl border p-4 ${className}`}>
-          <Icon className="w-4 h-4 mb-2" />
-          <div className="text-2xl font-bold font-mono">{counts[key] || 0}</div>
-          <div className="text-xs uppercase tracking-wide opacity-80">{label}</div>
-        </div>
-      ))}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+      {SUMMARY_ORDER.map((key) => {
+        const meta = OUTCOME_UI[key];
+        const Icon = meta.icon;
+        return (
+          <div key={key} className={`rounded-xl border p-3 ${meta.tile}`}>
+            <Icon className={`w-4 h-4 mb-1.5 ${meta.spin ? 'animate-spin' : ''}`} />
+            <div className="text-xl font-bold font-mono">{counts[key] || 0}</div>
+            <div className="text-[10px] uppercase tracking-wide opacity-80">{meta.label}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

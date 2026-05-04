@@ -1,25 +1,20 @@
 import { memo, useState } from 'react';
-import { Loader2, Image as ImageIcon, Eye } from 'lucide-react';
+import { Image as ImageIcon, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import RowScreenshotsDialog from '@/components/authorizedBulk/RowScreenshotsDialog';
 import { AU_CASINO_TARGETS } from '@/lib/auCasino';
 import { useCredentials } from '@/lib/useCredentials';
 import { auditLog } from '@/lib/auditLog';
-
-const colors = {
-  queued: 'text-gray-400 bg-gray-800/60 border-gray-800',
-  running: 'text-blue-300 bg-blue-500/10 border-blue-500/20',
-  passed: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
-  review: 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20',
-  failed: 'text-red-300 bg-red-500/10 border-red-500/20',
-};
+import { getOutcomeUi } from '@/lib/auCasinoOutcomeUi';
 
 function TaskPill({ row, target, task }) {
   const { credentials } = useCredentials();
   const [open, setOpen] = useState(false);
   const [liveBusy, setLiveBusy] = useState(false);
   const status = task?.status || 'queued';
+  const meta = getOutcomeUi(status);
+  const StatusIcon = meta.icon;
   const clickable = !!task?.sessionId;
   // Live Look only makes sense while the session is still up. Once a task
   // hits a terminal status the session is released and Browserbase returns
@@ -64,15 +59,15 @@ function TaskPill({ row, target, task }) {
         tabIndex={clickable ? 0 : -1}
         onClick={() => clickable && setOpen(true)}
         onKeyDown={(e) => clickable && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setOpen(true))}
-        className={`rounded-lg border px-3 py-2 flex-1 min-w-[200px] transition-colors ${
-          colors[status] || colors.queued
-        } ${clickable ? 'cursor-pointer hover:brightness-125' : ''}`}
+        className={`rounded-lg border px-3 py-2 flex-1 min-w-[200px] transition-colors ${meta.pill} ${
+          clickable ? 'cursor-pointer hover:brightness-125' : ''
+        }`}
       >
         <div className="flex items-center gap-2 text-xs font-semibold">
           <span>{target.label}</span>
           <span className="ml-auto inline-flex items-center gap-1 text-[10px] uppercase tracking-wider opacity-90">
-            {status === 'running' && <Loader2 className="w-3 h-3 animate-spin" />}
-            {status}
+            <StatusIcon className={`w-3 h-3 ${meta.spin ? 'animate-spin' : ''}`} />
+            {meta.label}
           </span>
         </div>
         {task?.outcome && <div className="text-[11px] mt-1 opacity-80 line-clamp-2">{task.outcome}</div>}
