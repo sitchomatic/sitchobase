@@ -30,6 +30,9 @@ import { buildAttemptSequence } from '@/lib/auCasinoPasswordPaths';
 import { buildCookieDismissScript } from '@/lib/auCasinoCookieDismiss';
 import { humanType } from '@/lib/auCasinoHumanType';
 import { runPreflight } from '@/lib/auCasinoPreflight';
+import { injectStealthScripts } from '@/lib/auCasinoStealth';
+import { tracePathTo } from '@/lib/auCasinoTouchPath';
+import { preLoginScroll } from '@/lib/auCasinoLoginScroll';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
@@ -190,6 +193,10 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
 
+    // Inject stealth patches (referer, canvas noise, battery, network)
+    // before any page navigation so they persist across warm-up → login.
+    await injectStealthScripts(cdp);
+
     if (verbose) {
       stopPoller = startScreenshotPoller(cdp, {
         sessionId,
@@ -214,6 +221,9 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
     await wait(400, abortController.signal).catch(() => {});
     await captureEvidence(`${target.label} — initial load`);
 
+    // Random pre-login scroll — look around the page before interacting
+    await preLoginScroll(cdp, abortController.signal);
+
     update({ outcome: 'Locating login form' });
     const found = await evaluate(cdp, buildFindSelectorsScript(target), {}, SELECTOR_TIMEOUT_MS + 2_000);
     if (!found?.ok) {
@@ -221,9 +231,9 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
     }
     await captureEvidence(`${target.label} — form ready`);
 
-    // Type the username once — passwords change per attempt, but the
-    // email field stays the same. Mirrors GOAL.md §Phase 5 behaviour.
+    // Trace a finger path to the username field before typing
     update({ outcome: 'Typing username' });
+    await tracePathTo(cdp, found.user, abortController.signal);
     await humanType(cdp, found.user, row.username, abortController.signal);
 
     const { passwords, path, repeatLastIndex } = buildAttemptSequence(row);
@@ -243,9 +253,12 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSit
       // re-press submit only if it's an exact replay; otherwise retype.
       const isPureReplay = i === 3 && passwords[i] === passwords[repeatLastIndex];
       if (!isPureReplay) {
+        await tracePathTo(cdp, found.pass, abortController.signal);
         await humanType(cdp, found.pass, passwords[i], abortController.signal);
       }
 
+      // Trace to the submit button before clicking
+      await tracePathTo(cdp, found.submit, abortController.signal);
       const click = await evaluate(cdp, buildClickSubmitScript(found.submit));
       if (!click?.ok) throw new Error('Submit button vanished between attempts.');
 

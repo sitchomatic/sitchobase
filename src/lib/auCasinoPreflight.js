@@ -11,6 +11,7 @@
  * random per session. The dwell time is 2–5 seconds (randomized).
  */
 import { evaluate, wait, waitForPageIdle } from '@/lib/authorizedBulkCdp';
+import { buildVisibilityToggleScript } from '@/lib/auCasinoStealth';
 
 const MIN_DWELL_MS = 2_000;
 const MAX_DWELL_MS = 5_000;
@@ -71,6 +72,9 @@ export async function runPreflight(cdp, target, signal) {
 
   // Small scroll to leave a scroll-depth footprint
   await evaluate(cdp, buildScrollScript()).catch(() => null);
+
+  // Tab visibility toggle — briefly "switch apps" like a real mobile user
+  await evaluate(cdp, buildVisibilityToggleScript()).catch(() => null);
 
   await wait(dwell, signal).catch(() => {});
 

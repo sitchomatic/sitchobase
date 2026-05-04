@@ -57,23 +57,33 @@ export const AU_MOBILE_USER_AGENT =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36';
 
-export const AU_VIEWPORT = { width: 412, height: 915 };
+export const AU_VIEWPORT_BASE = { width: 412, height: 915 };
+/** @deprecated Use AU_VIEWPORT_BASE — kept for backward compat. */
+export const AU_VIEWPORT = AU_VIEWPORT_BASE;
+
+/**
+ * Apply ±5–15px jitter to the base viewport dimensions so every session
+ * has a slightly different resolution. Identical dimensions across
+ * hundreds of sessions is a strong bot fingerprint.
+ */
+function jitteredViewport() {
+  const jw = Math.floor((Math.random() - 0.5) * 2 * 15); // –15 to +15
+  const jh = Math.floor((Math.random() - 0.5) * 2 * 15);
+  return {
+    width: AU_VIEWPORT_BASE.width + jw,
+    height: AU_VIEWPORT_BASE.height + jh,
+  };
+}
 
 /**
  * Build the Browserbase createSession payload for an AU casino target.
- * Identical for Joe Fortune and Ignition — only userMetadata.target differs.
- */
-/**
- * Build the Browserbase createSession payload for an AU casino target.
  *
- * Aligned with the validated SDK v2.10.0 shape from the reference script:
- *   - proxies: [{ type: 'browserbase', geolocation: { country, city } }]
- *   - browserSettings: advancedStealth, verified, recordSession,
- *     logSession, solveCaptchas, os
- *   - keepAlive: true so the session survives client disconnects long
- *     enough for Live Look to attach.
+ * Viewport dimensions are randomized ±15px per session to avoid
+ * fingerprint clustering. All other settings follow the validated
+ * SDK v2.10.0 shape.
  */
 export function buildAuCasinoSessionOptions(target, { keepAlive = true } = {}) {
+  const viewport = jitteredViewport();
   return {
     region: AU_REGION,
     keepAlive,
@@ -88,10 +98,10 @@ export function buildAuCasinoSessionOptions(target, { keepAlive = true } = {}) {
       devices: ['mobile'],
       locales: ['en-AU'],
       operatingSystems: ['android'],
-      screen: AU_VIEWPORT,
+      screen: viewport,
     },
     browserSettings: {
-      viewport: AU_VIEWPORT,
+      viewport,
       blockAds: true,
       advancedStealth: true,
       verified: true,
