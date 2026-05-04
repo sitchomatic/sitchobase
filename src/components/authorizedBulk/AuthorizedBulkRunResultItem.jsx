@@ -38,6 +38,13 @@ function AuthorizedBulkRunResultItem({ row }) {
             )}
           </div>
           <div className="text-xs text-gray-500 mt-1">{row.outcome || 'No outcome saved'}</div>
+          {(row.failureType || row.retryAttempt > 0) && (
+            <div className="flex flex-wrap gap-1.5 mt-2 text-[10px]">
+              {row.failureType && <span className="px-2 py-0.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 text-yellow-300">{row.failureType}</span>}
+              {row.retryAttempt > 0 && <span className="px-2 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300">retry {row.retryAttempt}</span>}
+              {row.retryable === false && row.status === 'review' && <span className="px-2 py-0.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-300">human review</span>}
+            </div>
+          )}
           {row.finalUrl && <div className="text-xs font-mono text-gray-600 mt-1 truncate">{row.finalUrl}</div>}
           {row.sessionId && (
             <div className="flex flex-wrap gap-2 mt-2 text-[11px]" onClick={(e) => e.stopPropagation()}>

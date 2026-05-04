@@ -11,7 +11,7 @@ function summarize(rows) {
 }
 
 export function sanitizeAuthorizedBulkResults(rows) {
-  return rows.map(({ index, username, status, outcome, sessionId, finalUrl, pageTitle, startedAt, endedAt }) => ({
+  return rows.map(({ index, username, status, outcome, sessionId, finalUrl, pageTitle, failureType, retryAttempt, retryDelayMs, retryable, startedAt, endedAt }) => ({
     index,
     username,
     status,
@@ -19,12 +19,16 @@ export function sanitizeAuthorizedBulkResults(rows) {
     sessionId,
     finalUrl,
     pageTitle,
+    failureType,
+    retryAttempt,
+    retryDelayMs,
+    retryable,
     startedAt,
     endedAt,
   }));
 }
 
-export async function createAuthorizedBulkRun({ targetUrl, concurrency, rows, usernameSelector, passwordSelector, submitSelector }) {
+export async function createAuthorizedBulkRun({ targetUrl, concurrency, rows, usernameSelector, passwordSelector, submitSelector, retryPolicy }) {
   const targetHost = new URL(targetUrl).host;
   const startedAt = new Date().toISOString();
   return base44.entities.AuthorizedBulkQARun.create({
@@ -33,6 +37,7 @@ export async function createAuthorizedBulkRun({ targetUrl, concurrency, rows, us
     usernameSelector,
     passwordSelector,
     submitSelector,
+    retryPolicy,
     status: 'running',
     totalRows: rows.length,
     concurrency,

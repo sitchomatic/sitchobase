@@ -22,6 +22,10 @@
       "type": "string",
       "description": "CSS selector for the submit button (used for Smart Retry)"
     },
+    "retryPolicy": {
+      "type": "object",
+      "description": "Retry policy used for this run, including backoff settings and retryable failure types"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -74,6 +78,18 @@
           },
           "outcome": {
             "type": "string"
+          },
+          "failureType": {
+            "type": "string"
+          },
+          "retryAttempt": {
+            "type": "integer"
+          },
+          "retryDelayMs": {
+            "type": "integer"
+          },
+          "retryable": {
+            "type": "boolean"
           },
           "sessionId": {
             "type": "string"

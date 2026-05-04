@@ -4,6 +4,7 @@ import { classifyAuthorizedBulkOutcome } from '@/lib/authorizedBulkOutcome';
 import { clampConcurrency } from '@/lib/authorizedBulkValidation';
 import { captureStepScreenshot, getAutomationObservabilitySettings, startScreenshotPoller, upsertAutomationEvidence } from '@/lib/automationObservability';
 import { storeSnapshot } from '@/lib/diagnostics/snapshotCache';
+import { classifyRetryFailure, getRetryDelayMs, isPermanentFailureType, normalizeRetryPolicy, shouldRetryFailure } from '@/lib/authorizedBulkRetryPolicy';
 
 const SESSION_TIMEOUT_SECONDS = 60;
 const SELECTOR_TIMEOUT_MS = 12_000;
@@ -63,9 +64,13 @@ async function releaseSession(sessionId) {
   await bbClient.updateSession(sessionId, { status: 'REQUEST_RELEASE' }).catch(() => {});
 }
 
-async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
+async function runOne({ row, config, onRowUpdate, shouldAbort, runId, retryPolicy }) {
   const abortController = createAbortSignal(shouldAbort);
-  const update = (patch) => onRowUpdate?.({ index: row.index, username: row.username, ...patch });
+  let lastPatch = null;
+  const update = (patch) => {
+    lastPatch = { index: row.index, username: row.username, ...patch };
+    onRowUpdate?.(lastPatch);
+  };
   let sessionId = null;
   let cdp = null;
   let stopPoller = null;
@@ -84,7 +89,12 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     }).catch(() => null);
   };
 
-  update({ status: 'running', outcome: 'Launching browser session', startedAt: new Date().toISOString() });
+  update({
+    status: 'running',
+    outcome: row.retryAttempt ? `Retry attempt ${row.retryAttempt}: launching browser session` : 'Launching browser session',
+    retryAttempt: row.retryAttempt || 0,
+    startedAt: new Date().toISOString(),
+  });
 
   try {
     const session = await bbClient.createSession({
@@ -175,9 +185,13 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
       const snap = await collectPageState(cdp).catch(() => null);
       if (snap) storeSnapshot(`${runId}:${row.index}`, { ...snap, error: error.message, sessionId });
     }
+    const failureType = classifyRetryFailure(error);
+    const permanent = isPermanentFailureType(failureType);
     update({
-      status: aborted ? 'review' : 'failed',
-      outcome: aborted ? 'Stopped before this row finished' : error.message,
+      status: aborted || permanent ? 'review' : 'failed',
+      outcome: aborted ? 'Stopped before this row finished' : (permanent ? `Human review required: ${error.message}` : error.message),
+      failureType,
+      retryable: !permanent,
       endedAt: new Date().toISOString(),
     });
   } finally {
@@ -186,11 +200,13 @@ async function runOne({ row, config, onRowUpdate, shouldAbort, runId }) {
     cdp?.close();
     await releaseSession(sessionId);
   }
+  return lastPatch;
 }
 
-export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort, runId }) {
+export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpdate, shouldAbort, runId, retryPolicy }) {
   const startedAt = Date.now();
-  const queue = [...rows];
+  const policy = normalizeRetryPolicy(retryPolicy);
+  const queue = rows.map((row) => ({ ...row, retryAttempt: 0 }));
   const workerCount = Math.min(clampConcurrency(concurrency), queue.length || 1);
 
   const worker = async () => {
@@ -208,7 +224,25 @@ export async function runAuthorizedBulkQA({ rows, config, concurrency, onRowUpda
       }
 
       const row = queue.shift();
-      if (row) await runOne({ row, config, onRowUpdate, shouldAbort, runId });
+      if (row) {
+        const result = await runOne({ row, config, onRowUpdate, shouldAbort, runId, retryPolicy: policy });
+        const latestAttempt = row.retryAttempt || 0;
+        const retryAttempt = latestAttempt + 1;
+        const failureType = result?.failureType;
+        if (result?.status === 'failed' && !shouldAbort?.() && shouldRetryFailure(policy, failureType, retryAttempt)) {
+          const retryDelayMs = getRetryDelayMs(policy, retryAttempt);
+          onRowUpdate?.({
+            index: row.index,
+            username: row.username,
+            status: 'queued',
+            outcome: `Retry ${retryAttempt}/${policy.maxRetries} scheduled after ${retryDelayMs}ms for ${failureType}`,
+            retryAttempt,
+            retryDelayMs,
+          });
+          await wait(retryDelayMs);
+          queue.push({ ...row, retryAttempt, failureType });
+        }
+      }
     }
   };
 

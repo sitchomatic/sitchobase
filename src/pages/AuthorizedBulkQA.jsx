@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import AuthorizedBulkSummary from '@/components/authorizedBulk/AuthorizedBulkSummary';
 import AuthorizedBulkRows from '@/components/authorizedBulk/AuthorizedBulkRows';
+import RetryPolicySettings from '@/components/authorizedBulk/RetryPolicySettings';
+import { DEFAULT_RETRY_POLICY } from '@/lib/authorizedBulkRetryPolicy';
 import { clampConcurrency, normalizeBulkRows, validateAuthorizedBulkConfig, MAX_CONCURRENCY, MAX_ROWS } from '@/lib/authorizedBulkValidation';
 import { updateRowByIndex } from '@/lib/authorizedBulkStats';
 import { runAuthorizedBulkQA } from '@/lib/authorizedBulkRunner';
@@ -54,6 +56,7 @@ export default function AuthorizedBulkQA() {
   const [confirmedAuthorization, setConfirmedAuthorization] = useState(false);
   const [concurrency, setConcurrency] = useState(1);
   const [rows, setRows] = useState([]);
+  const [retryPolicy, setRetryPolicy] = useState(DEFAULT_RETRY_POLICY);
   const [running, setRunning] = useState(false);
   const [savedRunId, setSavedRunId] = useState(null);
 
@@ -92,7 +95,7 @@ export default function AuthorizedBulkQA() {
     consecutiveErrorsRef.current = 0;
     thresholdFiredRef.current = false;
     setRunning(true);
-    const resetRows = rows.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '', pageTitle: '', startedAt: '', endedAt: '' }));
+    const resetRows = rows.map((row) => ({ ...row, status: 'queued', outcome: '', sessionId: '', finalUrl: '', pageTitle: '', failureType: '', retryAttempt: 0, retryDelayMs: 0, retryable: false, startedAt: '', endedAt: '' }));
     setRows(resetRows);
 
     const savedRun = await createAuthorizedBulkRun({
@@ -102,6 +105,7 @@ export default function AuthorizedBulkQA() {
       usernameSelector,
       passwordSelector,
       submitSelector,
+      retryPolicy,
     });
     activeRunIdRef.current = savedRun.id;
     setSavedRunId(savedRun.id);
@@ -123,6 +127,7 @@ export default function AuthorizedBulkQA() {
       await runAuthorizedBulkQA({
         rows: resetRows,
         concurrency: clampConcurrency(concurrency),
+        retryPolicy,
         config: { targetUrl, usernameSelector, passwordSelector, submitSelector },
         shouldAbort: () => abortRef.current,
         runId: activeRunIdRef.current,
@@ -235,6 +240,8 @@ export default function AuthorizedBulkQA() {
               I confirm I own this target or have written permission to test it.
             </button>
           </div>
+
+          <RetryPolicySettings value={retryPolicy} onChange={setRetryPolicy} disabled={running} />
 
           <div className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
             <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
