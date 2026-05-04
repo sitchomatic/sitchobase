@@ -55,6 +55,7 @@ const NAV_GROUPS = [
     label: 'Diagnose',
     items: [
       { label: 'Diagnostics', icon: Stethoscope, path: '/diagnostics' },
+      { label: 'Failure Analytics', icon: BarChart3, path: '/diagnostics/failures' },
       { label: 'Health', icon: HeartPulse, path: '/health' },
       { label: 'Audit Log', icon: ScrollText, path: '/audit' },
     ],
