@@ -32,3 +32,4 @@ dist-ssr
 
 test-plan*.md
 test-report*.md
+base44/.app.jsonc
